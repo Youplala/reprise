@@ -1,14 +1,17 @@
 {
   "expo": {
-    "name": "observatoire-paris",
-    "slug": "observatoire-paris",
+    "name": "Reprise",
+    "slug": "reprise",
+    "description": "Retrouver et reconduire les points de vue historiques de Paris.",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "observatoireparis",
-    "userInterfaceStyle": "automatic",
+    "scheme": "reprise",
+    "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "fr.youplala.repriseparis",
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
@@ -28,9 +31,37 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#163F5B",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autoriser Reprise à utiliser l’appareil photo pour reconduire une vue historique.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Autoriser Reprise à afficher les points de vue historiques autour de vous."
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Autoriser Reprise à utiliser l’orientation de l’iPhone pour aligner les prises de vue."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Autoriser Reprise à enregistrer vos reprises dans vos photos, pour les retrouver au moment de les déposer sur l’Observatoire.",
+          "photosPermission": "Autoriser Reprise à enregistrer vos reprises dans votre photothèque.",
+          "isAccessMediaLocationEnabled": false
         }
       ]
     ],

@@ -1,56 +1,54 @@
-# Welcome to your Expo app 👋
+# Reprise
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Une application Expo pour retrouver les points de vue du concours photographique parisien de
+1970, aligner une image d’archive sur le Paris d’aujourd’hui, puis préparer une contribution à
+l’[Observatoire photographique des paysages parisiens](https://observatoire-photo.paris/).
 
-## Get started
+## Ce qui fonctionne
 
-1. Install dependencies
+- carte des stations chargée depuis l’API publique de l’Observatoire, avec cache local ;
+- géolocalisation iPhone, distances et points de vue proches ;
+- fiche complète du carré 839 avec les 13 diapositives de Roland Logerot fournies avec le projet ;
+- assistant de cadrage combinant caméra, surimpression réglable, horizon, contraste, zoom et
+  micro-déplacements ;
+- mode démonstration automatique dans le simulateur iOS, où la caméra n’est pas disponible ;
+- vérification avant dépôt, carnet local, partage et fil collectif alimenté par des reconductions
+  publiées ;
+- liens directs vers la carte de l’Observatoire et la notice des bibliothèques spécialisées de Paris.
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Lancer le projet
 
 ```bash
-npm run reset-project
+npm install
+npm run ios
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Le projet utilise Expo SDK 57. Dans le simulateur, le bouton de prise de vue génère une comparaison
+de démonstration. Sur un iPhone, l’application demande les autorisations de localisation, de caméra
+et de mouvement puis enregistre la vraie photo.
 
-### Other setup steps
+Vérifications locales :
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+npx tsc --noEmit
+npm run lint
+npx expo export --platform ios
+```
 
-## Learn more
+## Données
 
-To learn more about developing your project with Expo, look at the following resources:
+- API cartographique : `https://observatoire-photo.paris/api/elements`
+- grille officielle 1970 :
+  `https://opppp.cartes.xyz/uploads/opppp/files/260421-export-grille-concours-1970-wsg84.geojson`
+- archive locale : `assets/archive/roland-logerot-839/`
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Les réponses réseau sont limitées aux champs publics utiles à l’interface et mises en cache avec
+AsyncStorage. Si le réseau est indisponible, le carré 839 et ses archives restent entièrement
+consultables.
 
-## Join the community
+## Vers la version de production
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+La version actuelle lit l’API publique mais ne publie pas directement dessus. L’architecture cible
+pour synchroniser toutes les photographies, conserver durablement les prises de vue et soumettre de
+véritables reconductions est décrite dans
+[docs/architecture-cible.md](docs/architecture-cible.md).

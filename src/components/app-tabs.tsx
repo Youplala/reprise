@@ -1,31 +1,30 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { Palette } from '@/constants/theme';
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
-
   return (
     <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
+      backgroundColor={Palette.white}
+      indicatorColor={Palette.blueMist}
+      tintColor={Palette.parisBlue}
+      labelStyle={{
+        default: { color: Palette.inkSoft, fontSize: 11 },
+        selected: { color: Palette.parisBlue, fontSize: 11, fontWeight: '700' },
+      }}>
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
-        />
+        <NativeTabs.Trigger.Label>Autour</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'location', selected: 'location.fill' }} />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
+      <NativeTabs.Trigger name="map">
+        <NativeTabs.Trigger.Label>Carte</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="collective">
+        <NativeTabs.Trigger.Label>Collectif</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
       </NativeTabs.Trigger>
     </NativeTabs>
   );
