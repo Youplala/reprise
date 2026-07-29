@@ -24,8 +24,8 @@
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "REMPLACER_PAR_L_APPLE_ID_DE_L_APP",
-        "appleTeamId": "REMPLACER_PAR_LE_TEAM_ID"
+        "language": "fr-FR",
+        "companyName": "Élie Brosset"
       }
     }
   }
