@@ -14,13 +14,9 @@ import { StationCard } from '@/components/station-card';
 import { Fonts, Palette, Radius, Shadow, Spacing, TabBarClearance } from '@/constants/theme';
 
 import { useUserLocation } from '@/hooks/use-user-location';
-import { useStations } from '@/providers/stations-provider';
-import { loadFeaturedMission } from '@/services/observatoire-api';
-import {
-  CONTRIBUTOR_COUNT,
-  MONTHLY_ACTIVITY,
-  RECAPTURES_LAST_30_DAYS,
-} from '@/utils/community-stats';
+import { useFeaturedMission, useStations } from '@/providers/stations-provider';
+
+
 import { distanceInMeters, formatDistance } from '@/utils/distance';
 
 const STEPS = [
@@ -31,15 +27,12 @@ const STEPS = [
 
 export function HomeScreen() {
   const router = useRouter();
-  const { stations, snapshotVersion, coverage } = useStations();
+  const { stations, snapshotVersion, coverage, stats } = useStations();
   const { coordinate, isPrecise, loading: locating, locate } = useUserLocation();
   const [refreshing, setRefreshing] = useState(false);
 
   // Mission mise en avant : le point de vue de 2022 le plus proche, encore à reconduire.
-  const featured = useMemo(
-    () => loadFeaturedMission(isPrecise ? coordinate : undefined),
-    [coordinate, isPrecise],
-  );
+  const featured = useFeaturedMission(isPrecise ? coordinate : undefined);
 
   const nearby = useMemo(
     () =>
@@ -52,7 +45,7 @@ export function HomeScreen() {
   );
 
   const featuredDistance = featured ? distanceInMeters(coordinate, featured.coordinate) : 0;
-  const lastMonth = MONTHLY_ACTIVITY[MONTHLY_ACTIVITY.length - 1];
+  const lastMonth = stats.monthlyActivity[stats.monthlyActivity.length - 1];
 
   const handleLocate = async () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -133,7 +126,7 @@ export function HomeScreen() {
               </View>
               <View style={styles.pulseDivider} />
               <View style={styles.pulseItem}>
-                <AnimatedNumber value={CONTRIBUTOR_COUNT} style={styles.pulseValue} />
+                <AnimatedNumber value={stats.contributorCount} style={styles.pulseValue} />
                 <Text style={styles.pulseLabel}>contributeurs</Text>
               </View>
               <View style={styles.pulseDivider} />
@@ -150,8 +143,8 @@ export function HomeScreen() {
               }}
               style={({ pressed }) => [styles.pulseFooter, pressed && styles.pressedSoft]}>
               <Text style={styles.pulseFooterText}>
-                {RECAPTURES_LAST_30_DAYS > 0
-                  ? `${RECAPTURES_LAST_30_DAYS} reprises ces 30 derniers jours`
+                {stats.recapturesLast30Days > 0
+                  ? `${stats.recapturesLast30Days} reprises ces 30 derniers jours`
                   : `${lastMonth?.count ?? 0} reprises en ${lastMonth?.label ?? ''}`}
               </Text>
               <SymbolView name="chevron.right" size={13} tintColor={Palette.parisBlue} />

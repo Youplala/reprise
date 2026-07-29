@@ -1,20 +1,17 @@
-// Accès aux données de l'Observatoire, lues dans l'instantané embarqué.
+// Transformation du relevé de l'Observatoire en objets d'écran.
 //
-// Auparavant ce module appelait l'API amont à chaque ouverture : une requête pour la liste, puis
-// jusqu'à dix-huit requêtes de détail pour trouver trois reprises à afficher dans le fil. Contre
-// un serveur sans cache ni CDN, c'était lent, fragile, inutilisable hors connexion, et cela
-// faisait porter la charge de tous les utilisateurs à l'hébergement d'une association.
+// Ce module n'appelle plus l'API amont. Elle est servie sans CDN, sans gzip et en
+// `cache-control: private` : l'ouverture coûtait 4,5 Mo, puis jusqu'à dix-huit requêtes de
+// détail pour trouver trois reprises à afficher dans le fil.
 //
-// Tout est désormais synchrone : l'instantané est en mémoire, il n'y a plus rien à attendre.
+// Les fonctions prennent le relevé en paramètre plutôt que de le lire globalement : c'est ce qui
+// permet d'adopter une version téléchargée sans redémarrer l'application.
 
 import type { ImageSource } from 'expo-image';
 
 import {
   archiveLinksOf,
-  findSnapshotSquare,
-  findSnapshotStation,
-  SNAPSHOT_SQUARES,
-  SNAPSHOT_STATIONS,
+  type Snapshot,
   type SnapshotSquare,
   type SnapshotStation,
 } from '@/data/snapshot';
@@ -74,39 +71,39 @@ function detailFromStation(station: SnapshotStation): StationDetail {
     officialUrl: station.officialUrl,
     hasRecapture: station.hasRecapture,
     sourceLabel:
-      station.kind === 'station-2022' ? 'Observatoire · Point de vue 2022' : 'Observatoire · Fonds 1970',
+      station.kind === 'station-2022'
+        ? 'Observatoire · Point de vue 2022'
+        : 'Observatoire · Fonds 1970',
   };
 }
 
-function detailFromSquare(square: SnapshotSquare): StationDetail {
+function detailFromSquare(snapshot: Snapshot, square: SnapshotSquare): StationDetail {
   return {
     ...summaryFromSquare(square),
     // Le fonds de 1970 n'est pas rediffusé : on renvoie vers les permaliens du portail des
     // bibliothèques spécialisées, seuls habilités à montrer ces images.
     images: [],
-    archiveLinks: archiveLinksOf(square),
+    archiveLinks: archiveLinksOf(snapshot, square),
     officialUrl: square.officialUrl,
     hasRecapture: square.recaptureCount > 0,
     sourceLabel: 'BHVP · Fonds C’était Paris en 1970',
   };
 }
 
-const stations: StationSummary[] = [
-  ...SNAPSHOT_STATIONS.map(summaryFromStation),
-  ...SNAPSHOT_SQUARES.map(summaryFromSquare),
-];
-
-/** Tous les repères de l'Observatoire : reprises publiées, stations 2022 et carrés de 1970. */
-export function loadStations(): StationSummary[] {
-  return stations;
+/** Tous les repères : reprises publiées, points de vue 2022 et carrés de 1970. */
+export function buildStations(snapshot: Snapshot): StationSummary[] {
+  return [
+    ...snapshot.stations.map(summaryFromStation),
+    ...snapshot.squares.map(summaryFromSquare),
+  ];
 }
 
-export function loadStationDetail(id: string): StationDetail | undefined {
-  const station = findSnapshotStation(id);
+export function buildStationDetail(snapshot: Snapshot, id: string): StationDetail | undefined {
+  const station = snapshot.stations.find((candidate) => candidate.id === id);
   if (station) return detailFromStation(station);
 
-  const square = findSnapshotSquare(id);
-  return square ? detailFromSquare(square) : undefined;
+  const square = snapshot.squares.find((candidate) => candidate.id === id);
+  return square ? detailFromSquare(snapshot, square) : undefined;
 }
 
 /**
@@ -115,22 +112,36 @@ export function loadStationDetail(id: string): StationDetail | undefined {
  * règlement prévoit sa réutilisation non commerciale par le CAUE et ses partenaires. Le fonds
  * de 1970, lui, reste sous le droit d'auteur des photographes : on n'y renvoie que par lien.
  */
-const openMissions: StationDetail[] = SNAPSHOT_STATIONS.filter(
-  (station) => station.kind === 'station-2022' && Boolean(station.referenceImage),
-).map(detailFromStation);
-
-export function loadOpenMissions(): StationDetail[] {
-  return openMissions;
+export function buildOpenMissions(snapshot: Snapshot): StationDetail[] {
+  return snapshot.stations
+    .filter((station) => station.kind === 'station-2022' && Boolean(station.referenceImage))
+    .map(detailFromStation);
 }
 
-/** Mission mise en avant : la plus proche du point donné, à défaut la première. */
-export function loadFeaturedMission(near?: { latitude: number; longitude: number }) {
-  if (!near) return openMissions[0];
+/** Reprises publiées à mettre en avant dans le fil, celles qui ont bien les deux vues. */
+export function buildPublishedSubmissions(snapshot: Snapshot, limit = 3): StationDetail[] {
+  const published: StationDetail[] = [];
 
-  let closest = openMissions[0];
+  for (const station of snapshot.stations) {
+    if (published.length >= limit) break;
+    if (!station.hasRecapture || !station.referenceImage || !station.recaptureImage) continue;
+    published.push(detailFromStation(station));
+  }
+
+  return published;
+}
+
+/** Mission la plus proche du point donné, à défaut la première. */
+export function nearestMission(
+  missions: StationDetail[],
+  near?: { latitude: number; longitude: number },
+) {
+  if (!near) return missions[0];
+
+  let closest = missions[0];
   let smallest = Infinity;
 
-  for (const mission of openMissions) {
+  for (const mission of missions) {
     const dy = mission.coordinate.latitude - near.latitude;
     const dx = mission.coordinate.longitude - near.longitude;
     const distance = dy * dy + dx * dx;
@@ -141,20 +152,4 @@ export function loadFeaturedMission(near?: { latitude: number; longitude: number
   }
 
   return closest;
-}
-
-/**
- * Reprises publiées à mettre en avant dans le fil, celles qui ont bien les deux vues.
- * Un simple filtre, là où il fallait auparavant sonder l'API station par station.
- */
-export function loadPublishedSubmissions(limit = 3): StationDetail[] {
-  const published: StationDetail[] = [];
-
-  for (const station of SNAPSHOT_STATIONS) {
-    if (published.length >= limit) break;
-    if (!station.hasRecapture || !station.referenceImage || !station.recaptureImage) continue;
-    published.push(detailFromStation(station));
-  }
-
-  return published;
 }

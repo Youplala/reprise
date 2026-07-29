@@ -16,16 +16,11 @@ import { SourcePill } from '@/components/source-pill';
 import { StationCard } from '@/components/station-card';
 import { Fonts, Palette, Radius, Shadow, Spacing, TabBarClearance } from '@/constants/theme';
 
-import { useStations } from '@/providers/stations-provider';
-import { loadFeaturedMission, loadPublishedSubmissions } from '@/services/observatoire-api';
+import { useFeaturedMission, useStations } from '@/providers/stations-provider';
+
 import { getSavedCaptures } from '@/services/fieldbook';
 import type { StationDetail } from '@/types/station';
-import {
-  CONTRIBUTOR_COUNT,
-  formatContributorName,
-  RECAPTURES_LAST_30_DAYS,
-  TOP_CONTRIBUTORS,
-} from '@/utils/community-stats';
+import { formatContributorName } from '@/utils/community-stats';
 import { mappingStatus } from '@/utils/mapping-coverage';
 
 function LiveComparisonCard({
@@ -82,9 +77,10 @@ function LiveComparisonCard({
 
 export function CollectiveScreen() {
   const router = useRouter();
-  const { stations, snapshotVersion, coverage } = useStations();
+  const { stations, snapshotVersion, coverage, stats, publishedSubmissions } = useStations();
+  const featured = useFeaturedMission();
   // Les reprises publiées sont dans l'instantané : plus de requêtes en cascade pour les trouver.
-  const feed = useMemo(() => loadPublishedSubmissions(6), []);
+  const feed = publishedSubmissions;
   const feedStatus: 'loading' | 'ready' | 'error' = feed.length ? 'ready' : 'error';
   const [cheers, setCheers] = useState<Record<string, boolean>>({});
   const [savedCount, setSavedCount] = useState(0);
@@ -159,12 +155,12 @@ export function CollectiveScreen() {
           style={({ pressed }) => [styles.contributors, pressed && styles.contributorsPressed]}>
           <View style={styles.contributorsHead}>
             <Text style={styles.contributorsKicker}>
-              {CONTRIBUTOR_COUNT} CONTRIBUTEURS · {RECAPTURES_LAST_30_DAYS} REPRISES CE MOIS-CI
+              {stats.contributorCount} CONTRIBUTEURS · {stats.recapturesLast30Days} REPRISES CE MOIS-CI
             </Text>
             <SymbolView name="chevron.right" size={13} tintColor={Palette.inkSoft} />
           </View>
           <View style={styles.contributorsList}>
-            {TOP_CONTRIBUTORS.slice(0, 3).map((contributor) => (
+            {stats.topContributors.slice(0, 3).map((contributor) => (
               <View key={contributor.name} style={styles.contributorChip}>
                 <Text style={styles.contributorInitials}>
                   {contributor.name
@@ -273,7 +269,7 @@ export function CollectiveScreen() {
               onPress={() =>
                 router.push({
                   pathname: '/station/[id]',
-                  params: { id: loadFeaturedMission().id },
+                  params: { id: featured?.id ?? '' },
                 })
               }
               style={({ pressed }) => [styles.walkAction, pressed && styles.pressed]}>

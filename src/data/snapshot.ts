@@ -1,17 +1,17 @@
-// Instantané local des données publiques de l'Observatoire, produit par
-// `scripts/ingest-observatoire.mjs` et embarqué dans le bundle.
+// Instantané des données publiques de l'Observatoire, produit par
+// `scripts/ingest-observatoire.mjs`.
 //
-// L'API amont est servie par un Apache sans CDN, sans gzip et en `cache-control: private`.
-// L'interroger au démarrage coûtait 4,5 Mo et une vingtaine de requêtes ; la lire ici coûte
-// une lecture mémoire, fonctionne hors connexion, et ne dépend plus de la disponibilité d'un
-// serveur associatif ni de la fin de campagne du 30 novembre 2026.
+// Une copie est embarquée dans le bundle : elle garantit que l'app fonctionne dès la première
+// ouverture et hors connexion. Une version plus récente peut ensuite être téléchargée, ce qui
+// évite de repasser par l'App Store pour un simple rafraîchissement de chiffres. Les
+// contributions publiées avancent de vingt à soixante par jour pendant la campagne.
 //
-// Aucune adresse e-mail n'entre ici : le script filtre par liste blanche de champs et refuse
-// d'écrire le fichier si une adresse survit.
+// Aucune adresse e-mail n'entre ici : le script filtre par liste blanche et refuse d'écrire si
+// une adresse survit.
 
 import type { Coordinate } from '@/types/station';
 
-type SnapshotStation = {
+export type SnapshotStation = {
   id: string;
   name: string;
   coordinate: Coordinate;
@@ -35,7 +35,7 @@ type SnapshotStation = {
 /** `[ouest, sud, est, nord]` — la maille réelle de 250 m du concours de 1970. */
 export type SquareBounds = [number, number, number, number];
 
-type SnapshotSquare = {
+export type SnapshotSquare = {
   id: string;
   name: string;
   coordinate: Coordinate;
@@ -65,7 +65,7 @@ export type SnapshotMetrics = {
   squaresWithOfficialBounds: number;
 };
 
-type Snapshot = {
+export type Snapshot = {
   version: string;
   generatedAt: string;
   source: { url: string; name: string; operator: string; database: string; archiveRights: string };
@@ -78,21 +78,34 @@ type Snapshot = {
 
 // `require` plutôt qu'un import : Metro inline le JSON en module, sans dépendre de
 // `resolveJsonModule` côté TypeScript.
-const snapshot = require('../../assets/data/observatoire-snapshot.json') as Snapshot;
+export const BUNDLED_SNAPSHOT = require('../../assets/data/observatoire-snapshot.json') as Snapshot;
 
-export const SNAPSHOT_VERSION = snapshot.version;
-export const SNAPSHOT_SOURCE = snapshot.source;
-export const SNAPSHOT_METRICS = snapshot.metrics;
-export const SNAPSHOT_STATIONS = snapshot.stations;
-export const SNAPSHOT_SQUARES = snapshot.squares;
-export const GRID_SIDE_METRES = snapshot.grid.sideMetres;
+/**
+ * Vérifie qu'une charge utile téléchargée a bien la forme attendue avant de remplacer la copie
+ * embarquée. Une réponse tronquée ou une page d'erreur ne doit jamais devenir la source de
+ * vérité de l'application.
+ */
+export function isUsableSnapshot(value: unknown): value is Snapshot {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<Snapshot>;
+
+  return (
+    typeof candidate.version === 'string' &&
+    Array.isArray(candidate.stations) &&
+    Array.isArray(candidate.squares) &&
+    candidate.squares.length > 0 &&
+    typeof candidate.metrics?.recapturesPublished === 'number' &&
+    typeof candidate.archive?.urlTemplate === 'string' &&
+    Array.isArray(candidate.archive?.fonds)
+  );
+}
 
 /**
  * Reconstruit les permaliens ARK d'un carré. Ce sont des identifiants pérennes du portail des
  * bibliothèques spécialisées : on y renvoie, on ne rapatrie jamais les images (fonds BHVP sous
  * droit d'auteur des photographes, hors ODbL qui ne couvre que la base de données).
  */
-export function archiveLinksOf(square: Pick<SnapshotSquare, 'refs'>): string[] {
+export function archiveLinksOf(snapshot: Snapshot, square: Pick<SnapshotSquare, 'refs'>): string[] {
   const { urlTemplate, viewPadding, fonds } = snapshot.archive;
   const links: string[] = [];
 
@@ -116,16 +129,3 @@ export function archiveLinksOf(square: Pick<SnapshotSquare, 'refs'>): string[] {
 
   return links;
 }
-
-const squaresById = new Map(SNAPSHOT_SQUARES.map((square) => [square.id, square]));
-const stationsById = new Map(SNAPSHOT_STATIONS.map((station) => [station.id, station]));
-
-export function findSnapshotSquare(id: string) {
-  return squaresById.get(id);
-}
-
-export function findSnapshotStation(id: string) {
-  return stationsById.get(id);
-}
-
-export type { SnapshotSquare, SnapshotStation };

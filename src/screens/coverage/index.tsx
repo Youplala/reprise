@@ -13,16 +13,7 @@ import { StackedShare } from '@/components/charts/stacked-share';
 import { SourcePill } from '@/components/source-pill';
 import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useStations } from '@/providers/stations-provider';
-import {
-  ARRONDISSEMENT_ACTIVITY,
-  CONTRIBUTOR_COUNT,
-  formatContributorName,
-  DATED_RECAPTURES,
-  MONTHLY_ACTIVITY,
-  SQUARE_DISTRIBUTION,
-  TOP_CONTRIBUTORS,
-} from '@/utils/community-stats';
-import { COVERAGE_GRID } from '@/utils/mapping-coverage';
+import { formatContributorName } from '@/utils/community-stats';
 
 const BUCKET_COLORS: Record<string, string> = {
   untouched: 'rgba(185, 95, 62, 0.55)',
@@ -56,30 +47,30 @@ function Section({
 
 export function CoverageScreen() {
   const router = useRouter();
-  const { coverage, snapshotVersion } = useStations();
+  const { coverage, snapshotVersion, grid, stats } = useStations();
 
   const priorityCells = useMemo(
     () =>
-      COVERAGE_GRID.filter((cell) => cell.remaining1970 > 0)
+      grid.filter((cell) => cell.remaining1970 > 0)
         .sort((left, right) => right.remaining1970 - left.remaining1970)
         .slice(0, 5),
-    [],
+    [grid],
   );
 
-  const shares = SQUARE_DISTRIBUTION.map((bucket) => ({
+  const shares = stats.squareDistribution.map((bucket) => ({
     key: bucket.key,
     label: bucket.label,
     value: bucket.count,
     color: BUCKET_COLORS[bucket.key],
   }));
 
-  const months = MONTHLY_ACTIVITY.map((entry) => ({
+  const months = stats.monthlyActivity.map((entry) => ({
     key: entry.month,
     label: entry.label,
     value: entry.count,
   }));
 
-  const arrondissements = ARRONDISSEMENT_ACTIVITY.slice(0, 8).map((entry) => ({
+  const arrondissements = stats.arrondissementActivity.slice(0, 8).map((entry) => ({
     key: entry.code,
     label: entry.label,
     value: entry.count,
@@ -138,7 +129,7 @@ export function CoverageScreen() {
         <Section
           kicker="ACTIVITÉ DU COLLECTIF"
           title="Les reprises mois par mois"
-          copy={`${DATED_RECAPTURES.toLocaleString('fr-FR')} reprises datées depuis l’ouverture de la campagne.`}
+          copy={`${stats.datedRecaptures.toLocaleString('fr-FR')} reprises datées depuis l’ouverture de la campagne.`}
           delay={120}>
           <BarChart data={months} unit="reprises" accentColor={Palette.parisBlue} />
         </Section>
@@ -148,12 +139,12 @@ export function CoverageScreen() {
         </Section>
 
         <Section
-          kicker={`${CONTRIBUTOR_COUNT} PERSONNES`}
+          kicker={`${stats.contributorCount} PERSONNES`}
           title="Celles et ceux qui refont Paris"
           copy="Les contributrices et contributeurs sont crédités par leur nom, comme le prévoit le règlement de l’Observatoire."
           delay={240}>
           <View style={styles.contributors}>
-            {TOP_CONTRIBUTORS.slice(0, 6).map((contributor, index) => (
+            {stats.topContributors.slice(0, 6).map((contributor, index) => (
               <View key={contributor.name} style={styles.contributorRow}>
                 <Text style={styles.contributorRank}>{String(index + 1).padStart(2, '0')}</Text>
                 <Text style={styles.contributorName} numberOfLines={1}>

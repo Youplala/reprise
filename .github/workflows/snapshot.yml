@@ -1,0 +1,55 @@
+name: Instantané des données
+
+# Les contributions publiées bougent de 20 à 60 par jour pendant la campagne. Un relevé
+# quotidien suffit largement : le CAUE modère les dépôts avant publication, la source elle-même
+# n'avance donc pas en continu.
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: snapshot
+  cancel-in-progress: false
+
+jobs:
+  regenerer:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Régénérer l'instantané
+        run: node scripts/ingest-observatoire.mjs
+
+      - name: Vérifier qu'aucune donnée personnelle n'est passée
+        # Le script refuse déjà d'écrire si une adresse survit à la liste blanche. Ce second
+        # contrôle porte sur le fichier réellement produit : c'est lui qui sera publié.
+        run: |
+          if grep -qE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' assets/data/observatoire-snapshot.json; then
+            echo "::error::Une adresse e-mail est présente dans l'instantané, publication annulée."
+            exit 1
+          fi
+
+      - name: Commiter si la donnée a changé
+        run: |
+          if git diff --quiet -- assets/data/observatoire-snapshot.json; then
+            echo "Aucun changement."
+            exit 0
+          fi
+
+          reprises=$(node -p "require('./assets/data/observatoire-snapshot.json').metrics.recapturesPublished")
+          carres=$(node -p "require('./assets/data/observatoire-snapshot.json').metrics.squaresOpened")
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/data/observatoire-snapshot.json
+          git commit -m "Instantané du $(date -u +%Y-%m-%d) : ${reprises} reprises, ${carres} quartiers ouverts"
+          git push

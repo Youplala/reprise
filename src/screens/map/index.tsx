@@ -23,13 +23,12 @@ import { GlassSurface } from '@/components/glass-surface';
 import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 
 import { useStationDetail } from '@/hooks/use-station-detail';
-import { loadFeaturedMission } from '@/services/observatoire-api';
+
 import { useUserLocation } from '@/hooks/use-user-location';
-import { useStations } from '@/providers/stations-provider';
+import { useFeaturedMission, useStations } from '@/providers/stations-provider';
 import type { StationSummary } from '@/types/station';
 import { distanceInMeters, formatDistance } from '@/utils/distance';
 import {
-  buildCoverageGrid,
   mappingStatus,
   stationMatchesFilter,
   type CoverageCell,
@@ -237,13 +236,14 @@ export function MapScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const mapRef = useRef<MapView>(null);
   const carouselRef = useRef<FlatList<StationSummary>>(null);
-  const { stations, coverage } = useStations();
+  const { stations, coverage, grid } = useStations();
+  const featuredMission = useFeaturedMission();
   const { coordinate, isPrecise, loading, locate } = useUserLocation();
   const [query, setQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [filter, setFilter] = useState<MapFilter>('all');
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
-  const [selected, setSelected] = useState<StationSummary>(() => loadFeaturedMission());
+  const [selected, setSelected] = useState<StationSummary | undefined>();
   const [selectedCell, setSelectedCell] = useState<CoverageCell>();
   const [focusedCell, setFocusedCell] = useState<CoverageCell>();
   const [userMovedMap, setUserMovedMap] = useState(false);
@@ -261,7 +261,7 @@ export function MapScreen() {
   const carouselStep = carouselCardWidth + Spacing.two;
   const previewCardHeight = Math.min(380, Math.max(300, screenHeight * 0.42));
 
-  const grid = useMemo(() => buildCoverageGrid(stations), [stations]);
+
 
   // La vraie grille du concours compte 1 171 mailles de 250 m. Les dessiner toutes, y compris
   // hors écran, sature le rendu de la carte : on ne garde que celles qui recoupent la vue,
@@ -347,11 +347,13 @@ export function MapScreen() {
     return ranked.slice(0, 80);
   }, [browseOrigin, filteredStations, focusedCell]);
 
+  // La sélection initiale suit la mission mise en avant, le temps que le relevé actif se charge.
+  const currentSelection = selected ?? featuredMission;
   const activeSelected =
-    visibleStations.find((station) => station.id === selected.id) ??
+    visibleStations.find((station) => station.id === currentSelection?.id) ??
     visibleStations[0] ??
     filteredStations.find((station) => !station.approximate) ??
-    selected;
+    currentSelection;
 
   const focusedArchiveStations = useMemo(() => {
     if (!focusedCell) return [];

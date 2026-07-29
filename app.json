@@ -87,7 +87,8 @@
       "router": {},
       "eas": {
         "projectId": "7b830c4f-b56d-4005-bf87-3560b9efd3f4"
-      }
+      },
+      "snapshotUrl": "https://raw.githubusercontent.com/Youplala/reprise/main/assets/data/observatoire-snapshot.json"
     },
     "owner": "youplala"
   }
