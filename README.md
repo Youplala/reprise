@@ -1,54 +1,74 @@
 # Reprise
 
-Une application Expo pour retrouver les points de vue du concours photographique parisien de
-1970, aligner une image d’archive sur le Paris d’aujourd’hui, puis préparer une contribution à
-l’[Observatoire photographique des paysages parisiens](https://observatoire-photo.paris/).
+Application mobile gratuite pour retrouver les points de vue photographiques de Paris et les
+reconduire aujourd'hui.
 
-## Ce qui fonctionne
+En 1970, la FNAC et la Ville de Paris organisent un concours amateur d'une ampleur inédite :
+Paris est découpé en carrés de 250 m, et 2 800 photographes en rapportent des dizaines de
+milliers d'images, aujourd'hui conservées par la Bibliothèque historique de la Ville de Paris.
+Reprise vous aide à retrouver ces points de vue, à caler le cadrage avec la caméra du téléphone,
+et à comparer les deux époques.
 
-- carte des stations chargée depuis l’API publique de l’Observatoire, avec cache local ;
-- géolocalisation iPhone, distances et points de vue proches ;
-- fiche complète du carré 839 avec les 13 diapositives de Roland Logerot fournies avec le projet ;
-- assistant de cadrage combinant caméra, surimpression réglable, horizon, contraste, zoom et
-  micro-déplacements ;
-- mode démonstration automatique dans le simulateur iOS, où la caméra n’est pas disponible ;
-- vérification avant dépôt, carnet local, partage et fil collectif alimenté par des reconductions
-  publiées ;
-- liens directs vers la carte de l’Observatoire et la notice des bibliothèques spécialisées de Paris.
+Le projet accompagne la campagne de l'[Observatoire photo participatif des paysages
+parisiens](https://observatoire-photo.paris/), animée par le CAUE de Paris.
 
-## Lancer le projet
+## Développement
 
 ```bash
 npm install
-npm run ios
+npx expo run:ios --device
 ```
 
-Le projet utilise Expo SDK 57. Dans le simulateur, le bouton de prise de vue génère une comparaison
-de démonstration. Sur un iPhone, l’application demande les autorisations de localisation, de caméra
-et de mouvement puis enregistre la vraie photo.
+Un development build est nécessaire : l'app utilise `react-native-maps`, `expo-camera`,
+`expo-media-library` et `expo-glass-effect`, qui ne sont pas disponibles dans Expo Go.
 
-Vérifications locales :
+## Les données
+
+L'app n'interroge jamais l'API de l'Observatoire à l'exécution. Un script produit un relevé
+normalisé, embarqué dans le bundle :
 
 ```bash
-npx tsc --noEmit
-npm run lint
-npx expo export --platform ios
+node scripts/ingest-observatoire.mjs
 ```
 
-## Données
+Ce relevé est régénéré chaque nuit par une action planifiée et publié dans ce dépôt. L'app le
+télécharge au lancement, avec repli sur la copie embarquée : elle reste utilisable hors connexion
+et n'a pas besoin d'une mise à jour App Store pour rafraîchir ses chiffres.
 
-- API cartographique : `https://observatoire-photo.paris/api/elements`
-- grille officielle 1970 :
-  `https://opppp.cartes.xyz/uploads/opppp/files/260421-export-grille-concours-1970-wsg84.geojson`
-- archive locale : `assets/archive/roland-logerot-839/`
+Trois raisons à ce choix. L'API amont est servie sans CDN ni compression et en
+`cache-control: private`, une ouverture coûtait 4,5 Mo ; la campagne se termine le 30 novembre
+2026 et l'endpoint peut évoluer ; enfin les clés du formulaire sont auto-générées, un champ
+renommé côté serveur casserait une app déjà publiée.
 
-Les réponses réseau sont limitées aux champs publics utiles à l’interface et mises en cache avec
-AsyncStorage. Si le réseau est indisponible, le carré 839 et ses archives restent entièrement
-consultables.
+Le script filtre les champs par liste blanche et refuse d'écrire si une adresse e-mail survit.
+Le même contrôle est rejoué en intégration continue avant publication.
 
-## Vers la version de production
+## Sources et licences
 
-La version actuelle lit l’API publique mais ne publie pas directement dessus. L’architecture cible
-pour synchroniser toutes les photographies, conserver durablement les prises de vue et soumettre de
-véritables reconductions est décrite dans
-[docs/architecture-cible.md](docs/architecture-cible.md).
+**Données de l'Observatoire** : © les contributrices et contributeurs de l'Observatoire photo
+participatif des paysages parisiens, animé par le CAUE de Paris, sous licence
+[ODbL 1.0](https://opendatacommons.org/licenses/odbl/). Les prénoms et noms sont affichés au
+titre de l'attribution, conformément à l'article 10.3 du règlement de participation. Aucune
+autre donnée personnelle n'est reprise.
+
+**Grille de 1970** : découpage officiel du concours, exporté en WGS84 par le CAUE de Paris.
+
+**Photographies de 1970** : fonds « C'était Paris en 1970 », conservé par la Bibliothèque
+historique de la Ville de Paris. Ces images restent sous le droit d'auteur de leurs auteurs et
+**ne sont pas redistribuées par cette application** : Reprise renvoie vers les permaliens ARK du
+portail des bibliothèques spécialisées de la Ville de Paris.
+
+## Publication
+
+L'identifiant Apple utilisé pour la soumission n'est pas versionné. Il se fournit par
+l'environnement :
+
+```bash
+export EXPO_APPLE_ID="votre@adresse"
+eas build --platform ios --profile production --auto-submit
+```
+
+## Licence
+
+Le code est publié sous licence MIT (voir `LICENSE`). Les données et les photographies relèvent
+des licences indiquées ci-dessus.
