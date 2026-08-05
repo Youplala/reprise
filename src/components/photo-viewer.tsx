@@ -86,7 +86,7 @@ export function PhotoViewer({
                 style={styles.zoomSurface}
                 contentContainerStyle={{ width, height }}>
                 <Image
-                  accessibilityLabel={`Vue d’archive ${index + 1} sur ${images.length}`}
+                  accessibilityLabel={`Photo d’archive ${index + 1} sur ${images.length}`}
                   allowDownscaling={false}
                   contentFit="contain"
                   source={source}
@@ -102,7 +102,7 @@ export function PhotoViewer({
           <View style={styles.archiveLabel}>
             <Text style={styles.archiveKicker}>ARCHIVE 1970</Text>
             <Text style={styles.archiveCounter}>
-              VUE {String(currentIndex + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
+              PHOTO {String(currentIndex + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
             </Text>
           </View>
           <Pressable

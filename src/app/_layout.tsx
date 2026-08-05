@@ -44,6 +44,7 @@ export default function RootLayout() {
             }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="coverage" />
+            <Stack.Screen name="contributor/[name]" />
             <Stack.Screen name="station/[id]" />
             <Stack.Screen
               name="align/[id]"

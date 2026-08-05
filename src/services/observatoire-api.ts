@@ -16,6 +16,7 @@ import {
   type SnapshotStation,
 } from '@/data/snapshot';
 import type { StationDetail, StationSummary } from '@/types/station';
+import { contributorKey } from '@/utils/community-stats';
 
 function imageSource(uri?: string): ImageSource | undefined {
   return uri ? { uri } : undefined;
@@ -46,6 +47,8 @@ function summaryFromSquare(square: SnapshotSquare): StationSummary {
     approximate: true,
     source: 'observatoire',
     frameCount: square.photoCount,
+    remainingCount: Math.max(0, square.photoCount - square.recaptureCount),
+    publishedCount: square.recaptureCount,
     bounds: square.bounds,
   };
 }
@@ -63,6 +66,7 @@ function detailFromStation(station: SnapshotStation): StationDetail {
     address: station.address,
     author: station.author,
     currentAuthor: station.recaptureAuthor,
+    recaptureDate: station.recaptureDate,
     dateLabel: station.dateLabel,
     referenceImage,
     recaptureImage,
@@ -72,7 +76,7 @@ function detailFromStation(station: SnapshotStation): StationDetail {
     hasRecapture: station.hasRecapture,
     sourceLabel:
       station.kind === 'station-2022'
-        ? 'Observatoire · Point de vue 2022'
+        ? 'Observatoire · Photo de 2022'
         : 'Observatoire · Fonds 1970',
   };
 }
@@ -129,6 +133,27 @@ export function buildPublishedSubmissions(snapshot: Snapshot, limit = 3): Statio
   }
 
   return published;
+}
+
+export function buildContributorSubmissions(
+  snapshot: Snapshot,
+  contributorName: string,
+): StationDetail[] {
+  const key = contributorKey(contributorName);
+
+  return snapshot.stations
+    .filter(
+      (station) =>
+        station.hasRecapture &&
+        station.referenceImage &&
+        station.recaptureImage &&
+        station.recaptureAuthor &&
+        contributorKey(station.recaptureAuthor) === key,
+    )
+    .sort((left, right) =>
+      (right.recaptureDate ?? '').localeCompare(left.recaptureDate ?? ''),
+    )
+    .map(detailFromStation);
 }
 
 /** Mission la plus proche du point donné, à défaut la première. */

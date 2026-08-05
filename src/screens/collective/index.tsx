@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -18,7 +18,6 @@ import { Fonts, Palette, Radius, Shadow, Spacing, TabBarClearance } from '@/cons
 
 import { useFeaturedMission, useStations } from '@/providers/stations-provider';
 
-import { getSavedCaptures } from '@/services/fieldbook';
 import type { StationDetail } from '@/types/station';
 import { formatContributorName } from '@/utils/community-stats';
 import { mappingStatus } from '@/utils/mapping-coverage';
@@ -46,7 +45,7 @@ function LiveComparisonCard({
         borderRadius={0}
       />
       <View style={styles.activityBody}>
-        <Text style={styles.activityKicker}>REPRISE PUBLIÉE · OBSERVATOIRE</Text>
+        <Text style={styles.activityKicker}>PHOTO REFAITE · OBSERVATOIRE</Text>
         <Text style={styles.activityTitle}>{detail.name}</Text>
         <Text style={styles.activityMeta}>
           {detail.currentAuthor ? `${detail.currentAuthor} · ` : ''}
@@ -66,7 +65,7 @@ function LiveComparisonCard({
             </Text>
           </Pressable>
           <Pressable onPress={onOpen} style={styles.detailButton}>
-            <Text style={styles.detailText}>Voir le point de vue</Text>
+            <Text style={styles.detailText}>Voir la photo</Text>
             <SymbolView name="arrow.right" size={13} tintColor={Palette.parisBlue} />
           </Pressable>
         </View>
@@ -83,16 +82,9 @@ export function CollectiveScreen() {
   const feed = publishedSubmissions;
   const feedStatus: 'loading' | 'ready' | 'error' = feed.length ? 'ready' : 'error';
   const [cheers, setCheers] = useState<Record<string, boolean>>({});
-  const [savedCount, setSavedCount] = useState(0);
   const remainingMissions = useMemo(
     () => stations.filter((station) => mappingStatus(station) === 'to-reprise').slice(0, 6),
     [stations],
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      getSavedCaptures().then((captures) => setSavedCount(captures.length));
-    }, []),
   );
 
   const toggleCheer = (id: string) => {
@@ -111,17 +103,16 @@ export function CollectiveScreen() {
         <SafeAreaView edges={['top']} style={styles.header}>
           <View style={styles.brandRow}>
             <View>
-              <Text style={styles.brand}>COLLECTIF</Text>
+              <Text style={styles.brand}>COMMUNAUTÉ</Text>
               <Text style={styles.brandSub}>Les regards qui refont Paris</Text>
             </View>
             <SourcePill version={snapshotVersion} />
           </View>
 
           <Text style={styles.eyebrow}>EN DIRECT DE L’OBSERVATOIRE</Text>
-          <Text style={styles.title}>Une ville,{'\n'}mille points de vue.</Text>
+          <Text style={styles.title}>Paris, avant{'\n'}et aujourd’hui.</Text>
           <Text style={styles.copy}>
-            Regardez les paires avant après publiées, choisissez une mission proche, puis aidez à
-            refaire la carte de Paris.
+            Découvrez les photos de 1970 refaites aujourd’hui par la communauté.
           </Text>
         </SafeAreaView>
 
@@ -130,38 +121,59 @@ export function CollectiveScreen() {
             <Text style={styles.statNumber}>
               {coverage.published1970.toLocaleString('fr-FR')}
             </Text>
-            <Text style={styles.statLabel}>REPRISES 1970</Text>
+            <Text style={styles.statLabel}>PHOTOS REFAITES</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.stat}>
             <Text style={styles.statNumber}>{coverage.percentage}%</Text>
-            <Text style={styles.statLabel}>PHOTOS REPRISES</Text>
+            <Text style={styles.statLabel}>DU FONDS 1970</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.stat}>
             <Text style={styles.statNumber}>
               {coverage.remaining1970.toLocaleString('fr-FR')}
             </Text>
-            <Text style={styles.statLabel}>À REPRENDRE</Text>
+            <Text style={styles.statLabel}>À RETROUVER</Text>
           </View>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            void Haptics.selectionAsync();
-            router.push('/coverage');
-          }}
-          style={({ pressed }) => [styles.contributors, pressed && styles.contributorsPressed]}>
-          <View style={styles.contributorsHead}>
+        <View style={styles.contributors}>
+          <Pressable
+            accessibilityLabel={`Voir le bilan de la communauté : ${stats.contributorCount} contributeurs et ${stats.recapturesLast30Days} photos publiées ce mois-ci`}
+            accessibilityRole="button"
+            onPress={() => {
+              void Haptics.selectionAsync();
+              router.push('/coverage');
+            }}
+            style={({ pressed }) => [
+              styles.contributorsHead,
+              pressed && styles.contributorsPressed,
+            ]}>
             <Text style={styles.contributorsKicker}>
-              {stats.contributorCount} CONTRIBUTEURS · {stats.recapturesLast30Days} REPRISES CE MOIS-CI
+              {stats.contributorCount} CONTRIBUTEURS · {stats.recapturesLast30Days} PHOTOS CE MOIS-CI
             </Text>
-            <SymbolView name="chevron.right" size={13} tintColor={Palette.inkSoft} />
-          </View>
+            <View style={styles.contributorsAction}>
+              <Text style={styles.contributorsActionText}>Le bilan</Text>
+              <SymbolView name="chevron.right" size={12} tintColor={Palette.parisBlue} />
+            </View>
+          </Pressable>
           <View style={styles.contributorsList}>
             {stats.topContributors.slice(0, 3).map((contributor) => (
-              <View key={contributor.name} style={styles.contributorChip}>
+              <Pressable
+                key={contributor.name}
+                accessibilityLabel={`Voir le profil de ${formatContributorName(contributor.name)}, ${contributor.count} photos`}
+                accessibilityRole="button"
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  router.push({
+                    pathname: '/contributor/[name]',
+                    params: { name: contributor.name },
+                  });
+                }}
+                style={({ pressed }) => [
+                  styles.contributorChip,
+                  pressed && styles.contributorChipPressed,
+                ]}>
                 <Text style={styles.contributorInitials}>
                   {contributor.name
                     .split(' ')
@@ -174,24 +186,16 @@ export function CollectiveScreen() {
                   {formatContributorName(contributor.name)}
                 </Text>
                 <Text style={styles.contributorCount}>{contributor.count}</Text>
-              </View>
+                <SymbolView name="chevron.right" size={11} tintColor={Palette.inkSoft} />
+              </Pressable>
             ))}
           </View>
-        </Pressable>
-
-        <View style={styles.fieldbookStatus}>
-          <SymbolView name="bookmark.fill" size={15} tintColor={Palette.parisBlue} />
-          <Text style={styles.fieldbookStatusText}>
-            {savedCount
-              ? `${savedCount} ${savedCount > 1 ? 'prises conservées' : 'prise conservée'} dans mon carnet`
-              : 'Commencer ma première reprise'}
-          </Text>
         </View>
 
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={styles.sectionKicker}>DONNÉES PUBLIQUES · AVANT / 2026</Text>
-            <Text style={styles.sectionTitle}>Vues publiées</Text>
+            <Text style={styles.sectionKicker}>PUBLICATIONS RÉCENTES · 1970 → 2026</Text>
+            <Text style={styles.sectionTitle}>Derniers avant/après</Text>
           </View>
           <SymbolView name="arrow.left.and.right" size={18} tintColor={Palette.parisBlue} />
         </View>
@@ -211,9 +215,9 @@ export function CollectiveScreen() {
         ) : (
           <View style={styles.feedLoading}>
             <SymbolView name="photo.on.rectangle.angled" size={24} tintColor={Palette.inkSoft} />
-            <Text style={styles.loadingTitle}>Aucune reprise publiée pour l’instant</Text>
+            <Text style={styles.loadingTitle}>Aucune photo refaite pour l’instant</Text>
             <Text style={styles.loadingCopy}>
-              Les comparaisons avant/après apparaîtront ici dès qu’une vue sera republiée.
+              Les comparaisons avant/après apparaîtront ici dès qu’une photo sera publiée.
             </Text>
           </View>
         )}
@@ -221,7 +225,7 @@ export function CollectiveScreen() {
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionKicker}>MISSIONS OUVERTES · FONDS 1970</Text>
-            <Text style={styles.sectionTitle}>Encore à reprendre</Text>
+            <Text style={styles.sectionTitle}>Photos à retrouver</Text>
           </View>
           <SymbolView name="scope" size={19} tintColor={Palette.copper} />
         </View>
@@ -251,7 +255,7 @@ export function CollectiveScreen() {
           </View>
           <View style={styles.walkBody}>
             <View style={styles.walkKickerRow}>
-              <Text style={styles.walkKicker}>MARCHE COLLECTIVE · 11e</Text>
+              <Text style={styles.walkKicker}>MARCHE DE LA COMMUNAUTÉ · 11e</Text>
               <View style={styles.walkAvatarStack}>
                 {['#B95F3E', '#70897C', '#F0B642'].map((color, index) => (
                   <View
@@ -261,9 +265,9 @@ export function CollectiveScreen() {
                 ))}
               </View>
             </View>
-            <Text style={styles.walkTitle}>Résoudre le carré 839 ensemble</Text>
+            <Text style={styles.walkTitle}>Résoudre le secteur 839 ensemble</Text>
             <Text style={styles.walkCopy}>
-              Treize vues, une zone de 250 m et beaucoup d’indices. Préparez une sortie à plusieurs.
+              Treize photos, une zone de 250 m et beaucoup d’indices. Préparez une sortie à plusieurs.
             </Text>
             <Pressable
               onPress={() =>
@@ -282,7 +286,7 @@ export function CollectiveScreen() {
         <View style={styles.prototypeNote}>
           <SymbolView name="person.2.wave.2" size={22} tintColor={Palette.parisBlue} />
           <Text style={styles.prototypeText}>
-            Archives 1970: Bibliothèques spécialisées de la Ville de Paris. Reprises: Observatoire
+            Archives 1970: Bibliothèques spécialisées de la Ville de Paris. Photos actuelles: Observatoire
             public. Les encouragements et sorties restent sur cet iPhone dans cette version.
           </Text>
         </View>
@@ -333,10 +337,14 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: Spacing.two,
+    marginHorizontal: -2,
+    paddingHorizontal: 2,
+    paddingTop: 3,
+    paddingBottom: 5,
     color: Palette.ink,
     fontFamily: Fonts.display,
     fontSize: 48,
-    lineHeight: 48,
+    lineHeight: 50,
     letterSpacing: -1.2,
     fontWeight: '800',
   },
@@ -393,21 +401,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.two,
   },
   contributorsKicker: {
+    flex: 1,
     color: Palette.copper,
     fontFamily: Fonts.mono,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.6,
+  },
+  contributorsAction: {
+    minHeight: 28,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.blueMist,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  contributorsActionText: {
+    color: Palette.parisBlue,
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    fontWeight: '800',
   },
   contributorsList: {
     gap: Spacing.two,
   },
   contributorChip: {
+    minHeight: 36,
+    marginHorizontal: -Spacing.one,
+    paddingHorizontal: Spacing.one,
+    borderRadius: Radius.small,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  contributorChipPressed: {
+    backgroundColor: Palette.blueMist,
   },
   contributorInitials: {
     width: 30,
@@ -434,25 +466,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  fieldbookStatus: {
-    alignSelf: 'center',
-    minHeight: 38,
-    marginTop: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.white,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  fieldbookStatusText: {
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 11,
-    fontWeight: '700',
-  },
   sectionHeader: {
-    marginTop: Spacing.five,
+    marginTop: Spacing.four,
     marginBottom: Spacing.three,
     paddingHorizontal: Spacing.three,
     flexDirection: 'row',
@@ -468,9 +483,14 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginTop: 4,
+    marginHorizontal: -2,
+    paddingHorizontal: 2,
+    paddingTop: 2,
+    paddingBottom: 4,
     color: Palette.ink,
     fontFamily: Fonts.display,
     fontSize: 29,
+    lineHeight: 35,
     fontWeight: '800',
   },
   activityCard: {

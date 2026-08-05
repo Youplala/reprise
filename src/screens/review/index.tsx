@@ -69,7 +69,7 @@ export function ReviewScreen() {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSaved(true);
     } catch {
-      setSaveError('La reprise n’a pas pu être ajoutée au carnet. Réessayez.');
+      setSaveError('La photo n’a pas pu être ajoutée au carnet. Réessayez.');
     } finally {
       setSaving(false);
     }
@@ -104,7 +104,7 @@ export function ReviewScreen() {
           style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}>
           <SymbolView name="xmark" size={17} tintColor={Palette.ink} />
         </Pressable>
-        <Text style={styles.headerTitle}>Vérifier la reconduction</Text>
+        <Text style={styles.headerTitle}>Vérifier la photo</Text>
         <Pressable
           accessibilityLabel="Partager"
           onPress={share}
@@ -119,7 +119,7 @@ export function ReviewScreen() {
         contentContainerStyle={styles.content}>
         <View style={styles.scoreRow}>
           <View>
-            <Text style={styles.kicker}>{isSimulated ? 'APERÇU SIMULATEUR' : 'PRISE DE VUE TERMINÉE'}</Text>
+            <Text style={styles.kicker}>{isSimulated ? 'APERÇU SIMULATEUR' : 'PHOTO TERMINÉE'}</Text>
             <Text style={styles.title}>Le même lieu,{'\n'}deux époques.</Text>
           </View>
           {hasTilt ? (
@@ -151,7 +151,7 @@ export function ReviewScreen() {
           <View style={styles.simulatorNote}>
             <SymbolView name="iphone.gen3" size={20} tintColor={Palette.parisBlue} />
             <Text style={styles.simulatorText}>
-              Cette comparaison utilise deux vues d’archive pour tester tout le parcours. Sur un
+              Cette comparaison utilise deux photos d’archive pour tester tout le parcours. Sur un
               iPhone, la moitié droite affichera la photo réellement prise.
             </Text>
           </View>
@@ -162,7 +162,7 @@ export function ReviewScreen() {
             <SymbolView name="arrow.up.right.circle.fill" size={22} tintColor={Palette.parisBlue} />
           </View>
           <View style={styles.publishCopy}>
-            <Text style={styles.publishTitle}>Comment la reprise rejoint la carte</Text>
+            <Text style={styles.publishTitle}>Comment votre photo rejoint la carte</Text>
             <Text style={styles.publishText}>
               {saved && inLibrary
                 ? 'Votre photo est enregistrée dans l’album Reprise de votre pellicule. Vous en aurez besoin pour la déposer. La publication sur la carte'
@@ -175,7 +175,7 @@ export function ReviewScreen() {
         <View style={styles.checklist}>
           <Text style={styles.checklistKicker}>CONTRÔLE AVANT DÉPÔT</Text>
           {[
-            ['checkmark.circle.fill', 'Point de vue', 'Coordonnées enregistrées'],
+            ['checkmark.circle.fill', 'Lieu', 'Coordonnées enregistrées'],
             ['checkmark.circle.fill', 'Qualité', 'JPEG original conservé'],
             [
               !hasTilt || isUpright ? 'checkmark.circle.fill' : 'exclamationmark.circle.fill',
@@ -202,7 +202,7 @@ export function ReviewScreen() {
         </View>
 
         <PrimaryButton
-          label={saved ? (inLibrary ? 'Enregistrée dans vos photos' : 'Ajoutée au carnet') : 'Enregistrer ma reprise'}
+          label={saved ? (inLibrary ? 'Enregistrée dans vos photos' : 'Ajoutée au carnet') : 'Enregistrer ma photo'}
           icon={saved ? 'checkmark' : 'bookmark'}
           loading={saving}
           disabled={saved}
@@ -218,7 +218,7 @@ export function ReviewScreen() {
         />
         {publishError ? <Text style={styles.publishError}>{publishError}</Text> : null}
         <Pressable onPress={() => router.replace('/collective')} style={styles.collectiveLink}>
-          <Text style={styles.collectiveText}>Voir ce que reconduit le collectif</Text>
+          <Text style={styles.collectiveText}>Voir les photos de la communauté</Text>
           <SymbolView name="person.2.fill" size={16} tintColor={Palette.parisBlue} />
         </Pressable>
       </ScrollView>

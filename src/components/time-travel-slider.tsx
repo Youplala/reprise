@@ -3,7 +3,8 @@ import * as Haptics from 'expo-haptics';
 import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { GlassSurface } from '@/components/glass-surface';
+import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 
 export const TIMELINE_YEARS = [1970, 2022, 2026] as const;
 
@@ -40,55 +41,52 @@ export function TimeTravelSlider({
 
   return (
     <View style={styles.container}>
-      <View style={styles.heading}>
-        <Text style={styles.kicker}>VOYAGE DANS LE TEMPS</Text>
-        <Text style={styles.hint}>Glissez entre les campagnes</Text>
-      </View>
+      <GlassSurface variant="regular" tintColor="rgba(13, 42, 60, 0.88)" />
+      <View style={styles.content}>
+        <View style={styles.heading}>
+          <Text style={styles.kicker}>VOYAGE DANS LE TEMPS</Text>
+          <Text style={styles.hint}>Glissez entre les époques</Text>
+        </View>
 
-      <Slider
-        accessibilityLabel="Choisir une époque"
-        accessibilityValue={{ text: String(activeYear) }}
-        style={styles.slider}
-        value={activeSlot}
-        minimumValue={0}
-        maximumValue={visibleYears.length - 1}
-        step={1}
-        minimumTrackTintColor={Palette.brass}
-        maximumTrackTintColor="rgba(255,255,255,0.28)"
-        thumbTintColor={Palette.white}
-        onValueChange={selectSlot}
-      />
+        <Slider
+          accessibilityLabel="Choisir une époque"
+          accessibilityValue={{ text: String(activeYear) }}
+          style={styles.slider}
+          value={activeSlot}
+          minimumValue={0}
+          maximumValue={visibleYears.length - 1}
+          step={1}
+          minimumTrackTintColor={Palette.brass}
+          maximumTrackTintColor="rgba(255,255,255,0.28)"
+          thumbTintColor={Palette.white}
+          onValueChange={selectSlot}
+        />
 
-      <View style={styles.labels}>
-        {visibleYears.map((year, index) => {
-          const active = year === activeYear;
-          return (
-            <Pressable
-              accessibilityHint="Affiche la photographie de cette époque"
-              accessibilityLabel={String(year)}
-              accessibilityRole="button"
-              key={year}
-              onPress={() => {
-                if (lastSlot.current !== index) {
-                  lastSlot.current = index;
-                  void Haptics.selectionAsync();
-                }
-                onSelect(year);
-              }}
-              style={styles.labelButton}>
-              <View
-                style={[
-                  styles.tick,
-                  styles.tickAvailable,
-                  active && styles.tickActive,
-                ]}
-              />
-              <Text style={[styles.year, active && styles.yearActive]}>
-                {year}
-              </Text>
-            </Pressable>
-          );
-        })}
+        <View style={styles.labels}>
+          {visibleYears.map((year, index) => {
+            const active = year === activeYear;
+            return (
+              <Pressable
+                accessibilityHint="Affiche la photographie de cette époque"
+                accessibilityLabel={String(year)}
+                accessibilityRole="button"
+                key={year}
+                onPress={() => {
+                  if (lastSlot.current !== index) {
+                    lastSlot.current = index;
+                    void Haptics.selectionAsync();
+                  }
+                  onSelect(year);
+                }}
+                style={({ pressed }) => [styles.labelButton, pressed && styles.pressed]}>
+                <Text style={[styles.year, active && styles.yearActive]}>{year}</Text>
+                <Text style={[styles.yearCaption, active && styles.yearCaptionActive]}>
+                  {year === 1970 ? 'ARCHIVE' : year === 2022 ? 'CAMPAGNE' : 'AUJOURD’HUI'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
@@ -96,12 +94,17 @@ export function TimeTravelSlider({
 
 const styles = StyleSheet.create({
   container: {
+    marginTop: Spacing.three,
+    marginHorizontal: Spacing.three,
+    borderRadius: Radius.large,
+    overflow: 'hidden',
+    backgroundColor: Palette.blueDeep,
+    ...Shadow.card,
+  },
+  content: {
     paddingTop: Spacing.twoHalf,
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.twoHalf,
-    backgroundColor: Palette.blueDeep,
-    borderBottomLeftRadius: Radius.large,
-    borderBottomRightRadius: Radius.large,
   },
   heading: {
     flexDirection: 'row',
@@ -122,45 +125,38 @@ const styles = StyleSheet.create({
   },
   slider: {
     width: '100%',
-    height: 28,
+    height: 30,
     marginTop: 3,
   },
   labels: {
-    marginTop: -2,
+    marginTop: -1,
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   labelButton: {
-    minWidth: 54,
-    alignItems: 'center',
-    gap: 4,
-  },
-  tick: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.42)',
-  },
-  tickAvailable: {
-    backgroundColor: Palette.white,
-    borderColor: Palette.white,
-  },
-  tickActive: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    marginTop: -2,
-    backgroundColor: Palette.brass,
-    borderColor: Palette.brass,
+    minWidth: 64,
   },
   year: {
-    color: Palette.white,
+    color: Palette.blueMist,
     fontFamily: Fonts.mono,
     fontSize: 10,
     fontWeight: '900',
   },
   yearActive: {
     color: Palette.brass,
+  },
+  yearCaption: {
+    marginTop: 1,
+    color: 'rgba(221,232,236,0.62)',
+    fontFamily: Fonts.mono,
+    fontSize: 7,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  yearCaptionActive: {
+    color: Palette.white,
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

@@ -21,7 +21,7 @@ export default function AppTabs() {
           </TabTrigger>
           <TabTrigger name="collective" href="/collective" asChild>
             <Pressable style={styles.tabButton}>
-              <Text style={styles.tabLabel}>Collectif</Text>
+              <Text style={styles.tabLabel}>Communauté</Text>
             </Pressable>
           </TabTrigger>
         </View>

@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -19,9 +19,11 @@ import MapView, { Marker, Polygon, PROVIDER_DEFAULT, type Region } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AdaptivePhoto } from '@/components/adaptive-photo';
+import { ArchiveContactSheet } from '@/components/archive-contact-sheet';
 import { GlassSurface } from '@/components/glass-surface';
 import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 
+import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 
 import { useUserLocation } from '@/hooks/use-user-location';
@@ -46,9 +48,9 @@ const INITIAL_REGION: Region = {
 const POINT_ZOOM_THRESHOLD = 0.047;
 const FILTERS: { value: MapFilter; label: string }[] = [
   { value: 'all', label: 'Tout' },
-  { value: 'to-reprise', label: 'À reprendre' },
-  { value: 'published-reprise', label: 'Reprises publiées' },
-  { value: 'collection-2022', label: 'Points de vue 2022' },
+  { value: 'to-reprise', label: 'À retrouver' },
+  { value: 'published-reprise', label: 'Photos refaites' },
+  { value: 'collection-2022', label: 'Photos de 2022' },
 ];
 
 function pinColor(station: StationSummary) {
@@ -59,10 +61,15 @@ function pinColor(station: StationSummary) {
 }
 
 function pinLabel(station: StationSummary) {
+  if (station.kind === 'archive-1970') {
+    if ((station.remainingCount ?? 1) === 0) return 'SECTEUR COMPLÉTÉ';
+    if ((station.publishedCount ?? 0) > 0) return 'À CONTINUER';
+    return 'À LOCALISER';
+  }
   const status = mappingStatus(station);
-  if (status === 'published-reprise') return 'REPRISE PUBLIÉE';
-  if (status === 'collection-2022') return 'STATION 2022';
-  return station.approximate ? 'À LOCALISER' : 'À REPRENDRE';
+  if (status === 'published-reprise') return 'PHOTO REFAITE';
+  if (status === 'collection-2022') return 'PHOTO DE 2022';
+  return 'PHOTO À REFAIRE';
 }
 
 function cellHasFilter(cell: CoverageCell, filter: MapFilter) {
@@ -94,6 +101,66 @@ function cellFill(cell: CoverageCell, filter: MapFilter) {
   return 'rgba(22, 63, 91, 0.78)';
 }
 
+function plural(count: number, singular: string, pluralForm = `${singular}s`) {
+  return `${count} ${count > 1 ? pluralForm : singular}`;
+}
+
+function remainingLabel(count: number) {
+  return count === 0
+    ? 'Toutes les photos ont été refaites'
+    : `${plural(count, 'photo')} ${count > 1 ? 'restent' : 'reste'} à retrouver`;
+}
+
+function selectionTitle(cell: CoverageCell, filter: MapFilter) {
+  if (filter === 'to-reprise') return remainingLabel(cell.remaining1970);
+  if (filter === 'published-reprise') {
+    return `${plural(cell.published1970, 'photo')} ${cell.published1970 > 1 ? 'refaites' : 'refaite'}`;
+  }
+  if (filter === 'collection-2022') {
+    return plural(cell.collection2022, 'photo');
+  }
+  return cell.remaining1970 === 0 && cell.total1970 > 0
+    ? 'Secteur complété'
+    : `${cell.percentage}% cartographié`;
+}
+
+function selectionAction(filter: MapFilter) {
+  if (filter === 'to-reprise') return 'Voir les photos';
+  if (filter === 'published-reprise') return 'Voir les photos';
+  if (filter === 'collection-2022') return 'Voir les photos';
+  return 'Explorer';
+}
+
+function emptySearchTitle(filter: MapFilter) {
+  if (filter === 'to-reprise') return 'Aucune photo à retrouver ici';
+  if (filter === 'published-reprise') return 'Aucune photo refaite ici';
+  if (filter === 'collection-2022') return 'Aucune photo de 2022 ici';
+  return 'Aucun résultat sur la carte';
+}
+
+function emptySearchCopy(filter: MapFilter, query: string) {
+  if (filter === 'to-reprise') {
+    return `« ${query} » ne contient plus de mission ouverte. Consultez les photos refaites pour voir le résultat.`;
+  }
+  if (filter === 'published-reprise') {
+    return `Aucune photo refaite ne correspond à « ${query} ». Essayez le filtre À retrouver.`;
+  }
+  if (filter === 'collection-2022') {
+    return `Aucune photo de 2022 ne correspond à « ${query} ».`;
+  }
+  return `Aucun repère ne correspond à « ${query} ». Modifiez la recherche ou déplacez la carte.`;
+}
+
+function focusedCellColors(cell: CoverageCell, filter: MapFilter) {
+  if (filter === 'published-reprise' || (filter === 'all' && cell.remaining1970 === 0)) {
+    return { fill: 'rgba(112, 137, 124, 0.2)', stroke: Palette.lichen };
+  }
+  if (filter === 'collection-2022') {
+    return { fill: 'rgba(22, 63, 91, 0.16)', stroke: Palette.parisBlue };
+  }
+  return { fill: 'rgba(185, 95, 62, 0.14)', stroke: Palette.copper };
+}
+
 function stationIsInCell(station: StationSummary, cell: CoverageCell) {
   const south = cell.coordinates[0].latitude;
   const north = cell.coordinates[1].latitude;
@@ -120,7 +187,13 @@ function searchStationScore(station: StationSummary, query: string) {
   const name = normalizeSearchValue(station.name);
   const arrondissement = normalizeSearchValue(station.arrondissement ?? '');
   const status = normalizeSearchValue(pinLabel(station));
-  const searchable = `${name} ${arrondissement} ${status} ${station.year} ${station.id}`;
+  const kindAliases =
+    station.kind === 'archive-1970'
+      ? 'carre secteur archives'
+      : station.kind === 'station-2022'
+        ? 'photo de 2022 point de vue'
+        : 'photo refaite publiée';
+  const searchable = `${name} ${arrondissement} ${status} ${kindAliases} ${station.year} ${station.id}`;
   const tokens = query.split(' ').filter(Boolean);
 
   if (!tokens.every((token) => searchable.includes(token))) return undefined;
@@ -134,6 +207,7 @@ function searchStationScore(station: StationSummary, query: string) {
 
 function MapPhotoPreview({
   station,
+  cell,
   index,
   total,
   width,
@@ -142,6 +216,7 @@ function MapPhotoPreview({
   onOpen,
 }: {
   station: StationSummary;
+  cell?: CoverageCell;
   index: number;
   total: number;
   width: number;
@@ -150,15 +225,30 @@ function MapPhotoPreview({
   onOpen: () => void;
 }) {
   const { detail } = useStationDetail(station.id);
+  const isArchiveSector = station.kind === 'archive-1970';
+  const { images: archiveImages, loading: archiveImagesLoading } = useBhvpImages(
+    isArchiveSector ? detail?.archiveLinks : undefined,
+    3,
+  );
   const image = detail?.referenceImage ?? detail?.images[0] ?? station.previewImage;
   // `??` ne se replie que sur null/undefined : un tableau d'images vide donnait `0` et
   // l'encart annonçait « 0 VUE » pour un carré qui en contient plusieurs.
   const frameCount = detail?.images.length || station.frameCount || 1;
+  const remainingCount = cell?.remaining1970 ?? frameCount;
+  const publishedCount = cell?.published1970 ?? 0;
+  const archiveKicker =
+    publishedCount > 0
+      ? `${plural(remainingCount, 'PHOTO', 'PHOTOS')} À RETROUVER · ${plural(publishedCount, 'PHOTO', 'PHOTOS')} REFAITE${publishedCount > 1 ? 'S' : ''}`
+      : `${plural(remainingCount, 'PHOTO', 'PHOTOS')} À RETROUVER`;
 
   return (
     <Pressable
       accessibilityHint="Ouvre la photographie en grand et permet de contribuer"
-      accessibilityLabel={`Ouvrir la mission ${station.name}`}
+      accessibilityLabel={
+        isArchiveSector
+          ? `Explorer le secteur ${station.name}, ${remainingLabel(remainingCount)}`
+          : `Ouvrir ${station.name}, ${pinLabel(station)}`
+      }
       accessibilityRole="button"
       onPress={onOpen}
       style={({ pressed }) => [
@@ -166,7 +256,9 @@ function MapPhotoPreview({
         { width, height },
         pressed && styles.photoPreviewPressed,
       ]}>
-      {image ? (
+      {isArchiveSector && archiveImages.length ? (
+        <ArchiveContactSheet images={archiveImages} />
+      ) : image ? (
         <AdaptivePhoto
           source={image}
           transition={220}
@@ -179,10 +271,14 @@ function MapPhotoPreview({
           </View>
           <View>
             <Text style={styles.photoPreviewFallbackTitle}>
-              {frameCount} {frameCount > 1 ? 'photos de 1970' : 'photo de 1970'}
+              {archiveImagesLoading
+                ? 'Ouverture des aperçus…'
+                : `${frameCount} ${frameCount > 1 ? 'photos de 1970' : 'photo de 1970'}`}
             </Text>
             <Text style={styles.photoPreviewFallbackCopy}>
-              À découvrir sur le portail des bibliothèques de Paris.
+              {archiveImagesLoading
+                ? 'Chargement depuis la Bibliothèque historique de la Ville de Paris.'
+                : 'À découvrir sur le portail des bibliothèques de Paris.'}
             </Text>
           </View>
         </View>
@@ -193,35 +289,44 @@ function MapPhotoPreview({
       <View style={styles.photoPreviewTop}>
         <View style={[styles.photoStatus, { backgroundColor: pinColor(station) }]}>
           <Text style={styles.photoStatusText}>
-            {station.year}
-            {detail?.hasRecapture ? ' → 2026' : ''}
+            {isArchiveSector
+              ? 'ARCHIVES 1970'
+              : `${station.year}${detail?.hasRecapture ? ' → 2026' : ''}`}
           </Text>
         </View>
         <View style={styles.photoCounter}>
-          <SymbolView
-            name="arrow.left.and.right"
-            size={12}
-            tintColor={Palette.white}
-          />
+          {!isArchiveSector ? (
+            <SymbolView
+              name="arrow.left.and.right"
+              size={12}
+              tintColor={Palette.white}
+            />
+          ) : null}
           <Text style={styles.photoCounterText}>
-            {index + 1}/{total}
+            {isArchiveSector
+              ? `${frameCount} ${frameCount > 1 ? 'PHOTOS' : 'PHOTO'}`
+              : `${index + 1}/${total}`}
           </Text>
         </View>
       </View>
 
       <View style={styles.photoPreviewBody}>
         <Text style={styles.photoPreviewKicker}>
-          {pinLabel(station)} · {frameCount} {frameCount > 1 ? 'VUES' : 'VUE'}
+          {isArchiveSector ? archiveKicker : pinLabel(station)}
         </Text>
         <Text style={styles.photoPreviewTitle} numberOfLines={2}>
-          {station.name}
+          {isArchiveSector ? 'Choisir une photo' : station.name}
         </Text>
         <View style={styles.photoPreviewMetaRow}>
           <Text style={styles.photoPreviewMeta} numberOfLines={1}>
-            {meta}
+            {isArchiveSector
+              ? `${plural(frameCount, 'photo')} dans ce secteur`
+              : meta}
           </Text>
           <View style={styles.photoPreviewAction}>
-            <Text style={styles.photoPreviewActionText}>Ouvrir la mission</Text>
+            <Text style={styles.photoPreviewActionText}>
+              {isArchiveSector ? 'Voir les photos' : 'Ouvrir'}
+            </Text>
             <SymbolView name="arrow.right" size={14} tintColor={Palette.white} />
           </View>
         </View>
@@ -232,10 +337,13 @@ function MapPhotoPreview({
 
 export function MapScreen() {
   const router = useRouter();
+  const { station: requestedStationId, focus: focusRequest } =
+    useLocalSearchParams<{ station?: string; focus?: string }>();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const mapRef = useRef<MapView>(null);
   const carouselRef = useRef<FlatList<StationSummary>>(null);
+  const handledFocusRequest = useRef<string | undefined>(undefined);
   const { stations, coverage, grid } = useStations();
   const featuredMission = useFeaturedMission();
   const { coordinate, isPrecise, loading, locate } = useUserLocation();
@@ -315,10 +423,16 @@ export function MapScreen() {
     stations,
   ]);
 
+  const filteredSearchMatches = useMemo(
+    () => searchMatches.filter(({ station }) => stationMatchesFilter(station, filter)),
+    [filter, searchMatches],
+  );
   const filteredStations = normalizedQuery
-    ? searchMatches.map(({ station }) => station)
+    ? filteredSearchMatches.map(({ station }) => station)
     : statusFilteredStations;
-  const searchSuggestions = searchMatches.slice(0, 5);
+  const searchSuggestions = filteredSearchMatches.slice(0, 5);
+  const hasNoFilteredSearchResults =
+    Boolean(normalizedQuery) && filteredStations.length === 0;
 
   const popularArrondissements = useMemo(() => {
     const counts = new Map<string, number>();
@@ -334,7 +448,7 @@ export function MapScreen() {
 
   const visibleStations = useMemo(() => {
     const candidates = focusedCell
-      ? filteredStations.filter((station) => stationIsInCell(station, focusedCell))
+      ? statusFilteredStations.filter((station) => stationIsInCell(station, focusedCell))
       : filteredStations;
     const ranked = candidates
       .filter((station) => !station.approximate)
@@ -345,7 +459,7 @@ export function MapScreen() {
       .sort((left, right) => left.distance - right.distance)
       .map(({ station }) => station);
     return ranked.slice(0, 80);
-  }, [browseOrigin, filteredStations, focusedCell]);
+  }, [browseOrigin, filteredStations, focusedCell, statusFilteredStations]);
 
   // La sélection initiale suit la mission mise en avant, le temps que le relevé actif se charge.
   const currentSelection = selected ?? featuredMission;
@@ -356,7 +470,13 @@ export function MapScreen() {
     currentSelection;
 
   const focusedArchiveStations = useMemo(() => {
-    if (!focusedCell) return [];
+    if (
+      !focusedCell ||
+      focusedCell.remaining1970 === 0 ||
+      (filter !== 'all' && filter !== 'to-reprise')
+    ) {
+      return [];
+    }
     return stations
       .filter(
         (station) =>
@@ -365,7 +485,7 @@ export function MapScreen() {
           stationIsInCell(station, focusedCell),
       )
       .sort((left, right) => left.name.localeCompare(right.name, 'fr'));
-  }, [focusedCell, stations]);
+  }, [filter, focusedCell, stations]);
 
   const isExploringArchiveCell =
     Boolean(focusedCell) && focusedArchiveStations.length > 0;
@@ -402,7 +522,7 @@ export function MapScreen() {
 
   const hasSelectedExactStation =
     !activeSelected.approximate &&
-    filteredStations.some((station) => station.id === activeSelected.id);
+    visibleStations.some((station) => station.id === activeSelected.id);
 
   const topOffset = Math.max(insets.top, 52) + Spacing.one;
 
@@ -472,7 +592,6 @@ export function MapScreen() {
   const handleChooseSearchResult = useCallback(
     (station: StationSummary) => {
       const stationCell = grid.find((cell) => stationIsInCell(station, cell));
-      setFilter('all');
       setSelected(station);
       setSelectedCell(undefined);
       setFocusedCell(station.approximate ? stationCell : undefined);
@@ -488,6 +607,29 @@ export function MapScreen() {
     [grid],
   );
 
+  useEffect(() => {
+    if (!requestedStationId) return;
+    const requestKey = `${requestedStationId}:${focusRequest ?? ''}`;
+    if (handledFocusRequest.current === requestKey) return;
+
+    const requestedStation = stations.find(
+      (station) => station.id === requestedStationId,
+    );
+    if (!requestedStation) return;
+
+    handledFocusRequest.current = requestKey;
+    const frame = requestAnimationFrame(() => {
+      setFilter('all');
+      handleChooseSearchResult(requestedStation);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    focusRequest,
+    handleChooseSearchResult,
+    requestedStationId,
+    stations,
+  ]);
+
   const handleGridSelect = (cell: CoverageCell) => {
     if (!cellHasFilter(cell, filter)) return;
     Keyboard.dismiss();
@@ -497,12 +639,23 @@ export function MapScreen() {
   };
 
   const openGridCell = useCallback((cell: CoverageCell) => {
-    if (!cell.remaining1970) {
-      const nextSelected = filteredStations.find(
-        (station) => !station.approximate && stationIsInCell(station, cell),
-      );
-      if (nextSelected) setSelected(nextSelected);
-    }
+    const exactStations = filteredStations.filter(
+      (station) => !station.approximate && stationIsInCell(station, cell),
+    );
+    const preferredStatus =
+      filter === 'published-reprise'
+        ? 'published-reprise'
+        : filter === 'collection-2022'
+          ? 'collection-2022'
+          : filter === 'all' && cell.remaining1970 === 0
+            ? 'published-reprise'
+            : undefined;
+    const nextSelected =
+      exactStations.find(
+        (station) => preferredStatus && mappingStatus(station) === preferredStatus,
+      ) ?? exactStations[0];
+    if (nextSelected) setSelected(nextSelected);
+
     setSelectedCell(undefined);
     setFocusedCell(cell);
     setBrowseOrigin(cell.center);
@@ -519,7 +672,7 @@ export function MapScreen() {
       },
       460,
     );
-  }, [filteredStations]);
+  }, [filter, filteredStations]);
 
   const handleResetNorth = useCallback(() => {
     mapRef.current?.animateCamera({ heading: 0 }, { duration: 300 });
@@ -598,8 +751,8 @@ export function MapScreen() {
         {showIndividualPoints && focusedCell ? (
           <Polygon
             coordinates={focusedCell.coordinates}
-            fillColor="rgba(185, 95, 62, 0.14)"
-            strokeColor={Palette.copper}
+            fillColor={focusedCellColors(focusedCell, filter).fill}
+            strokeColor={focusedCellColors(focusedCell, filter).stroke}
             strokeWidth={2.4}
           />
         ) : null}
@@ -679,7 +832,12 @@ export function MapScreen() {
           <SymbolView name="magnifyingglass" size={18} tintColor={Palette.inkSoft} />
           <TextInput
             value={query}
-            onChangeText={setQuery}
+            onChangeText={(nextQuery) => {
+              setQuery(nextQuery);
+              setSelected(undefined);
+              setSelectedCell(undefined);
+              setFocusedCell(undefined);
+            }}
             onFocus={() => setSearchFocused(true)}
             onSubmitEditing={() => {
               const firstResult = searchSuggestions[0]?.station;
@@ -706,12 +864,12 @@ export function MapScreen() {
               <View>
                 <Text style={styles.searchPanelKicker}>
                   {normalizedQuery
-                    ? `${searchMatches.length} RÉSULTAT${searchMatches.length > 1 ? 'S' : ''}`
+                    ? `${filteredSearchMatches.length} RÉSULTAT${filteredSearchMatches.length > 1 ? 'S' : ''}`
                     : 'RECHERCHE GUIDÉE'}
                 </Text>
                 <Text style={styles.searchPanelTitle}>
                   {normalizedQuery
-                    ? searchMatches.length
+                    ? filteredSearchMatches.length
                       ? 'Meilleures correspondances'
                       : 'Aucun repère trouvé'
                   : 'Cherchez dans toutes les archives'}
@@ -760,7 +918,9 @@ export function MapScreen() {
                       )}
                       <View style={styles.searchResultCopy}>
                         <Text style={styles.searchResultTitle} numberOfLines={1}>
-                          {station.name}
+                          {station.kind === 'archive-1970'
+                            ? `Secteur ${station.name}`
+                            : station.name}
                         </Text>
                         <Text style={styles.searchResultMeta} numberOfLines={1}>
                           {pinLabel(station)} · {station.arrondissement ?? 'Paris'}
@@ -773,10 +933,10 @@ export function MapScreen() {
                       />
                     </Pressable>
                   ))}
-                  {searchMatches.length > searchSuggestions.length ? (
+                  {filteredSearchMatches.length > searchSuggestions.length ? (
                     <Text style={styles.searchMore}>
                       Affinez la recherche pour départager les{' '}
-                      {searchMatches.length.toLocaleString('fr-FR')} résultats.
+                      {filteredSearchMatches.length.toLocaleString('fr-FR')} résultats.
                     </Text>
                   ) : null}
                 </View>
@@ -784,7 +944,7 @@ export function MapScreen() {
                 <View style={styles.searchEmpty}>
                   <SymbolView name="magnifyingglass" size={21} tintColor={Palette.copper} />
                   <Text style={styles.searchEmptyCopy}>
-                    Essayez un numéro, un nom de rue, un code postal ou « Carré 839 ».
+                    Essayez un numéro, un nom de rue, un code postal ou « Secteur 839 ».
                   </Text>
                 </View>
               )
@@ -807,13 +967,13 @@ export function MapScreen() {
                     </Pressable>
                   ))}
                   <Pressable
-                    onPressIn={() => setQuery('Carré 839')}
+                    onPressIn={() => setQuery('Secteur 839')}
                     style={({ pressed }) => [
                       styles.searchShortcut,
                       pressed && styles.searchResultPressed,
                     ]}>
                     <SymbolView name="square.grid.3x3" size={13} tintColor={Palette.parisBlue} />
-                    <Text style={styles.searchShortcutText}>Carré 839</Text>
+                    <Text style={styles.searchShortcutText}>Secteur 839</Text>
                   </Pressable>
                 </View>
               </View>
@@ -833,9 +993,21 @@ export function MapScreen() {
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     onPress={() => {
+                      const searchedArchive = searchMatches.find(
+                        ({ station }) => station.kind === 'archive-1970',
+                      )?.station;
+                      const searchedCell = searchedArchive
+                        ? grid.find((cell) => stationIsInCell(searchedArchive, cell))
+                        : undefined;
+                      const contextualCell = focusedCell ?? selectedCell ?? searchedCell;
+
                       setFilter(option.value);
                       setSelectedCell(undefined);
-                      setFocusedCell(undefined);
+                      setFocusedCell(
+                        contextualCell && cellHasFilter(contextualCell, option.value)
+                          ? contextualCell
+                          : undefined,
+                      );
                       Keyboard.dismiss();
                       void Haptics.selectionAsync();
                     }}
@@ -849,7 +1021,7 @@ export function MapScreen() {
             </ScrollView>
 
             <Pressable
-              accessibilityHint="Ouvre le détail des corpus 1970, 2022 et des reprises 2026"
+              accessibilityHint="Ouvre le détail des photos de 1970, de 2022 et des photos refaites aujourd’hui"
               accessibilityLabel={`${coverage.percentage}% des photos de 1970 cartographiées. Voir les statistiques`}
               accessibilityRole="button"
               onPress={() => router.push('/coverage')}
@@ -926,32 +1098,43 @@ export function MapScreen() {
               <View style={styles.gridSelectionHeader}>
                 <View>
                   <Text style={styles.gridSelectionKicker}>
-                    {showIndividualPoints ? 'MISSION' : 'COUVERTURE'} · CARRÉ{' '}
-                    {selectedCell.name}
+                    {filter === 'to-reprise'
+                      ? 'À RETROUVER'
+                      : filter === 'published-reprise'
+                        ? 'PHOTOS REFAITES'
+                        : filter === 'collection-2022'
+                          ? 'PHOTOS DE 2022'
+                          : showIndividualPoints
+                            ? 'SECTEUR'
+                            : 'COUVERTURE'}{' '}
+                    · SECTEUR {selectedCell.name}
                   </Text>
                   <Text style={styles.gridSelectionTitle}>
-                    {showIndividualPoints
-                      ? `${selectedCell.remaining1970} photos à localiser`
-                      : `${selectedCell.percentage}% cartographié`}
+                    {selectionTitle(selectedCell, filter)}
                   </Text>
                 </View>
                 <Pressable
                   accessibilityLabel={
                     showIndividualPoints
-                      ? `Voir les photos du carré ${selectedCell.name}`
-                      : `Explorer le carré ${selectedCell.name}`
+                      ? `Voir les photos du secteur ${selectedCell.name}`
+                      : `Explorer le secteur ${selectedCell.name}`
                   }
                   onPress={() => openGridCell(selectedCell)}
                   style={({ pressed }) => [styles.gridOpenButton, pressed && styles.pressed]}>
                   <Text style={styles.gridOpenText}>
-                    {showIndividualPoints ? 'Voir les photos' : 'Explorer'}
+                    {selectionAction(filter)}
                   </Text>
                   <SymbolView name="photo.on.rectangle" size={15} tintColor={Palette.white} />
                 </Pressable>
               </View>
               <Text style={styles.gridSelectionMeta}>
-                {selectedCell.published1970} reprises publiées ·{' '}
-                {selectedCell.percentage}% du carré cartographié
+                {filter === 'to-reprise'
+                  ? `${plural(selectedCell.published1970, 'photo')} déjà ${selectedCell.published1970 > 1 ? 'refaites' : 'refaite'}`
+                  : filter === 'published-reprise'
+                    ? `${plural(selectedCell.total1970, 'photo')} dans les archives du secteur`
+                    : filter === 'collection-2022'
+                      ? 'Photos précisément localisées'
+                      : `${selectedCell.published1970} sur ${selectedCell.total1970} photos refaites`}
               </Text>
             </View>
           ) : isExploringArchiveCell && focusedCell ? (
@@ -960,10 +1143,16 @@ export function MapScreen() {
                 <GlassSurface />
                 <View style={styles.archiveRailHeading}>
                   <Text style={styles.gridSelectionKicker}>
-                    MISSION · CARRÉ {focusedCell.name}
+                    ARCHIVES DE 1970 · ZONE DE 250 M
                   </Text>
                   <Text style={styles.archiveRailTitle}>
-                    {focusedCell.remaining1970} photos à reconnaître
+                    Secteur {focusedCell.name}
+                  </Text>
+                  <Text style={styles.archiveRailMeta}>
+                    {plural(focusedCell.remaining1970, 'photo')} à retrouver
+                    {focusedCell.published1970 > 0
+                      ? ` · ${plural(focusedCell.published1970, 'photo')} ${focusedCell.published1970 > 1 ? 'refaites' : 'refaite'}`
+                      : ''}
                   </Text>
                 </View>
                 <Pressable
@@ -995,10 +1184,11 @@ export function MapScreen() {
                 renderItem={({ item, index }) => (
                   <MapPhotoPreview
                     station={item}
+                    cell={focusedCell}
                     index={index}
                     total={focusedArchiveStations.length}
                     width={carouselCardWidth}
-                    height={previewCardHeight - 68}
+                    height={previewCardHeight - 92}
                     meta="Paris · position exacte à retrouver"
                     onOpen={() =>
                       router.push({
@@ -1061,26 +1251,34 @@ export function MapScreen() {
             <View style={styles.gridSelectionCard}>
               <GlassSurface />
               <Text style={styles.gridSelectionKicker}>
-                MISSION · CARRÉ {focusedCell.name}
+                {focusedCell.remaining1970 === 0 ? 'SECTEUR COMPLÉTÉ' : 'ARCHIVES'} · SECTEUR{' '}
+                {focusedCell.name}
               </Text>
               <Text style={styles.gridSelectionTitle}>
-                {focusedCell.remaining1970} photos à localiser
+                {remainingLabel(focusedCell.remaining1970)}
               </Text>
               <Text style={styles.gridSelectionMeta}>
-                Les positions de classement sont regroupées ici. Elles ne représentent pas des
-                emplacements de prise de vue précis.
+                {focusedCell.remaining1970 === 0
+                  ? `${plural(focusedCell.published1970, 'photo')} ${focusedCell.published1970 > 1 ? 'refaites' : 'refaite'} dans ce secteur.`
+                  : 'Les archives sont regroupées dans une zone de 250 m jusqu’à ce que leur point de vue soit reconnu.'}
               </Text>
             </View>
           ) : (
             <View style={styles.gridHintCard}>
               <GlassSurface />
               <Text style={styles.gridHintTitle}>
-                {showIndividualPoints ? 'Coordonnées fiables' : 'Progression par carré'}
+                {hasNoFilteredSearchResults
+                  ? emptySearchTitle(filter)
+                  : showIndividualPoints
+                    ? 'Coordonnées fiables'
+                    : 'Progression par secteur'}
               </Text>
               <Text style={styles.gridHintCopy}>
-                {showIndividualPoints
-                  ? 'Les archives non localisées restent regroupées. Seules les positions vérifiées deviennent des pins.'
-                  : 'Touchez une zone colorée pour voir son taux et ouvrir ses points.'}
+                {hasNoFilteredSearchResults
+                  ? emptySearchCopy(filter, query)
+                  : showIndividualPoints
+                    ? 'Les archives non localisées restent regroupées. Seules les positions vérifiées deviennent des pins.'
+                    : 'Touchez une zone colorée pour voir son taux et ouvrir ses photos.'}
               </Text>
               {!showIndividualPoints ? (
                 <View style={styles.gridLegend}>
@@ -1491,9 +1689,10 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   archiveNavigatorHeader: {
-    minHeight: 60,
+    height: 84,
     marginHorizontal: Spacing.three,
     paddingHorizontal: Spacing.twoHalf,
+    paddingVertical: 9,
     borderRadius: Radius.medium,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.76)',
@@ -1783,11 +1982,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   archiveRailTitle: {
-    marginTop: 3,
+    marginTop: 2,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 20,
+    fontSize: 24,
+    lineHeight: 27,
     fontWeight: '900',
+  },
+  archiveRailMeta: {
+    marginTop: 1,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '700',
   },
   archiveRailClose: {
     width: 30,

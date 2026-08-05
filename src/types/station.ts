@@ -18,7 +18,12 @@ export type StationSummary = {
   approximate: boolean;
   source: 'observatoire' | 'archive-local';
   previewImage?: ImageSource;
+  /** Nombre total de vues d'archive rattachées au secteur. */
   frameCount?: number;
+  /** Vues qui n'ont pas encore de reprise publiée, pour les secteurs de 1970. */
+  remainingCount?: number;
+  /** Reprises déjà publiées dans le secteur de 1970. */
+  publishedCount?: number;
   /** `[ouest, sud, est, nord]` — présent sur les carrés de 1970 uniquement. */
   bounds?: [number, number, number, number];
 };
@@ -28,6 +33,7 @@ export type StationDetail = StationSummary & {
   address?: string;
   author?: string;
   currentAuthor?: string;
+  recaptureDate?: string;
   dateLabel?: string;
   referenceImage?: ImageSource;
   recaptureImage?: ImageSource;

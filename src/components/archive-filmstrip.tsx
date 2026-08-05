@@ -1,4 +1,5 @@
 import type { ImageSource } from 'expo-image';
+import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AdaptivePhoto } from '@/components/adaptive-photo';
@@ -11,8 +12,21 @@ type ArchiveFilmstripProps = {
 };
 
 export function ArchiveFilmstrip({ images, selectedIndex, onSelect }: ArchiveFilmstripProps) {
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({
+        animated: true,
+        x: Math.max(0, selectedIndex * (108 + Spacing.two) - Spacing.three),
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [selectedIndex]);
+
   return (
     <ScrollView
+      ref={scrollRef}
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.content}>

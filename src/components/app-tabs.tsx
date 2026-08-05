@@ -23,7 +23,7 @@ export default function AppTabs() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="collective">
-        <NativeTabs.Trigger.Label>Collectif</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Communauté</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
       </NativeTabs.Trigger>
     </NativeTabs>

@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
-import type { ImageSource } from 'expo-image';
+import { Image, type ImageSource } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useRef, useState } from 'react';
 import {
@@ -8,19 +9,24 @@ import {
   Alert,
   FlatList,
   Linking,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
-import MapView, { Circle, Marker, Polygon } from 'react-native-maps';
+import MapView, { Circle, Marker, Polygon, UrlTile } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { captureRef } from 'react-native-view-shot';
 
 import { AdaptivePhoto } from '@/components/adaptive-photo';
 import { ArchiveFilmstrip } from '@/components/archive-filmstrip';
 import { BeforeAfterSlider } from '@/components/before-after-slider';
+import { GlassSurface } from '@/components/glass-surface';
 import { PhotoViewer } from '@/components/photo-viewer';
 import { PrimaryButton } from '@/components/primary-button';
 import { SourcePill } from '@/components/source-pill';
@@ -30,22 +36,16 @@ import {
 } from '@/components/time-travel-slider';
 import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { PARIS_CENTER } from '@/data/archive';
+import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 
-function MetadataCell({
-  icon,
-  label,
-  value,
-}: {
-  icon: 'calendar' | 'mappin.and.ellipse' | 'camera' | 'viewfinder';
-  label: string;
-  value: string;
-}) {
+const REPRISE_HOME_URL = 'https://reprise.paris';
+
+function MetadataInlineItem({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.metadataCell}>
-      <SymbolView name={icon} size={18} tintColor={Palette.parisBlue} />
+    <View style={styles.metadataInlineItem}>
       <Text style={styles.metadataLabel}>{label}</Text>
-      <Text style={styles.metadataValue} numberOfLines={2}>
+      <Text style={styles.metadataValue} numberOfLines={1}>
         {value}
       </Text>
     </View>
@@ -59,27 +59,48 @@ export function StationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { detail, summary, loading } = useStationDetail(id);
   const heroPagerRef = useRef<FlatList<ImageSource>>(null);
+  const shareCardRef = useRef<View>(null);
   const archiveCount = detail?.archiveLinks.length || summary?.frameCount || 0;
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [timelineSelection, setTimelineSelection] = useState<TimelineYear>();
   const [viewerVisible, setViewerVisible] = useState(false);
   const [comparisonActive, setComparisonActive] = useState(false);
+  const [sharingCard, setSharingCard] = useState(false);
+  const [shareMenuVisible, setShareMenuVisible] = useState(false);
+  const isArchive = (detail?.kind ?? summary?.kind) === 'archive-1970';
+  const remainingArchiveCount =
+    detail?.remainingCount ?? summary?.remainingCount ?? archiveCount;
+  const publishedArchiveCount =
+    detail?.publishedCount ?? summary?.publishedCount ?? 0;
+  const { images: archiveImages, loading: archiveImagesLoading } = useBhvpImages(
+    isArchive ? detail?.archiveLinks : undefined,
+  );
 
-  const images = detail?.images ?? (summary?.previewImage ? [summary.previewImage] : []);
+  const images =
+    archiveImages.length > 0
+      ? archiveImages
+      : detail?.images ?? (summary?.previewImage ? [summary.previewImage] : []);
   const selectedImage = (images[selectedIndex] ?? images[0]) as ImageSource | undefined;
   // Un carré de 1970 couvre une maille de 250 m : on trace son emprise réelle plutôt qu'un point.
   const squareBounds = detail?.bounds ?? summary?.bounds;
   const referenceYear = detail?.year ?? summary?.year ?? 1970;
-  const activeYear = timelineSelection ?? referenceYear;
   const title = detail?.name ?? summary?.name ?? 'Point de vue';
+  const selectedViewNumber = String(selectedIndex + 1).padStart(2, '0');
   const coordinate = detail?.coordinate ?? summary?.coordinate ?? PARIS_CENTER;
+  const referenceImage = detail?.referenceImage;
+  const recaptureImage = detail?.recaptureImage;
+  const hasComparison = Boolean(detail?.hasRecapture && referenceImage && recaptureImage);
   const recaptureIndex =
-    detail?.recaptureImage && images.length > 1 ? images.length - 1 : undefined;
+    recaptureImage && images.length > 1 ? images.length - 1 : undefined;
   const availableYears = useMemo<TimelineYear[]>(() => {
     const years: TimelineYear[] = [referenceYear];
     if (recaptureIndex !== undefined) years.push(2026);
     return years;
   }, [recaptureIndex, referenceYear]);
+  const activeYear = timelineSelection ?? referenceYear;
+  const shareUrl = id
+    ? `${REPRISE_HOME_URL}/station/${encodeURIComponent(id)}`
+    : REPRISE_HOME_URL;
 
   const yearForFrame = (index: number): TimelineYear =>
     recaptureIndex !== undefined && index === recaptureIndex ? 2026 : referenceYear;
@@ -115,7 +136,7 @@ export function StationScreen() {
     return (
       <View style={styles.loadingScreen}>
         <ActivityIndicator color={Palette.parisBlue} />
-        <Text style={styles.loadingText}>Ouverture de la station…</Text>
+        <Text style={styles.loadingText}>Ouverture de la photo…</Text>
       </View>
     );
   }
@@ -148,12 +169,23 @@ export function StationScreen() {
     });
   };
 
+  const openOnMap = () => {
+    void Haptics.selectionAsync();
+    router.push({
+      pathname: '/map',
+      params: {
+        station: id ?? '',
+        focus: String(Date.now()),
+      },
+    });
+  };
+
   const reportRecapture = () => {
-    const subject = `Signalement d’une reprise · ${title}`;
+    const subject = `Signalement d’une photo refaite · ${title}`;
     const body = [
       'Bonjour,',
       '',
-      `Je souhaite signaler un problème sur la reprise de la station « ${title} » (identifiant ${id ?? 'inconnu'}).`,
+      `Je souhaite signaler un problème sur la photo actuelle associée à « ${title} » (identifiant ${id ?? 'inconnu'}).`,
       detail?.officialUrl ? `Fiche : ${detail.officialUrl}` : '',
       '',
       'Problème constaté : ',
@@ -163,8 +195,8 @@ export function StationScreen() {
     const mailto = `mailto:observatoire-photo@caue75.fr?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
     Alert.alert(
-      'Signaler cette reprise',
-      'Un brouillon d’email va être préparé pour l’équipe de l’Observatoire. Vous pourrez décrire la photo en cause avant de l’envoyer.',
+      'Signaler cette photo',
+      'Un brouillon d’email va être préparé pour l’équipe de l’Observatoire. Vous pourrez décrire le problème avant de l’envoyer.',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -175,6 +207,53 @@ export function StationScreen() {
         },
       ],
     );
+  };
+
+  const shareComparisonCard = async () => {
+    if (!shareCardRef.current || sharingCard) return;
+    setSharingCard(true);
+    try {
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        await Share.share({
+          title: `Avant/après · ${title}`,
+          message: `Découvrez « ${title} » avant et aujourd’hui dans Reprise : ${shareUrl}`,
+        });
+        return;
+      }
+      const uri = await captureRef(shareCardRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await Sharing.shareAsync(uri, {
+        dialogTitle: `Partager l’avant/après · ${title}`,
+        mimeType: 'image/png',
+        UTI: 'public.png',
+      });
+    } catch {
+      Alert.alert(
+        'Partage indisponible',
+        'La carte avant/après n’a pas pu être préparée. Vous pouvez toujours partager son lien.',
+      );
+    } finally {
+      setSharingCard(false);
+    }
+  };
+
+  const shareRepriseLink = async () => {
+    const message = `Découvrez « ${title} » en 1970 et aujourd’hui avec Reprise.`;
+    void Haptics.selectionAsync();
+    try {
+      await Share.share(
+        Platform.OS === 'ios'
+          ? { title: `Avant/après · ${title}`, message, url: shareUrl }
+          : { title: `Avant/après · ${title}`, message: `${message}\n${shareUrl}` },
+      );
+    } catch {
+      Alert.alert('Partage indisponible', 'Le lien Reprise n’a pas pu être partagé.');
+    }
   };
 
   return (
@@ -215,7 +294,7 @@ export function StationScreen() {
               }}
               renderItem={({ item, index }) => (
                 <Pressable
-                  accessibilityLabel={`Agrandir la vue ${index + 1}`}
+                  accessibilityLabel={`Agrandir la photo ${index + 1}`}
                   accessibilityRole="button"
                   onPress={() => setViewerVisible(true)}
                   style={[styles.heroPage, { width: screenWidth }]}>
@@ -236,11 +315,14 @@ export function StationScreen() {
                 <SymbolView name="photo.stack" size={30} tintColor={Palette.copper} />
               </View>
               <Text style={styles.heroPlaceholderTitle}>
-                {archiveCount} {archiveCount > 1 ? 'photos de 1970' : 'photo de 1970'}
+                {archiveImagesLoading
+                  ? 'Ouverture de la planche-contact…'
+                  : `${archiveCount} ${archiveCount > 1 ? 'photos de 1970' : 'photo de 1970'}`}
               </Text>
               <Text style={styles.heroPlaceholderCopy}>
-                Elles sont conservées par la Bibliothèque historique de la Ville de Paris.
-                Ouvrez-les pour reconnaître le lieu, puis revenez ici.
+                {archiveImagesLoading
+                  ? 'Les aperçus sont chargés depuis la Bibliothèque historique de la Ville de Paris.'
+                  : 'Elles sont conservées par la Bibliothèque historique de la Ville de Paris. Ouvrez-les pour reconnaître le lieu, puis revenez ici.'}
               </Text>
             </View>
           )}
@@ -252,10 +334,11 @@ export function StationScreen() {
               <SymbolView name="chevron.left" size={18} tintColor={Palette.ink} />
             </Pressable>
             <Pressable
-              accessibilityLabel="Ouvrir la source officielle"
+              accessibilityLabel="Ouvrir la source de cette photo"
               onPress={openOfficial}
-              style={({ pressed }) => [styles.circleButton, pressed && styles.pressed]}>
-              <SymbolView name="safari" size={19} tintColor={Palette.ink} />
+              style={({ pressed }) => [styles.sourceButton, pressed && styles.pressed]}>
+              <SymbolView name="info.circle" size={17} tintColor={Palette.ink} />
+              <Text style={styles.sourceButtonText}>Source</Text>
             </Pressable>
           </SafeAreaView>
           <View style={styles.heroCaption}>
@@ -274,13 +357,15 @@ export function StationScreen() {
           </View>
         </View>
 
-        <TimeTravelSlider
-          activeYear={activeYear}
-          availableYears={availableYears}
-          onSelect={selectYear}
-        />
+        {availableYears.length > 1 ? (
+          <TimeTravelSlider
+            activeYear={activeYear}
+            availableYears={availableYears}
+            onSelect={selectYear}
+          />
+        ) : null}
 
-        {images.length > 1 ? (
+        {images.length > 1 && !hasComparison ? (
           <View style={styles.filmstripWrap}>
             <ArchiveFilmstrip
               images={images}
@@ -292,52 +377,141 @@ export function StationScreen() {
 
         <View style={styles.content}>
           <Text style={styles.kicker}>
-            {detail?.hasRecapture
-              ? 'REPRISE PUBLIÉE · ZONE À PRÉCISER'
-              : detail?.approximate ?? summary?.approximate
-                ? 'MISSION À LOCALISER'
-                : 'POINT DE VUE GÉOLOCALISÉ'}
+            {isArchive
+              ? `ARCHIVE DE ${referenceYear}`
+              : detail?.hasRecapture
+                ? 'PHOTO REFAITE'
+                : detail?.approximate ?? summary?.approximate
+                  ? 'MISSION À LOCALISER'
+                  : 'POINT DE VUE GÉOLOCALISÉ'}
           </Text>
-          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.title}>
+            {isArchive ? `Photo ${selectedViewNumber}` : title}
+          </Text>
+
+          {isArchive ? (
+            <Pressable
+              accessibilityLabel={`Voir le secteur ${title} sur la carte`}
+              accessibilityRole="button"
+              onPress={openOnMap}
+              style={({ pressed }) => [
+                styles.sectorLink,
+                pressed && styles.sectorLinkPressed,
+              ]}>
+              <View style={styles.sectorLinkIcon}>
+                <SymbolView
+                  name="square.grid.3x3"
+                  size={18}
+                  tintColor={Palette.parisBlue}
+                />
+              </View>
+              <View style={styles.sectorLinkCopy}>
+                <Text style={styles.sectorLinkTitle}>Secteur {title} · zone de 250 m</Text>
+                <Text style={styles.sectorLinkAction}>Voir le secteur sur la carte</Text>
+              </View>
+              <SymbolView name="chevron.right" size={14} tintColor={Palette.parisBlue} />
+            </Pressable>
+          ) : null}
+
           <Text style={styles.description}>
-            {detail?.description ??
-              (detail?.approximate ?? summary?.approximate
-                ? `Ce quartier de 250 m contient ${archiveCount} ${archiveCount > 1 ? 'vues' : 'vue'} prises en 1970. Leur emplacement exact reste à retrouver : c’est tout l’intérêt.`
-                : 'Un point de vue de référence de l’Observatoire photo participatif des paysages parisiens.')}
+            {isArchive
+              ? remainingArchiveCount === 0
+                ? `Les ${archiveCount} ${archiveCount > 1 ? 'photos de ce secteur ont' : 'photo de ce secteur a'} déjà été refaites. Vous pouvez proposer un cadrage encore plus fidèle.`
+                : `${remainingArchiveCount} ${remainingArchiveCount > 1 ? 'photos restent' : 'photo reste'} à retrouver dans ce secteur${publishedArchiveCount > 0 ? `, et ${publishedArchiveCount} ${publishedArchiveCount > 1 ? 'photos ont déjà été refaites' : 'photo a déjà été refaite'}` : ''}. Choisissez cette photo, puis retrouvez son point de vue sur place.`
+              : detail?.description ??
+                (detail?.approximate ?? summary?.approximate
+                  ? 'Le point de vue exact reste à retrouver dans cette zone.'
+                  : 'Un point de vue de référence de l’Observatoire photo participatif des paysages parisiens.')}
           </Text>
 
-          <View style={styles.howItWorks}>
-            <View style={styles.howItWorksIcon}>
-              <SymbolView name="viewfinder" size={20} tintColor={Palette.parisBlue} />
-            </View>
-            <View style={styles.howItWorksCopy}>
-              <Text style={styles.howItWorksTitle}>Comment contribuer</Text>
-              <Text style={styles.howItWorksText}>
-                Allez sur place, alignez l’archive avec votre caméra, prenez votre photo, puis vérifiez-la avant publication.
-              </Text>
-            </View>
-          </View>
+          {hasComparison && referenceImage && recaptureImage ? (
+            <View style={styles.recaptureBlock}>
+              <View style={styles.recaptureCard}>
+                <View style={styles.recaptureBody}>
+                  <Text style={styles.recaptureKicker}>1970 → AUJOURD’HUI</Text>
+                  <Text style={styles.recaptureTitle}>Même lieu, deux époques</Text>
+                  <Text style={styles.recaptureHint}>
+                    Faites glisser la poignée pour comparer les cadrages.
+                  </Text>
+                </View>
+                <BeforeAfterSlider
+                  before={referenceImage}
+                  after={recaptureImage}
+                  beforeLabel={String(detail?.year ?? referenceYear)}
+                  afterLabel="2026"
+                  borderRadius={0}
+                  onInteractionChange={setComparisonActive}
+                />
+                <View style={styles.recaptureFooter}>
+                  <View style={styles.recaptureCreditRow}>
+                    <View style={styles.recaptureCreditIcon}>
+                      <SymbolView name="camera.fill" size={13} tintColor={Palette.parisBlue} />
+                    </View>
+                    <View style={styles.recaptureCreditCopy}>
+                      <Text style={styles.recaptureArchiveCredit}>ARCHIVE 1970 · BHVP</Text>
+                      <Text style={styles.recaptureCredit} numberOfLines={1}>
+                        {detail?.currentAuthor
+                          ? `Photo actuelle · ${detail.currentAuthor}`
+                          : 'Photo actuelle · Communauté'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.repriseMark}>
+                    <Text style={styles.repriseMarkName}>REPRISE</Text>
+                    <Text style={styles.repriseMarkUrl}>reprise.paris</Text>
+                  </View>
+                </View>
+              </View>
 
-          <View style={styles.metadataGrid}>
-            <MetadataCell
-              icon="calendar"
-              label="Référence"
+              <Pressable
+                accessibilityLabel="Partager cet avant après"
+                accessibilityRole="button"
+                disabled={sharingCard}
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  setShareMenuVisible(true);
+                }}
+                style={({ pressed }) => [
+                  styles.shareButton,
+                  pressed && styles.shareButtonPressed,
+                ]}>
+                {sharingCard ? (
+                  <ActivityIndicator color={Palette.white} size="small" />
+                ) : (
+                  <SymbolView name="square.and.arrow.up" size={17} tintColor={Palette.white} />
+                )}
+                <Text style={styles.shareButtonText}>Partager</Text>
+                <SymbolView name="chevron.right" size={13} tintColor={Palette.white} />
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={reportRecapture}
+                style={({ pressed }) => [styles.reportButton, pressed && styles.pressed]}>
+                <SymbolView
+                  name="exclamationmark.bubble"
+                  size={14}
+                  tintColor={Palette.copper}
+                />
+                <Text style={styles.reportText}>Signaler un problème avec cette photo</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          <View style={styles.metadataStrip}>
+            <MetadataInlineItem
+              label="Date"
               value={detail?.dateLabel ?? String(detail?.year ?? summary?.year ?? 1970)}
             />
-            <MetadataCell
-              icon="mappin.and.ellipse"
-              label="Secteur"
+            <View style={styles.metadataDivider} />
+            <MetadataInlineItem
+              label="Paris"
               value={detail?.arrondissement ?? summary?.arrondissement ?? 'Paris'}
             />
-            <MetadataCell
-              icon="camera"
-              label="Auteur"
-              value={detail?.author ?? 'Archive participative'}
-            />
-            <MetadataCell
-              icon="viewfinder"
+            <View style={styles.metadataDivider} />
+            <MetadataInlineItem
               label="Précision"
-              value={detail?.approximate ?? summary?.approximate ? 'Carré de 250 m' : 'Point exact'}
+              value={detail?.approximate ?? summary?.approximate ? 'Secteur de 250 m' : 'Point exact'}
             />
           </View>
 
@@ -345,21 +519,37 @@ export function StationScreen() {
             <View>
               <Text style={styles.sectionKicker}>OÙ CHERCHER</Text>
               <Text style={styles.sectionTitle}>
-                {detail?.approximate ?? summary?.approximate ? 'Chercher dans ce quartier' : 'Revenir à ce point'}
+                {detail?.approximate ?? summary?.approximate
+                  ? 'Explorer ce secteur'
+                  : 'Repérer ce point'}
               </Text>
             </View>
           </View>
 
-          <View style={styles.mapWrap}>
+          <Pressable
+            accessibilityHint="Ouvre la carte complète centrée sur cette photo"
+            accessibilityLabel="Ouvrir ce point sur la carte"
+            accessibilityRole="button"
+            onPress={openOnMap}
+            style={({ pressed }) => [styles.mapWrap, pressed && styles.mapPressed]}>
             <MapView
+              key={`${id}-${coordinate.latitude}-${coordinate.longitude}`}
               style={StyleSheet.absoluteFill}
-              region={region}
-              mapType="mutedStandard"
+              initialRegion={region}
+              mapType={Platform.OS === 'android' ? 'none' : 'standard'}
+              loadingEnabled
+              loadingBackgroundColor={Palette.blueMist}
               pitchEnabled={false}
               rotateEnabled={false}
               scrollEnabled={false}
               zoomEnabled={false}
               pointerEvents="none">
+              <UrlTile
+                urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                maximumZ={19}
+                shouldReplaceMapContent={Platform.OS === 'ios'}
+                tileCacheMaxAge={604800}
+              />
               {squareBounds ? (
                 <Polygon
                   coordinates={[
@@ -383,62 +573,21 @@ export function StationScreen() {
               )}
               <Marker coordinate={coordinate} pinColor={Palette.parisBlue} />
             </MapView>
-            <View style={styles.mapLegend}>
+            <View pointerEvents="none" style={styles.mapLegend}>
               <Text style={styles.mapLegendText}>
                 {squareBounds
-                  ? `GRILLE OFFICIELLE 1970 · N°${detail?.name ?? summary?.name ?? ''}`
+                  ? `SECTEUR ${detail?.name ?? summary?.name ?? ''} · ZONE APPROXIMATIVE`
                   : 'POSITION OBSERVATOIRE'}
               </Text>
             </View>
-          </View>
-
-          <View style={styles.fieldNote}>
-            <View style={styles.fieldNoteIcon}>
-              <SymbolView name="eye" size={22} tintColor={Palette.parisBlue} />
+            <View pointerEvents="none" style={styles.mapAction}>
+              <Text style={styles.mapActionText}>Ouvrir la carte</Text>
+              <SymbolView name="arrow.up.right" size={11} tintColor={Palette.parisBlue} />
             </View>
-            <View style={styles.fieldNoteCopy}>
-              <Text style={styles.fieldNoteTitle}>Indice de terrain</Text>
-              <Text style={styles.fieldNoteText}>
-                Cherchez d’abord les lignes durables : corniches, fenêtres, pente de la chaussée et
-                profondeur des cours. Elles résistent mieux que les enseignes.
-              </Text>
+            <View pointerEvents="none" style={styles.mapAttribution}>
+              <Text style={styles.mapAttributionText}>© OPENSTREETMAP</Text>
             </View>
-          </View>
-
-          {detail?.hasRecapture && detail.referenceImage && detail.recaptureImage ? (
-            <View style={styles.recaptureCard}>
-              <BeforeAfterSlider
-                before={detail.referenceImage}
-                after={detail.recaptureImage}
-                beforeLabel={String(detail.year)}
-                afterLabel="2026"
-                borderRadius={0}
-                onInteractionChange={setComparisonActive}
-              />
-              <View style={styles.recaptureBody}>
-                <Text style={styles.recaptureKicker}>REPRISE PUBLIÉE</Text>
-                <Text style={styles.recaptureTitle}>Comparer avec la vue actuelle</Text>
-                {detail.currentAuthor ? (
-                  <Text style={styles.recaptureCredit}>Par {detail.currentAuthor}</Text>
-                ) : null}
-                <Text style={styles.recaptureRetry}>
-                  Une reprise publiée peut être retentée. Choisissez la meilleure vue, puis utilisez
-                  le bouton photo pour proposer un cadrage plus fidèle.
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={reportRecapture}
-                  style={({ pressed }) => [styles.reportButton, pressed && styles.pressed]}>
-                  <SymbolView
-                    name="exclamationmark.bubble"
-                    size={15}
-                    tintColor={Palette.copper}
-                  />
-                  <Text style={styles.reportText}>Signaler un problème avec cette reprise</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
+          </Pressable>
 
           <PrimaryButton
             label="Voir l’archive source"
@@ -455,24 +604,159 @@ export function StationScreen() {
           </Text>
         </View>
       </ScrollView>
-      {selectedImage && !viewerVisible ? (
-        <Pressable
-          accessibilityHint="Ouvre le viseur avec cette image en superposition"
-          accessibilityLabel={`${detail?.hasRecapture ? 'Proposer une nouvelle reprise' : 'Commencer l’alignement'} avec la vue ${selectedIndex + 1}`}
-          accessibilityRole="button"
-          onPress={openAlignment}
-          style={({ pressed }) => [
-            styles.floatingCamera,
-            { bottom: Math.max(insets.bottom, 12) + 16 },
-            pressed && styles.floatingCameraPressed,
-          ]}>
-          <SymbolView name="camera.fill" size={25} tintColor={Palette.white} />
-          <View style={styles.floatingFrameBadge}>
-            <Text style={styles.floatingFrameText}>
-              {String(selectedIndex + 1).padStart(2, '0')}
-            </Text>
+      {hasComparison && referenceImage && recaptureImage ? (
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          pointerEvents="none"
+          style={[styles.shareCaptureHost, { left: -screenWidth * 2, width: screenWidth - 32 }]}>
+          <View ref={shareCardRef} collapsable={false} style={styles.shareExportCard}>
+            <View style={styles.shareExportHeader}>
+              <Text style={styles.shareExportKicker}>PARIS · AVANT / AUJOURD’HUI</Text>
+              <Text style={styles.shareExportTitle}>{title}</Text>
+            </View>
+            <View style={styles.shareExportPhotos}>
+              <View style={styles.shareExportPhoto}>
+                <Image source={referenceImage} style={StyleSheet.absoluteFill} contentFit="cover" />
+                <View style={[styles.shareExportYear, styles.shareExportYearBefore]}>
+                  <Text style={styles.shareExportYearText}>{referenceYear}</Text>
+                </View>
+              </View>
+              <View style={styles.shareExportPhoto}>
+                <Image source={recaptureImage} style={StyleSheet.absoluteFill} contentFit="cover" />
+                <View style={[styles.shareExportYear, styles.shareExportYearAfter]}>
+                  <Text style={styles.shareExportYearText}>2026</Text>
+                </View>
+              </View>
+              <View style={styles.shareExportDivider} />
+            </View>
+            <View style={styles.shareExportFooter}>
+              <View style={styles.shareExportCredits}>
+                <Text style={styles.recaptureArchiveCredit}>ARCHIVE 1970 · BHVP</Text>
+                <Text style={styles.recaptureCredit} numberOfLines={1}>
+                  {detail?.currentAuthor
+                    ? `Photo actuelle · ${detail.currentAuthor}`
+                    : 'Photo actuelle · Communauté'}
+                </Text>
+              </View>
+              <View style={styles.repriseMark}>
+                <Text style={styles.repriseMarkName}>REPRISE</Text>
+                <Text style={styles.repriseMarkUrl}>reprise.paris</Text>
+              </View>
+            </View>
           </View>
-        </Pressable>
+        </View>
+      ) : null}
+      {hasComparison && referenceImage && recaptureImage ? (
+        <Modal
+          animationType="fade"
+          onRequestClose={() => setShareMenuVisible(false)}
+          statusBarTranslucent
+          transparent
+          visible={shareMenuVisible}>
+          <View style={styles.shareModalRoot}>
+            <Pressable
+              accessibilityLabel="Fermer les options de partage"
+              onPress={() => setShareMenuVisible(false)}
+              style={StyleSheet.absoluteFill}
+            />
+            <SafeAreaView edges={['bottom']} style={styles.shareSheet}>
+              <GlassSurface
+                tintColor="rgba(248, 250, 249, 0.86)"
+                variant="regular"
+              />
+              <View style={styles.shareSheetContent}>
+                <View style={styles.shareSheetHandle} />
+                <View style={styles.shareSheetHeader}>
+                  <View style={styles.shareSheetHeading}>
+                    <Text style={styles.shareSheetKicker}>PARTAGER</Text>
+                    <Text style={styles.shareSheetTitle}>Cet avant/après</Text>
+                  </View>
+                  <Pressable
+                    accessibilityLabel="Fermer"
+                    onPress={() => setShareMenuVisible(false)}
+                    style={({ pressed }) => [
+                      styles.shareSheetClose,
+                      pressed && styles.pressed,
+                    ]}>
+                    <SymbolView name="xmark" size={13} tintColor={Palette.ink} />
+                  </Pressable>
+                </View>
+
+                <Pressable
+                  accessibilityHint="Ouvre le menu de partage avec une image prête à publier"
+                  accessibilityLabel="Partager la carte avant après"
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setShareMenuVisible(false);
+                    setTimeout(() => void shareComparisonCard(), 220);
+                  }}
+                  style={({ pressed }) => [
+                    styles.shareOption,
+                    pressed && styles.shareOptionPressed,
+                  ]}>
+                  <View style={styles.shareOptionPreview}>
+                    <Image source={referenceImage} style={styles.shareOptionPhoto} contentFit="cover" />
+                    <Image source={recaptureImage} style={styles.shareOptionPhoto} contentFit="cover" />
+                  </View>
+                  <View style={styles.shareOptionCopy}>
+                    <Text style={styles.shareOptionTitle}>La carte avant/après</Text>
+                    <Text style={styles.shareOptionText}>
+                      Deux images côte à côte, prêtes à publier.
+                    </Text>
+                  </View>
+                  <SymbolView name="chevron.right" size={13} tintColor={Palette.inkSoft} />
+                </Pressable>
+
+                <Pressable
+                  accessibilityHint="Partage un lien qui ouvre cette photo dans Reprise"
+                  accessibilityLabel="Partager le lien Reprise"
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setShareMenuVisible(false);
+                    setTimeout(() => void shareRepriseLink(), 220);
+                  }}
+                  style={({ pressed }) => [
+                    styles.shareOption,
+                    pressed && styles.shareOptionPressed,
+                  ]}>
+                  <View style={styles.shareOptionIcon}>
+                    <SymbolView name="link" size={18} tintColor={Palette.parisBlue} />
+                  </View>
+                  <View style={styles.shareOptionCopy}>
+                    <Text style={styles.shareOptionTitle}>Le lien Reprise</Text>
+                    <Text style={styles.shareOptionText}>
+                      Pour ouvrir directement cette photo dans l’app.
+                    </Text>
+                  </View>
+                  <SymbolView name="chevron.right" size={13} tintColor={Palette.inkSoft} />
+                </Pressable>
+              </View>
+            </SafeAreaView>
+          </View>
+        </Modal>
+      ) : null}
+      {selectedImage && !viewerVisible ? (
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.stickyActionDock,
+            { bottom: Math.max(insets.bottom, 12) },
+          ]}>
+          <Pressable
+            accessibilityHint="Ouvre le viseur avec cette image en superposition"
+            accessibilityLabel={`Refaire la photo ${selectedIndex + 1}`}
+            accessibilityRole="button"
+            onPress={openAlignment}
+            style={({ pressed }) => [
+              styles.stickyAction,
+              pressed && styles.stickyActionPressed,
+            ]}>
+            <SymbolView name="camera.fill" size={20} tintColor={Palette.white} />
+            <Text style={styles.stickyActionText}>Refaire cette photo</Text>
+            <SymbolView name="arrow.right" size={16} tintColor={Palette.white} />
+          </Pressable>
+        </View>
       ) : null}
       <PhotoViewer
         images={images}
@@ -491,7 +775,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.fog,
   },
   scrollContent: {
-    paddingBottom: 112,
+    paddingBottom: 144,
   },
   loadingScreen: {
     flex: 1,
@@ -568,6 +852,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Shadow.card,
   },
+  sourceButton: {
+    minWidth: 88,
+    height: 44,
+    marginTop: Spacing.one,
+    paddingHorizontal: Spacing.twoHalf,
+    borderRadius: Radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    ...Shadow.card,
+  },
+  sourceButtonText: {
+    color: Palette.ink,
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   heroCaption: {
     position: 'absolute',
     bottom: Spacing.three,
@@ -630,70 +933,83 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  howItWorks: {
-    marginTop: Spacing.three,
-    padding: Spacing.three,
+  sectorLink: {
+    minHeight: 72,
+    marginTop: Spacing.two,
+    padding: Spacing.twoHalf,
     borderRadius: Radius.medium,
-    backgroundColor: Palette.blueMist,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    backgroundColor: Palette.white,
     flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.twoHalf,
   },
-  howItWorksIcon: {
+  sectorLinkPressed: {
+    backgroundColor: Palette.blueMist,
+    transform: [{ scale: 0.99 }],
+  },
+  sectorLinkIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Palette.white,
+    backgroundColor: Palette.blueMist,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  howItWorksCopy: {
+  sectorLinkCopy: {
     flex: 1,
   },
-  howItWorksTitle: {
+  sectorLinkTitle: {
     color: Palette.ink,
     fontFamily: Fonts.sans,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
   },
-  howItWorksText: {
+  sectorLinkAction: {
     marginTop: 3,
-    color: Palette.inkSoft,
+    color: Palette.parisBlue,
     fontFamily: Fonts.sans,
     fontSize: 12,
-    lineHeight: 18,
+    fontWeight: '700',
   },
-  metadataGrid: {
-    marginTop: Spacing.four,
+  metadataStrip: {
+    marginTop: Spacing.three,
+    minHeight: 48,
+    paddingHorizontal: Spacing.twoHalf,
+    paddingVertical: Spacing.two,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderLeftWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: Palette.line,
-  },
-  metadataCell: {
-    width: '50%',
-    minHeight: 112,
-    padding: Spacing.three,
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: Palette.line,
+    borderRadius: Radius.medium,
     backgroundColor: Palette.white,
   },
+  metadataInlineItem: {
+    flex: 1,
+    minWidth: 0,
+  },
+  metadataDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 24,
+    marginHorizontal: Spacing.two,
+    backgroundColor: Palette.line,
+  },
   metadataLabel: {
-    marginTop: Spacing.two,
     color: Palette.inkSoft,
     fontFamily: Fonts.mono,
-    fontSize: 9,
+    fontSize: 7,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    letterSpacing: 0.4,
   },
   metadataValue: {
-    marginTop: 4,
+    marginTop: 1,
     color: Palette.ink,
     fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
   },
   sectionHeading: {
     marginTop: Spacing.five,
@@ -717,10 +1033,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   mapWrap: {
-    height: 250,
+    height: 230,
     borderRadius: Radius.large,
     overflow: 'hidden',
     backgroundColor: Palette.blueMist,
+  },
+  mapPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.995 }],
   },
   mapLegend: {
     position: 'absolute',
@@ -738,43 +1058,50 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.5,
   },
-  fieldNote: {
-    marginVertical: Spacing.four,
-    padding: Spacing.three,
-    borderRadius: Radius.medium,
-    backgroundColor: Palette.blueMist,
+  mapAction: {
+    position: 'absolute',
+    top: Spacing.two,
+    right: Spacing.two,
+    minHeight: 32,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.94)',
     flexDirection: 'row',
-    gap: Spacing.three,
-  },
-  fieldNoteIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Palette.white,
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    ...Shadow.card,
   },
-  fieldNoteCopy: {
-    flex: 1,
-  },
-  fieldNoteTitle: {
-    color: Palette.ink,
+  mapActionText: {
+    color: Palette.parisBlue,
     fontFamily: Fonts.sans,
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '900',
   },
-  fieldNoteText: {
-    marginTop: 4,
+  mapAttribution: {
+    position: 'absolute',
+    right: Spacing.two,
+    bottom: Spacing.two,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    borderRadius: Radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+  },
+  mapAttributionText: {
     color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    lineHeight: 19,
+    fontFamily: Fonts.mono,
+    fontSize: 6,
+    fontWeight: '800',
+    letterSpacing: 0.35,
+  },
+  recaptureBlock: {
+    marginTop: Spacing.four,
+    marginBottom: Spacing.four,
   },
   recaptureCard: {
-    marginBottom: Spacing.four,
     borderRadius: Radius.large,
     overflow: 'hidden',
     backgroundColor: Palette.white,
+    ...Shadow.card,
   },
   recaptureBody: {
     padding: Spacing.three,
@@ -793,23 +1120,285 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
   },
-  recaptureCredit: {
+  recaptureHint: {
     marginTop: 5,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 12,
+    fontSize: 13,
+    lineHeight: 19,
   },
-  recaptureRetry: {
-    marginTop: Spacing.two,
+  recaptureFooter: {
+    minHeight: 64,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  recaptureCreditRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  recaptureCreditIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Palette.blueMist,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recaptureCredit: {
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 10,
+  },
+  recaptureCreditCopy: {
+    flex: 1,
+  },
+  recaptureArchiveCredit: {
+    marginBottom: 2,
+    color: Palette.copper,
+    fontFamily: Fonts.mono,
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.35,
+  },
+  repriseMark: {
+    alignItems: 'flex-end',
+  },
+  repriseMarkName: {
+    color: Palette.parisBlue,
+    fontFamily: Fonts.display,
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  repriseMarkUrl: {
+    marginTop: -1,
+    color: Palette.copper,
+    fontFamily: Fonts.mono,
+    fontSize: 7,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  shareButton: {
+    minHeight: 52,
+    marginTop: Spacing.twoHalf,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.medium,
+    backgroundColor: Palette.parisBlue,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  shareButtonText: {
+    flex: 1,
+    color: Palette.white,
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  shareButtonPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.985 }],
+  },
+  shareCaptureHost: {
+    position: 'absolute',
+    top: 0,
+  },
+  shareModalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: Spacing.two,
+    paddingBottom: Spacing.two,
+    backgroundColor: 'rgba(8, 17, 22, 0.3)',
+  },
+  shareSheet: {
+    overflow: 'hidden',
+    borderRadius: Radius.large,
+    backgroundColor: 'rgba(248, 250, 249, 0.84)',
+    ...Shadow.card,
+  },
+  shareSheetContent: {
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.three,
+  },
+  shareSheetHandle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    marginBottom: Spacing.twoHalf,
+    borderRadius: 2,
+    backgroundColor: 'rgba(22, 42, 54, 0.2)',
+  },
+  shareSheetHeader: {
+    marginBottom: Spacing.twoHalf,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  shareSheetHeading: {
+    flex: 1,
+  },
+  shareSheetKicker: {
+    color: Palette.copper,
+    fontFamily: Fonts.mono,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  shareSheetTitle: {
+    marginTop: 3,
+    color: Palette.ink,
+    fontFamily: Fonts.display,
+    fontSize: 26,
+    lineHeight: 31,
+    fontWeight: '900',
+  },
+  shareSheetClose: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareOption: {
+    minHeight: 74,
+    marginTop: Spacing.two,
+    padding: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(38, 61, 75, 0.14)',
+    borderRadius: Radius.medium,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  shareOptionPressed: {
+    backgroundColor: 'rgba(224, 235, 238, 0.9)',
+    transform: [{ scale: 0.99 }],
+  },
+  shareOptionPreview: {
+    width: 62,
+    height: 50,
+    overflow: 'hidden',
+    borderRadius: 10,
+    backgroundColor: Palette.blueMist,
+    flexDirection: 'row',
+  },
+  shareOptionPhoto: {
+    flex: 1,
+    height: 50,
+  },
+  shareOptionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
+    backgroundColor: Palette.blueMist,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareOptionCopy: {
+    flex: 1,
+  },
+  shareOptionTitle: {
+    color: Palette.ink,
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  shareOptionText: {
+    marginTop: 3,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  shareExportCard: {
+    overflow: 'hidden',
+    borderRadius: Radius.large,
+    backgroundColor: Palette.white,
+  },
+  shareExportHeader: {
+    padding: Spacing.three,
+    backgroundColor: Palette.white,
+  },
+  shareExportKicker: {
+    color: Palette.copper,
+    fontFamily: Fonts.mono,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  shareExportTitle: {
+    marginTop: 5,
+    color: Palette.ink,
+    fontFamily: Fonts.display,
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '900',
+  },
+  shareExportPhotos: {
+    height: 280,
+    flexDirection: 'row',
+  },
+  shareExportPhoto: {
+    flex: 1,
+    overflow: 'hidden',
+    backgroundColor: Palette.blueMist,
+  },
+  shareExportDivider: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '50%',
+    width: 2,
+    marginLeft: -1,
+    backgroundColor: Palette.white,
+  },
+  shareExportYear: {
+    position: 'absolute',
+    top: Spacing.two,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: Radius.pill,
+  },
+  shareExportYearBefore: {
+    left: Spacing.two,
+    backgroundColor: Palette.copper,
+  },
+  shareExportYearAfter: {
+    right: Spacing.two,
+    backgroundColor: Palette.parisBlue,
+  },
+  shareExportYearText: {
+    color: Palette.white,
+    fontFamily: Fonts.mono,
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  shareExportFooter: {
+    minHeight: 70,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.twoHalf,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+    backgroundColor: Palette.white,
+  },
+  shareExportCredits: {
+    flex: 1,
   },
   reportButton: {
     alignSelf: 'flex-start',
     minHeight: 40,
-    marginTop: Spacing.three,
+    marginTop: Spacing.two,
     paddingHorizontal: Spacing.twoHalf,
     borderRadius: Radius.pill,
     borderWidth: 1,
@@ -836,42 +1425,36 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     textTransform: 'uppercase',
   },
-  floatingCamera: {
+  stickyActionDock: {
     position: 'absolute',
-    right: Spacing.three,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 3,
-    borderColor: Palette.white,
+    left: 0,
+    right: 0,
+    paddingTop: 10,
+    paddingHorizontal: Spacing.three,
+    backgroundColor: 'rgba(238, 244, 244, 0.97)',
+  },
+  stickyAction: {
+    minHeight: 58,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.pill,
     backgroundColor: Palette.parisBlue,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: Spacing.two,
     ...Shadow.card,
   },
-  floatingCameraPressed: {
-    transform: [{ scale: 0.92 }],
+  stickyActionPressed: {
+    transform: [{ scale: 0.985 }],
     backgroundColor: Palette.blueDeep,
   },
-  floatingFrameBadge: {
-    position: 'absolute',
-    right: -3,
-    top: -3,
-    minWidth: 23,
-    height: 23,
-    paddingHorizontal: 5,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Palette.white,
-    backgroundColor: Palette.brass,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  floatingFrameText: {
-    color: Palette.blueDeep,
-    fontFamily: Fonts.mono,
-    fontSize: 8,
+  stickyActionText: {
+    flex: 1,
+    color: Palette.white,
+    fontFamily: Fonts.sans,
+    fontSize: 16,
     fontWeight: '900',
+    textAlign: 'center',
   },
   pressed: {
     opacity: 0.82,
