@@ -296,7 +296,7 @@ export function AlignmentScreen() {
         },
       });
     } catch {
-      setCaptureError('La prise de vue a échoué. Gardez le viseur ouvert et réessayez.');
+      setCaptureError('La photo a échoué. Gardez le viseur ouvert et réessayez.');
     } finally {
       setCapturing(false);
     }
@@ -511,7 +511,7 @@ export function AlignmentScreen() {
           <View>
             <Text style={styles.controlKicker}>SUPERPOSITION HISTORIQUE</Text>
             <Text style={styles.controlTitle}>
-              Vue {String(frameIndex + 1).padStart(2, '0')} · {detail?.year ?? 1970}
+              Photo {String(frameIndex + 1).padStart(2, '0')} · {detail?.year ?? 1970}
             </Text>
           </View>
           <Pressable
@@ -626,7 +626,7 @@ export function AlignmentScreen() {
             <SymbolView name="minus.magnifyingglass" size={20} tintColor={Palette.white} />
           </Pressable>
           <Pressable
-            accessibilityLabel={liveCamera ? 'Prendre la photo' : 'Simuler la prise de vue'}
+            accessibilityLabel={liveCamera ? 'Prendre la photo' : 'Simuler la photo'}
             disabled={capturing || (liveCamera && !cameraReady)}
             onPress={capture}
             style={({ pressed }) => [
@@ -646,7 +646,7 @@ export function AlignmentScreen() {
         <Text style={styles.captureHint}>
           {captureError ??
             (isSimulator
-              ? 'Le simulateur utilise une vue d’essai. Sur iPhone, le flux caméra la remplace automatiquement.'
+              ? 'Le simulateur utilise une photo d’essai. Sur iPhone, le flux caméra la remplace automatiquement.'
               : liveCamera
                 ? 'Restez sur le domaine public et surveillez la circulation.'
                 : 'Touchez le déclencheur pour autoriser la caméra.')}

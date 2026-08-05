@@ -11,6 +11,7 @@ import { BUNDLED_SNAPSHOT, type Snapshot } from '@/data/snapshot';
 import { loadStoredSnapshot, refreshSnapshot } from '@/data/snapshot-store';
 import {
   buildOpenMissions,
+  buildContributorSubmissions,
   buildPublishedSubmissions,
   buildStationDetail,
   buildStations,
@@ -37,6 +38,7 @@ type StationsContextValue = {
   totalOnline: number;
   findStation: (id: string) => StationSummary | undefined;
   findDetail: (id: string) => StationDetail | undefined;
+  findContributorSubmissions: (name: string) => StationDetail[];
 };
 
 const StationsContext = createContext<StationsContextValue | null>(null);
@@ -81,6 +83,8 @@ export function StationsProvider({ children }: PropsWithChildren) {
       totalOnline: stations.length,
       findStation: (id: string) => stationsById.get(id),
       findDetail: (id: string) => buildStationDetail(snapshot, id),
+      findContributorSubmissions: (name: string) =>
+        buildContributorSubmissions(snapshot, name),
     };
   }, [snapshot]);
 

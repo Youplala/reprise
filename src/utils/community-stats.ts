@@ -46,6 +46,15 @@ const monthFormat = new Intl.DateTimeFormat('fr-FR', { month: 'short' });
 
 const PARTICLES = new Set(['de', 'du', 'des', 'le', 'la', 'van', 'von', 'di', "d'"]);
 
+export function contributorKey(name: string) {
+  return name
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('fr-FR')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+}
+
 /**
  * Uniformise la casse d'un nom saisi à la main. Le règlement de l'Observatoire crédite sous la
  * forme « Prénom NOM » : un « jean-yves Collet » au milieu d'un classement donne l'impression
@@ -125,10 +134,7 @@ export function buildCommunityStats(snapshot: Snapshot): CommunityStats {
     const name = station.recaptureAuthor?.trim().replace(/\s+/g, ' ');
     if (!name) continue;
 
-    const key = name
-      .toLocaleLowerCase('fr-FR')
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '');
+    const key = contributorKey(name);
 
     const group = groups.get(key) ?? { spellings: new Map<string, number>(), count: 0 };
     group.count += 1;
@@ -163,7 +169,7 @@ export function buildCommunityStats(snapshot: Snapshot): CommunityStats {
     datedRecaptures: monthlyActivity.reduce((total, entry) => total + entry.count, 0),
     arrondissementActivity,
     squareDistribution: [
-      { key: 'untouched', label: 'Aucune reprise', count: buckets.untouched },
+      { key: 'untouched', label: 'Aucune photo refaite', count: buckets.untouched },
       { key: 'started', label: 'Commencé', count: buckets.started },
       { key: 'halfway', label: 'Bien avancé', count: buckets.halfway },
       { key: 'complete', label: 'Terminé', count: buckets.complete },

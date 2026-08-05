@@ -21,8 +21,8 @@ import { distanceInMeters, formatDistance } from '@/utils/distance';
 
 const STEPS = [
   ['01', 'Choisir', 'Une photo de 1970 près de vous.'],
-  ['02', 'Aligner', 'La caméra superpose l’ancienne vue.'],
-  ['03', 'Publier', 'Votre reprise rejoint la carte.'],
+  ['02', 'Aligner', 'La caméra superpose la photo d’archive.'],
+  ['03', 'Publier', 'Votre photo rejoint la carte.'],
 ] as const;
 
 export function HomeScreen() {
@@ -37,11 +37,15 @@ export function HomeScreen() {
   const nearby = useMemo(
     () =>
       stations
-        .filter((station) => station.id !== featured?.id)
+        .filter(
+          (station) =>
+            station.kind === 'archive-1970' &&
+            (station.remainingCount ?? station.frameCount ?? 0) > 0,
+        )
         .map((station) => ({ station, distance: distanceInMeters(coordinate, station.coordinate) }))
         .sort((left, right) => left.distance - right.distance)
-        .slice(0, 6),
-    [coordinate, featured?.id, stations],
+        .slice(0, 3),
+    [coordinate, stations],
   );
 
   const featuredDistance = featured ? distanceInMeters(coordinate, featured.coordinate) : 0;
@@ -107,11 +111,12 @@ export function HomeScreen() {
 
           <View>
             <Text style={styles.eyebrow}>
-              {isPrecise ? 'AUTOUR DE VOUS' : 'PARIS · 30 087 VUES DE 1970'}
+              {isPrecise ? 'AUTOUR DE VOUS' : 'PARIS · 30 087 PHOTOS DE 1970'}
             </Text>
-            <Text style={styles.heroTitle}>Paris, photographié rue par rue en 1970.</Text>
+            <Text style={styles.heroTitle}>Retrouvez Paris, photo après photo.</Text>
             <Text style={styles.heroCopy}>
-              Retrouvez un de ces points de vue et refaites la photo aujourd’hui, au même endroit.
+              Choisissez une photo de 1970, retrouvez où elle a été prise, puis refaites le même
+              cadrage aujourd’hui.
             </Text>
           </View>
         </SafeAreaView>
@@ -122,7 +127,7 @@ export function HomeScreen() {
             <View style={styles.pulseRow}>
               <View style={styles.pulseItem}>
                 <AnimatedNumber value={coverage.published1970} style={styles.pulseValue} />
-                <Text style={styles.pulseLabel}>vues refaites</Text>
+                <Text style={styles.pulseLabel}>photos refaites</Text>
               </View>
               <View style={styles.pulseDivider} />
               <View style={styles.pulseItem}>
@@ -132,7 +137,7 @@ export function HomeScreen() {
               <View style={styles.pulseDivider} />
               <View style={styles.pulseItem}>
                 <AnimatedNumber value={coverage.squaresOpened} style={styles.pulseValue} />
-                <Text style={styles.pulseLabel}>quartiers ouverts</Text>
+                <Text style={styles.pulseLabel}>secteurs ouverts</Text>
               </View>
             </View>
             <Pressable
@@ -144,8 +149,8 @@ export function HomeScreen() {
               style={({ pressed }) => [styles.pulseFooter, pressed && styles.pressedSoft]}>
               <Text style={styles.pulseFooterText}>
                 {stats.recapturesLast30Days > 0
-                  ? `${stats.recapturesLast30Days} reprises ces 30 derniers jours`
-                  : `${lastMonth?.count ?? 0} reprises en ${lastMonth?.label ?? ''}`}
+                  ? `${stats.recapturesLast30Days} photos publiées ces 30 derniers jours`
+                  : `${lastMonth?.count ?? 0} photos publiées en ${lastMonth?.label ?? ''}`}
               </Text>
               <SymbolView name="chevron.right" size={13} tintColor={Palette.parisBlue} />
             </Pressable>
@@ -165,7 +170,7 @@ export function HomeScreen() {
             />
             <View style={styles.featuredShade} />
             <View style={styles.featuredTop}>
-              <SourcePill label="Point de vue à reconduire" inverse />
+              <SourcePill label="Photo à refaire" inverse />
             </View>
             <View style={styles.featuredBottom}>
               <Text style={styles.featuredKicker}>
@@ -173,7 +178,7 @@ export function HomeScreen() {
                 {featured?.year ?? 2022}
               </Text>
               <Text style={styles.featuredTitle} numberOfLines={2}>
-                {featured?.name ?? 'Un point de vue à reconduire'}
+                {featured?.name ?? 'Une photo à refaire'}
               </Text>
               <View style={styles.featuredMeta}>
                 <View style={styles.featuredMetaItem}>
@@ -195,9 +200,12 @@ export function HomeScreen() {
         <View style={styles.sectionHeader}>
           <View style={styles.sectionHeading}>
             <Text style={styles.sectionKicker}>
-              {isPrecise ? 'LES PLUS PROCHES' : 'POUR COMMENCER'}
+              ARCHIVES DE 1970
             </Text>
-            <Text style={styles.sectionTitle}>Près de vous</Text>
+            <Text style={styles.sectionTitle}>Photos près de vous</Text>
+            <Text style={styles.sectionCopy}>
+              Choisissez un secteur, puis une photo à retrouver.
+            </Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -211,15 +219,11 @@ export function HomeScreen() {
           </Pressable>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          decelerationRate="fast"
-          contentContainerStyle={styles.cardRail}>
+        <View style={styles.cardList}>
           {nearby.map(({ station, distance }) => (
-            <StationCard key={station.id} station={station} distance={distance} compact />
+            <StationCard key={station.id} station={station} distance={distance} wide />
           ))}
-        </ScrollView>
+        </View>
 
         <View style={styles.protocol}>
           <Text style={styles.protocolKicker}>COMMENT ÇA MARCHE</Text>
@@ -240,7 +244,7 @@ export function HomeScreen() {
           <SourcePill version={snapshotVersion} />
           <Text style={styles.dataCopy}>
             Photos de 1970 conservées par la Bibliothèque historique de la Ville de Paris. Carte et
-            reprises publiques de l’Observatoire photo participatif des paysages parisiens, animé
+            photos actuelles publiées par l’Observatoire photo participatif des paysages parisiens, animé
             par le CAUE de Paris.
           </Text>
         </View>
@@ -312,11 +316,15 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     marginTop: Spacing.two,
+    marginHorizontal: -2,
+    paddingHorizontal: 2,
+    paddingTop: 4,
+    paddingBottom: 5,
     color: Palette.ink,
     fontFamily: Fonts.display,
     fontWeight: '800',
     fontSize: 42,
-    lineHeight: 44,
+    lineHeight: 48,
     letterSpacing: -1.2,
   },
   heroCopy: {
@@ -464,6 +472,7 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     flex: 1,
+    paddingRight: Spacing.two,
   },
   sectionKicker: {
     color: Palette.copper,
@@ -474,10 +483,22 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginTop: 5,
+    marginHorizontal: -2,
+    paddingHorizontal: 2,
+    paddingTop: 2,
+    paddingBottom: 4,
     color: Palette.ink,
     fontFamily: Fonts.display,
     fontSize: 28,
+    lineHeight: 34,
     fontWeight: '800',
+  },
+  sectionCopy: {
+    marginTop: 5,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    lineHeight: 18,
   },
   seeAll: {
     minHeight: 44,
@@ -492,7 +513,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
-  cardRail: {
+  cardList: {
     gap: Spacing.three,
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.three,

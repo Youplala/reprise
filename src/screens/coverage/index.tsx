@@ -95,7 +95,7 @@ export function CoverageScreen() {
           </View>
 
           <Text style={styles.kicker}>OÙ EN EST LA CARTE</Text>
-          <Text style={styles.title}>Ce qui a été refait, ce qu’il reste à voir.</Text>
+          <Text style={styles.title}>Ce qui a été refait, ce qu’il reste à photographier.</Text>
         </SafeAreaView>
 
         <Animated.View entering={FadeInDown.duration(420)} style={styles.heroCard}>
@@ -106,32 +106,32 @@ export function CoverageScreen() {
               suffix=" %"
               style={styles.heroNumber}
             />
-            <Text style={styles.heroCaption}>des vues de 1970{'\n'}ont été refaites</Text>
+            <Text style={styles.heroCaption}>des photos de 1970{'\n'}ont été refaites</Text>
           </View>
           <View style={styles.heroTrack}>
             <View style={[styles.heroFill, { width: `${Math.max(1.5, coverage.percentage)}%` }]} />
           </View>
           <Text style={styles.heroDetail}>
-            {coverage.published1970.toLocaleString('fr-FR')} reprises publiées sur{' '}
+            {coverage.published1970.toLocaleString('fr-FR')} photos refaites sur{' '}
             {coverage.total1970.toLocaleString('fr-FR')} photos numérisées. Le chantier est immense,
-            c’est normal : chaque reprise compte.
+            c’est normal : chaque photo compte.
           </Text>
         </Animated.View>
 
         <Section
           kicker="LA GRILLE DE 1970"
-          title="1 171 quartiers de 250 m"
-          copy="Paris avait été découpé en carrés pour le concours de 1970. Voici où en est chacun d’eux."
+          title="1 171 secteurs de 250 m"
+          copy="Paris avait été découpé en secteurs pour le concours de 1970. Voici où en est chacun d’eux."
           delay={60}>
           <StackedShare data={shares} />
         </Section>
 
         <Section
-          kicker="ACTIVITÉ DU COLLECTIF"
-          title="Les reprises mois par mois"
-          copy={`${stats.datedRecaptures.toLocaleString('fr-FR')} reprises datées depuis l’ouverture de la campagne.`}
+          kicker="ACTIVITÉ DE LA COMMUNAUTÉ"
+          title="Les photos mois par mois"
+          copy={`${stats.datedRecaptures.toLocaleString('fr-FR')} photos datées depuis l’ouverture de la campagne.`}
           delay={120}>
-          <BarChart data={months} unit="reprises" accentColor={Palette.parisBlue} />
+          <BarChart data={months} unit="photos" accentColor={Palette.parisBlue} />
         </Section>
 
         <Section kicker="RÉPARTITION" title="Les arrondissements les plus actifs" delay={180}>
@@ -145,23 +145,38 @@ export function CoverageScreen() {
           delay={240}>
           <View style={styles.contributors}>
             {stats.topContributors.slice(0, 6).map((contributor, index) => (
-              <View key={contributor.name} style={styles.contributorRow}>
+              <Pressable
+                key={contributor.name}
+                accessibilityLabel={`Voir le profil de ${formatContributorName(contributor.name)}, ${contributor.count} photos`}
+                accessibilityRole="button"
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  router.push({
+                    pathname: '/contributor/[name]',
+                    params: { name: contributor.name },
+                  });
+                }}
+                style={({ pressed }) => [
+                  styles.contributorRow,
+                  pressed && styles.contributorRowPressed,
+                ]}>
                 <Text style={styles.contributorRank}>{String(index + 1).padStart(2, '0')}</Text>
                 <Text style={styles.contributorName} numberOfLines={1}>
                   {formatContributorName(contributor.name)}
                 </Text>
                 <Text style={styles.contributorCount}>
-                  {contributor.count} {contributor.count > 1 ? 'reprises' : 'reprise'}
+                  {contributor.count} {contributor.count > 1 ? 'photos' : 'photo'}
                 </Text>
-              </View>
+                <SymbolView name="chevron.right" size={11} tintColor={Palette.inkSoft} />
+              </Pressable>
             ))}
           </View>
         </Section>
 
         <Section
           kicker="À FAIRE EN PRIORITÉ"
-          title="Les quartiers les plus fournis"
-          copy="Ces carrés contiennent le plus de vues encore jamais refaites."
+          title="Les secteurs les plus fournis"
+          copy="Ces secteurs contiennent le plus de photos qui n’ont pas encore été refaites."
           delay={300}>
           <View style={styles.priority}>
             {priorityCells.map((cell, index) => (
@@ -175,9 +190,9 @@ export function CoverageScreen() {
                 style={({ pressed }) => [styles.priorityRow, pressed && styles.pressedSoft]}>
                 <Text style={styles.priorityRank}>{String(index + 1).padStart(2, '0')}</Text>
                 <View style={styles.priorityText}>
-                  <Text style={styles.priorityTitle}>Carré {cell.name}</Text>
+                  <Text style={styles.priorityTitle}>Secteur {cell.name}</Text>
                   <Text style={styles.priorityMeta}>
-                    {cell.remaining1970} vues à retrouver · {cell.percentage} % fait
+                    {cell.remaining1970} photos à retrouver · {cell.percentage} % fait
                   </Text>
                 </View>
                 <SymbolView name="chevron.right" size={13} tintColor={Palette.inkSoft} />
@@ -328,9 +343,16 @@ const styles = StyleSheet.create({
     gap: Spacing.twoHalf,
   },
   contributorRow: {
+    minHeight: 40,
+    marginHorizontal: -Spacing.two,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Radius.small,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.twoHalf,
+  },
+  contributorRowPressed: {
+    backgroundColor: Palette.blueMist,
   },
   contributorRank: {
     width: 22,

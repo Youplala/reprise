@@ -3,7 +3,9 @@ import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AdaptivePhoto } from '@/components/adaptive-photo';
+import { ArchiveContactSheet } from '@/components/archive-contact-sheet';
 import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
+import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import type { StationSummary } from '@/types/station';
 import { formatDistance } from '@/utils/distance';
@@ -12,50 +14,86 @@ type StationCardProps = {
   station: StationSummary;
   distance?: number;
   compact?: boolean;
+  wide?: boolean;
 };
 
-export function StationCard({ station, distance, compact = false }: StationCardProps) {
+export function StationCard({
+  station,
+  distance,
+  compact = false,
+  wide = false,
+}: StationCardProps) {
   const { detail } = useStationDetail(station.id);
   const image = detail?.images[0] ?? station.previewImage;
+  const isArchive = station.kind === 'archive-1970';
+  const { images: archiveImages, loading: previewsLoading } = useBhvpImages(
+    isArchive ? detail?.archiveLinks : undefined,
+    3,
+  );
+  const photoCount = station.frameCount ?? archiveImages.length;
+  const remainingCount = station.remainingCount ?? photoCount;
+  const photoLabel =
+    remainingCount === 0
+      ? 'Toutes les photos ont été refaites'
+      : `${remainingCount} ${remainingCount > 1 ? 'photos' : 'photo'} à retrouver`;
+  const distanceLabel =
+    distance !== undefined
+      ? `${station.approximate ? 'À environ ' : 'À '}${formatDistance(distance)}`
+      : station.approximate
+        ? 'Zone de 250 m'
+        : 'Point précis';
 
   return (
     <Link href={{ pathname: '/station/[id]', params: { id: station.id } }} asChild>
       <Pressable
-        accessibilityLabel={`Ouvrir ${station.name}`}
+        accessibilityLabel={
+          isArchive
+            ? `Explorer le secteur ${station.name}, ${photoLabel}`
+            : `Ouvrir ${station.name}`
+        }
         style={({ pressed }) => [
           styles.card,
-          compact ? styles.compactCard : styles.regularCard,
+          wide ? styles.wideCard : compact ? styles.compactCard : styles.regularCard,
           pressed && styles.pressed,
         ]}>
-        <View style={styles.imageWrap}>
-          {image ? (
+        <View style={[styles.imageWrap, wide && styles.wideImageWrap]}>
+          {isArchive && archiveImages.length ? (
+            <ArchiveContactSheet images={archiveImages} />
+          ) : image ? (
             <AdaptivePhoto source={image} style={StyleSheet.absoluteFill} transition={250} />
           ) : (
             <View style={styles.placeholder}>
-              <Text style={styles.placeholderYear}>{station.year}</Text>
-              <View style={styles.placeholderLine} />
-              <SymbolView name="camera.aperture" size={24} tintColor={Palette.parisBlue} />
+              <View style={styles.placeholderGrid}>
+                <View style={styles.placeholderGridLineVertical} />
+                <View style={styles.placeholderGridLineHorizontal} />
+                <View style={styles.placeholderTarget}>
+                  <SymbolView name="photo.stack" size={24} tintColor={Palette.parisBlue} />
+                </View>
+              </View>
+              <Text style={styles.placeholderCopy}>
+                {previewsLoading ? 'CHARGEMENT DES APERÇUS' : 'PHOTOS CONSERVÉES À LA BHVP'}
+              </Text>
             </View>
           )}
           <View style={styles.imageShade} />
-          <View style={styles.yearBadge}>
-            <Text style={styles.yearBadgeText}>{station.year}</Text>
+          <View style={styles.countBadge}>
+            <Text style={styles.countBadgeText}>
+              {isArchive ? `${photoCount} ${photoCount > 1 ? 'PHOTOS' : 'PHOTO'}` : station.year}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.body}>
-          <Text style={styles.kicker}>
-            {station.approximate ? 'À LOCALISER' : 'POINT PRÉCIS'}
-            {distance !== undefined ? ` · ${formatDistance(distance)}` : ''}
-          </Text>
+        <View style={[styles.body, wide && styles.wideBody]}>
+          <Text style={styles.kicker}>{distanceLabel.toLocaleUpperCase('fr-FR')}</Text>
           <Text style={styles.title} numberOfLines={2}>
-            {station.name}
+            {isArchive ? `Secteur ${station.name}` : station.name}
           </Text>
           <View style={styles.metaRow}>
-            <Text style={styles.meta}>
-              {station.arrondissement ? `${station.arrondissement.replace('750', '')}e` : 'Paris'}
-            </Text>
-            <SymbolView name="arrow.up.right" size={13} tintColor={Palette.parisBlue} />
+            <Text style={styles.meta}>{isArchive ? photoLabel : station.arrondissement ?? 'Paris'}</Text>
+            <View style={styles.action}>
+              {wide ? <Text style={styles.actionText}>Explorer</Text> : null}
+              <SymbolView name="arrow.right" size={13} tintColor={Palette.parisBlue} />
+            </View>
           </View>
         </View>
       </Pressable>
@@ -76,10 +114,16 @@ const styles = StyleSheet.create({
   compactCard: {
     width: 212,
   },
+  wideCard: {
+    width: '100%',
+  },
   imageWrap: {
     height: 145,
     backgroundColor: Palette.blueMist,
     overflow: 'hidden',
+  },
+  wideImageWrap: {
+    height: 190,
   },
   imageShade: {
     position: 'absolute',
@@ -88,22 +132,47 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     flex: 1,
-    padding: Spacing.three,
-    justifyContent: 'space-between',
+    padding: Spacing.twoHalf,
+    justifyContent: 'flex-end',
     backgroundColor: Palette.blueMist,
   },
-  placeholderYear: {
-    fontFamily: Fonts.display,
-    fontSize: 42,
-    color: Palette.parisBlue,
-    fontWeight: '800',
+  placeholderGrid: {
+    position: 'absolute',
+    inset: Spacing.three,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(22, 63, 91, 0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  placeholderLine: {
+  placeholderGridLineVertical: {
+    position: 'absolute',
+    width: 1,
+    height: '100%',
+    backgroundColor: 'rgba(22, 63, 91, 0.12)',
+  },
+  placeholderGridLineHorizontal: {
+    position: 'absolute',
+    width: '100%',
     height: 1,
-    backgroundColor: Palette.parisBlue,
-    opacity: 0.18,
+    backgroundColor: 'rgba(22, 63, 91, 0.12)',
   },
-  yearBadge: {
+  placeholderTarget: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: 'rgba(255,255,255,0.62)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderCopy: {
+    color: Palette.parisBlue,
+    fontFamily: Fonts.mono,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  countBadge: {
     position: 'absolute',
     left: Spacing.twoHalf,
     top: Spacing.twoHalf,
@@ -112,7 +181,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: Radius.pill,
   },
-  yearBadgeText: {
+  countBadgeText: {
     color: Palette.white,
     fontFamily: Fonts.mono,
     fontWeight: '700',
@@ -122,6 +191,9 @@ const styles = StyleSheet.create({
   body: {
     padding: Spacing.three,
     minHeight: 136,
+  },
+  wideBody: {
+    minHeight: 124,
   },
   kicker: {
     color: Palette.copper,
@@ -146,10 +218,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   meta: {
+    flex: 1,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
     fontSize: 13,
     fontWeight: '600',
+  },
+  action: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionText: {
+    color: Palette.parisBlue,
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    fontWeight: '800',
   },
   pressed: {
     transform: [{ scale: 0.985 }],

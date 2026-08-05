@@ -36,11 +36,20 @@ export type CoverageCell = {
 export function mappingStatus(station: StationSummary): MappingStatus {
   if (station.kind === 'recapture-1970') return 'published-reprise';
   if (station.kind === 'station-2022') return 'collection-2022';
+  if ((station.remainingCount ?? 1) === 0 && (station.publishedCount ?? 0) > 0) {
+    return 'published-reprise';
+  }
   return 'to-reprise';
 }
 
 export function stationMatchesFilter(station: StationSummary, filter: MapFilter) {
-  return filter === 'all' || mappingStatus(station) === filter;
+  if (filter === 'all') return true;
+  if (station.kind === 'archive-1970') {
+    if (filter === 'to-reprise') return (station.remainingCount ?? station.frameCount ?? 0) > 0;
+    if (filter === 'published-reprise') return (station.publishedCount ?? 0) > 0;
+    return false;
+  }
+  return mappingStatus(station) === filter;
 }
 
 function round1(value: number) {
