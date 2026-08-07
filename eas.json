@@ -24,6 +24,7 @@
   "submit": {
     "production": {
       "ios": {
+        "ascAppId": "6799068813",
         "language": "fr-FR",
         "companyName": "Élie Brosset"
       }
