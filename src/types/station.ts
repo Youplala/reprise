@@ -1,5 +1,7 @@
 import type { ImageSource } from 'expo-image';
 
+import type { ArchivePhotoMetadata } from '@/data/snapshot';
+
 export type StationKind = 'archive-1970' | 'station-2022' | 'recapture-1970';
 
 export type Coordinate = {
@@ -33,6 +35,8 @@ export type StationDetail = StationSummary & {
   address?: string;
   author?: string;
   currentAuthor?: string;
+  currentDevice?: string;
+  referenceMetadata?: ArchivePhotoMetadata;
   recaptureDate?: string;
   dateLabel?: string;
   referenceImage?: ImageSource;
@@ -40,6 +44,8 @@ export type StationDetail = StationSummary & {
   images: ImageSource[];
   /** Permaliens ARK vers le portail des bibliothèques spécialisées. */
   archiveLinks: string[];
+  /** Métadonnées BHVP alignées avec `archiveLinks` et les images de la pellicule. */
+  archiveMetadata: (ArchivePhotoMetadata | undefined)[];
   officialUrl: string;
   hasRecapture: boolean;
   sourceLabel: string;

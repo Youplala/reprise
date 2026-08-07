@@ -3,7 +3,16 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,6 +20,7 @@ import { AnimatedNumber } from '@/components/charts/animated-number';
 import { GlassSurface } from '@/components/glass-surface';
 import { SourcePill } from '@/components/source-pill';
 import { StationCard } from '@/components/station-card';
+import { PRIVACY_POLICY_URL } from '@/constants/legal';
 import { Fonts, Palette, Radius, Shadow, Spacing, TabBarClearance } from '@/constants/theme';
 
 import { useUserLocation } from '@/hooks/use-user-location';
@@ -247,6 +257,13 @@ export function HomeScreen() {
             photos actuelles publiées par l’Observatoire photo participatif des paysages parisiens, animé
             par le CAUE de Paris.
           </Text>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
+            style={({ pressed }) => [styles.privacyLink, pressed && styles.pressedSoft]}>
+            <Text style={styles.privacyLinkText}>Politique de confidentialité</Text>
+            <SymbolView name="arrow.up.right" size={12} tintColor={Palette.parisBlue} />
+          </Pressable>
         </View>
       </ScrollView>
 
@@ -578,6 +595,20 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 12,
     lineHeight: 17,
+  },
+  privacyLink: {
+    minHeight: 44,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  privacyLinkText: {
+    color: Palette.parisBlue,
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   locatingToast: {
     position: 'absolute',

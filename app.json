@@ -5,36 +5,35 @@
     "description": "Retrouver et reconduire les points de vue historiques de Paris.",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/reprise-app-icon.png",
     "scheme": "reprise",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/reprise-app-icon.png",
       "bundleIdentifier": "fr.youplala.repriseparis",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "config": {
         "usesNonExemptEncryption": false
       }
     },
     "android": {
+      "package": "fr.youplala.repriseparis",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
+      "blockedPermissions": [
+        "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_AUDIO",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_MEDIA_AUDIO"
-      ]
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
@@ -61,7 +60,13 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Autoriser Reprise à afficher les points de vue historiques autour de vous."
+          "locationWhenInUsePermission": "Autoriser Reprise à afficher les points de vue historiques autour de vous.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false,
+          "isAndroidMotionActivityEnabled": false
         }
       ],
       [
@@ -74,11 +79,13 @@
         "expo-media-library",
         {
           "savePhotosPermission": "Autoriser Reprise à enregistrer vos reprises dans vos photos, pour les retrouver au moment de les déposer sur l’Observatoire.",
-          "photosPermission": "Autoriser Reprise à enregistrer vos reprises dans votre photothèque.",
-          "isAccessMediaLocationEnabled": false
+          "photosPermission": false,
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": []
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

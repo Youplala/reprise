@@ -46,6 +46,9 @@ const INITIAL_REGION: Region = {
 };
 
 const POINT_ZOOM_THRESHOLD = 0.047;
+const FOCUSED_CELL_ZOOM_PADDING = 2.6;
+const MAP_BOTTOM_OVERLAY_OFFSET = 110;
+const MAP_TOP_CONTROLS_HEIGHT = 50 + 36 + 54 + Spacing.two * 2;
 const FILTERS: { value: MapFilter; label: string }[] = [
   { value: 'all', label: 'Tout' },
   { value: 'to-reprise', label: 'À retrouver' },
@@ -364,6 +367,7 @@ export function MapScreen() {
     longitude: number;
     latitudeDelta?: number;
     longitudeDelta?: number;
+    avoidBottomOverlay?: boolean;
   }>();
   const carouselCardWidth = screenWidth - Spacing.three * 2;
   const carouselStep = carouselCardWidth + Spacing.two;
@@ -528,15 +532,26 @@ export function MapScreen() {
 
   useEffect(() => {
     if (!mapTarget) return;
+    const latitudeDelta = mapTarget.latitudeDelta ?? 0.018;
+    const longitudeDelta = mapTarget.longitudeDelta ?? 0.014;
+    const visibleMapTop = topOffset + MAP_TOP_CONTROLS_HEIGHT;
+    const visibleMapBottom = screenHeight - MAP_BOTTOM_OVERLAY_OFFSET - previewCardHeight;
+    const visibleMapCenter = (visibleMapTop + visibleMapBottom) / 2;
+    const verticalOffsetRatio =
+      mapTarget.avoidBottomOverlay && visibleMapBottom > visibleMapTop
+        ? (screenHeight / 2 - visibleMapCenter) / screenHeight
+        : 0;
+
     mapRef.current?.animateToRegion(
       {
-        ...mapTarget,
-        latitudeDelta: mapTarget.latitudeDelta ?? 0.018,
-        longitudeDelta: mapTarget.longitudeDelta ?? 0.014,
+        latitude: mapTarget.latitude - latitudeDelta * verticalOffsetRatio,
+        longitude: mapTarget.longitude,
+        latitudeDelta,
+        longitudeDelta,
       },
       520,
     );
-  }, [mapTarget]);
+  }, [mapTarget, previewCardHeight, screenHeight, topOffset]);
 
   useEffect(() => {
     const selectedIndex = visibleStations.findIndex(
@@ -600,7 +615,22 @@ export function MapScreen() {
       const target =
         station.approximate && stationCell ? stationCell.center : station.coordinate;
       setBrowseOrigin(target);
-      setMapTarget({ ...target });
+      if (station.approximate && stationCell) {
+        const latitudeDelta =
+          Math.abs(stationCell.coordinates[1].latitude - stationCell.coordinates[0].latitude) *
+          FOCUSED_CELL_ZOOM_PADDING;
+        const longitudeDelta =
+          Math.abs(stationCell.coordinates[2].longitude - stationCell.coordinates[1].longitude) *
+          FOCUSED_CELL_ZOOM_PADDING;
+        setMapTarget({
+          ...target,
+          latitudeDelta,
+          longitudeDelta,
+          avoidBottomOverlay: true,
+        });
+      } else {
+        setMapTarget({ ...target });
+      }
       Keyboard.dismiss();
       void Haptics.selectionAsync();
     },
@@ -661,17 +691,17 @@ export function MapScreen() {
     setBrowseOrigin(cell.center);
 
     const latitudeDelta =
-      Math.abs(cell.coordinates[1].latitude - cell.coordinates[0].latitude) * 2.6;
+      Math.abs(cell.coordinates[1].latitude - cell.coordinates[0].latitude) *
+      FOCUSED_CELL_ZOOM_PADDING;
     const longitudeDelta =
-      Math.abs(cell.coordinates[2].longitude - cell.coordinates[1].longitude) * 2.6;
-    mapRef.current?.animateToRegion(
-      {
-        ...cell.center,
-        latitudeDelta,
-        longitudeDelta,
-      },
-      460,
-    );
+      Math.abs(cell.coordinates[2].longitude - cell.coordinates[1].longitude) *
+      FOCUSED_CELL_ZOOM_PADDING;
+    setMapTarget({
+      ...cell.center,
+      latitudeDelta,
+      longitudeDelta,
+      avoidBottomOverlay: true,
+    });
   }, [filter, filteredStations]);
 
   const handleResetNorth = useCallback(() => {

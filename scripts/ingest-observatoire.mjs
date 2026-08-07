@@ -12,13 +12,13 @@
 // champ ajouté au formulaire — la liste blanche, non. Un garde-fou en fin de course refuse
 // d'écrire le fichier si une adresse a malgré tout survécu.
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SOURCE_URL = 'https://observatoire-photo.paris/api/elements.json';
 const OFFICIAL_FICHE = 'https://observatoire-photo.paris/map#/fiche/';
-const USER_AGENT = 'Reprise/1.0 (+https://reprise.paris) snapshot quotidien';
+const USER_AGENT = 'Reprise/1.0 (+https://github.com/Youplala/reprise) snapshot quotidien';
 
 // Identifiants de `categoriesFull`. 3 est réutilisé pour les deux catégories 2022.
 const CATEGORY = { PHOTOS_2022: 3, RECAPTURE_1970: 4, ARCHIVE_1970: 6 };
@@ -47,6 +47,7 @@ function isWithinParis({ latitude, longitude }) {
 const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const ARCHIVE_METADATA_PATH = join(root, 'assets', 'data', 'paris1970-metadata.json');
 
 function parseArgs(argv) {
   const outFlag = argv.indexOf('--out');
@@ -63,6 +64,10 @@ function firstString(...values) {
   return values.find((v) => typeof v === 'string' && v.trim().length > 0)?.trim();
 }
 
+function firstListedString(value) {
+  return Array.isArray(value) ? firstString(...value) : firstString(value);
+}
+
 function normalizeArrondissement(value) {
   const raw = typeof value === 'number' ? String(value) : value;
   if (typeof raw !== 'string') return undefined;
@@ -75,6 +80,52 @@ function normalizeArrondissement(value) {
 function httpsOnly(values) {
   const list = Array.isArray(values) ? values : [];
   return [...new Set(list.filter((v) => typeof v === 'string' && v.startsWith('https://')))];
+}
+
+async function loadArchiveMetadata() {
+  const catalog = JSON.parse(await readFile(ARCHIVE_METADATA_PATH, 'utf8'));
+  if (!catalog?.documents || typeof catalog.documents !== 'object') {
+    throw new Error('Catalogue paris-1970 : format inattendu');
+  }
+
+  const byDocument = new Map();
+  for (const [key, metadata] of Object.entries(catalog.documents)) {
+    const document = key.split('/').at(-1)?.toUpperCase();
+    if (document) byDocument.set(document, metadata);
+  }
+
+  return { documents: catalog.documents, byDocument };
+}
+
+function archiveMetadataFor(fonds, document, catalog) {
+  return catalog.documents[`${fonds.toUpperCase()}/${document.toUpperCase()}`];
+}
+
+function archiveMetadataFromImage(imageUrl, catalog) {
+  if (!imageUrl) return undefined;
+  const decoded = decodeURIComponent(imageUrl);
+  const fullArk = decoded.match(/frcgmnov-751045102-la([a-j])-([ab]\d+)-v\d+/i);
+  if (fullArk) {
+    return archiveMetadataFor(
+      `FRCGMNOV-751045102-LA${fullArk[1]}`,
+      fullArk[2],
+      catalog,
+    );
+  }
+
+  // Quelques premiers dépôts ont gardé uniquement l'identifiant de dossier dans leur nom.
+  const documentOnly = decoded.match(/(?:^|[^a-z0-9])([ab]\d+)v\d+/i);
+  return documentOnly ? catalog.byDocument.get(documentOnly[1].toUpperCase()) : undefined;
+}
+
+function registerArchiveMetadata(metadata, registry, registryIndex) {
+  if (!metadata) return undefined;
+  const key = JSON.stringify(metadata);
+  const existing = registryIndex.get(key);
+  if (existing !== undefined) return existing;
+  const index = registry.push(metadata) - 1;
+  registryIndex.set(key, index);
+  return index;
 }
 
 function metresBetween(a, b) {
@@ -93,13 +144,16 @@ function coordinateOf(element) {
 
 // --- normalisation : seuls les champs listés ici sortent de la moulinette -------------------
 
-function toStation(element, coordinate, categoryIds) {
+function toStation(element, coordinate, categoryIds, archiveCatalog) {
   const isRecapture1970 = categoryIds.includes(CATEGORY.RECAPTURE_1970);
   const images = httpsOnly(element.images);
 
   // Sur une reprise, image[0] est l'original 1970 et la dernière la reprise contemporaine.
   const referenceImage = images[0];
   const recaptureImage = images.length > 1 ? images[images.length - 1] : undefined;
+  const archiveMetadata = isRecapture1970
+    ? archiveMetadataFromImage(referenceImage, archiveCatalog)
+    : undefined;
 
   return {
     id: String(element.id),
@@ -112,8 +166,10 @@ function toStation(element, coordinate, categoryIds) {
     address: firstString(element.address?.customFormatedAddress),
     description: firstString(element.Observation, element.textarea_1771430005812),
     // Prénom + nom : signature d'auteur publique, et obligation d'attribution ODbL.
-    author: firstString(element.prenom_nom),
+    author: firstString(element.prenom_nom, archiveMetadata?.author),
     recaptureAuthor: firstString(element['2026_prenom_nom']),
+    recaptureDevice: firstListedString(element['2026_appareil']),
+    referenceMetadata: archiveMetadata,
     dateLabel: firstString(element.Date_de_prise_de_vue),
     // Date de la reprise contemporaine : c'est elle qui permet de mesurer l'activité de la
     // communauté dans le temps, la précédente datant la vue d'origine.
@@ -126,9 +182,8 @@ function toStation(element, coordinate, categoryIds) {
 }
 
 // `url` agrège les permaliens ARK de la BHVP, séparés par des retours à la ligne. Ce sont des
-// identifiants pérennes (ARK = Archival Resource Key) : on les stocke pour rediriger vers le
-// portail, jamais pour rapatrier les images — le fonds reste sous droit d'auteur des
-// photographes de 1970, en dehors de l'ODbL qui ne couvre que la base de données.
+// identifiants pérennes (ARK = Archival Resource Key) : le snapshot ne contient que ces liens.
+// À l'exécution, la visionneuse de la BHVP fournit les aperçus ; aucune image n'est embarquée.
 //
 // Stockés bruts, ces 30 156 liens pèsent 3,3 Mo à eux seuls. Ils suivent tous le même motif et
 // ne référencent que 10 fonds : on les réduit à un dictionnaire + des triplets
@@ -139,7 +194,14 @@ const ARK_PATTERN =
   /^https:\/\/bibliotheques-specialisees\.paris\.fr\/ark:\/73873\/([^/]+)\/([^/]+)\/v(\d+)$/;
 const ARK_TEMPLATE = 'https://bibliotheques-specialisees.paris.fr/ark:/73873/{fonds}/{document}/v{view}';
 
-function toSquare(element, coordinate, fondsRegistry) {
+function toSquare(
+  element,
+  coordinate,
+  fondsRegistry,
+  archiveCatalog,
+  metadataRegistry,
+  metadataRegistryIndex,
+) {
   const links = typeof element.url === 'string'
     ? element.url.split(/\s+/).filter((u) => u.startsWith('https://'))
     : [];
@@ -167,7 +229,17 @@ function toSquare(element, coordinate, fondsRegistry) {
   const refs = [...documents.values()].map(({ index, document, views }) => {
     const sorted = [...views].sort((a, b) => a - b);
     const sequential = sorted.every((view, position) => view === position + 1);
-    return [index, document, sequential ? sorted.length : sorted];
+    const metadataIndex = registerArchiveMetadata(
+      archiveMetadataFor(fondsRegistry[index], document, archiveCatalog),
+      metadataRegistry,
+      metadataRegistryIndex,
+    );
+    return [
+      index,
+      document,
+      sequential ? sorted.length : sorted,
+      ...(metadataIndex === undefined ? [] : [metadataIndex]),
+    ];
   });
 
   const photoCount = refs.reduce(
@@ -305,6 +377,9 @@ function assertNoPersonalData(payload) {
 async function main() {
   const { outDir } = parseArgs(process.argv.slice(2));
 
+  process.stdout.write(`Lecture du catalogue descriptif paris-1970\n`);
+  const archiveCatalog = await loadArchiveMetadata();
+
   process.stdout.write(`Lecture de ${SOURCE_URL}\n`);
   const response = await fetch(SOURCE_URL, {
     headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
@@ -317,6 +392,8 @@ async function main() {
   const stations = [];
   const squares = [];
   const fondsRegistry = [];
+  const metadataRegistry = [];
+  const metadataRegistryIndex = new Map();
   const offParis = [];
   let skipped = 0;
 
@@ -335,12 +412,21 @@ async function main() {
     }
 
     if (categoryIds.includes(CATEGORY.ARCHIVE_1970)) {
-      squares.push(toSquare(element, coordinate, fondsRegistry));
+      squares.push(
+        toSquare(
+          element,
+          coordinate,
+          fondsRegistry,
+          archiveCatalog,
+          metadataRegistry,
+          metadataRegistryIndex,
+        ),
+      );
     } else if (
       categoryIds.includes(CATEGORY.RECAPTURE_1970) ||
       categoryIds.includes(CATEGORY.PHOTOS_2022)
     ) {
-      stations.push(toStation(element, coordinate, categoryIds));
+      stations.push(toStation(element, coordinate, categoryIds, archiveCatalog));
     } else {
       skipped += 1;
     }
@@ -412,9 +498,15 @@ async function main() {
       database: 'ODbL 1.0 — © les contributeurs de l’Observatoire photo participatif',
       archiveRights:
         'Fonds « C’était Paris en 1970 » — Bibliothèque historique de la Ville de Paris. ' +
-        'Images non redistribuées : accès par lien ARK uniquement.',
+        'Images chargées depuis la visionneuse BHVP par permalien ARK ; attribution dans l’application.',
     },
-    archive: { urlTemplate: ARK_TEMPLATE, viewPadding: 4, fonds: fondsRegistry },
+    archive: {
+      urlTemplate: ARK_TEMPLATE,
+      viewPadding: 4,
+      fonds: fondsRegistry,
+      metadata: metadataRegistry,
+      metadataSource: 'https://framagit.org/dohseven/paris-1970',
+    },
     grid: { source: GRID_GEOJSON_URL, sideMetres: SQUARE_SIDE_M, boundsOrder: ['west', 'south', 'east', 'north'] },
     metrics,
     stations,

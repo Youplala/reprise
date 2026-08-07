@@ -23,6 +23,8 @@ export type SnapshotStation = {
   description?: string;
   author?: string;
   recaptureAuthor?: string;
+  recaptureDevice?: string;
+  referenceMetadata?: ArchivePhotoMetadata;
   dateLabel?: string;
   /** Date de la reprise contemporaine (`2026-07-28`), quand le contributeur l'a renseignée. */
   recaptureDate?: string;
@@ -35,6 +37,18 @@ export type SnapshotStation = {
 /** `[ouest, sud, est, nord]` — la maille réelle de 250 m du concours de 1970. */
 export type SquareBounds = [number, number, number, number];
 
+export type ArchivePhotoMetadata = {
+  author?: string;
+  /** Ces lieux décrivent le dossier du photographe, pas nécessairement une vue isolée. */
+  locations?: string[];
+  candidateNumber?: string;
+  callNumber?: string;
+  technique?: string;
+  extent?: string;
+  dimensions?: string;
+  notes?: string[];
+};
+
 export type SnapshotSquare = {
   id: string;
   name: string;
@@ -43,8 +57,8 @@ export type SnapshotSquare = {
   year: 1970;
   approximate: boolean;
   sheet?: string;
-  /** `[indexFonds, document, vues]` — `vues` est un compte si la série est séquentielle. */
-  refs: [number, string, number | number[]][];
+  /** `[indexFonds, document, vues, indexMétadonnées?]`. */
+  refs: [number, string, number | number[], number?][];
   photoCount: number;
   recaptureCount: number;
   officialUrl: string;
@@ -69,7 +83,13 @@ export type Snapshot = {
   version: string;
   generatedAt: string;
   source: { url: string; name: string; operator: string; database: string; archiveRights: string };
-  archive: { urlTemplate: string; viewPadding: number; fonds: string[] };
+  archive: {
+    urlTemplate: string;
+    viewPadding: number;
+    fonds: string[];
+    metadata?: ArchivePhotoMetadata[];
+    metadataSource?: string;
+  };
   grid: { source: string; sideMetres: number; boundsOrder: string[] };
   metrics: SnapshotMetrics;
   stations: SnapshotStation[];
@@ -101,9 +121,8 @@ export function isUsableSnapshot(value: unknown): value is Snapshot {
 }
 
 /**
- * Reconstruit les permaliens ARK d'un carré. Ce sont des identifiants pérennes du portail des
- * bibliothèques spécialisées : on y renvoie, on ne rapatrie jamais les images (fonds BHVP sous
- * droit d'auteur des photographes, hors ODbL qui ne couvre que la base de données).
+ * Reconstruit les permaliens ARK d'un carré. L'app les transmet à la visionneuse BHVP pour
+ * afficher les aperçus à distance ; aucune photographie n'est incluse dans le snapshot.
  */
 export function archiveLinksOf(snapshot: Snapshot, square: Pick<SnapshotSquare, 'refs'>): string[] {
   const { urlTemplate, viewPadding, fonds } = snapshot.archive;
@@ -128,4 +147,21 @@ export function archiveLinksOf(snapshot: Snapshot, square: Pick<SnapshotSquare, 
   }
 
   return links;
+}
+
+/** Métadonnées alignées index pour index avec `archiveLinksOf`, donc avec la pellicule affichée. */
+export function archiveMetadataOf(
+  snapshot: Snapshot,
+  square: Pick<SnapshotSquare, 'refs'>,
+): (ArchivePhotoMetadata | undefined)[] {
+  const registry = snapshot.archive.metadata ?? [];
+  const result: (ArchivePhotoMetadata | undefined)[] = [];
+
+  for (const [, , views, metadataIndex] of square.refs) {
+    const count = Array.isArray(views) ? views.length : views;
+    const metadata = metadataIndex === undefined ? undefined : registry[metadataIndex];
+    for (let index = 0; index < count; index += 1) result.push(metadata);
+  }
+
+  return result;
 }

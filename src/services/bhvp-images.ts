@@ -11,15 +11,19 @@ type PictureRecord = {
 const requestCache = new Map<string, Promise<ImageSource[]>>();
 
 /**
- * Les aperçus restent un prototype tant que la BHVP n'a pas confirmé par écrit leur
- * rediffusion dans l'application. Ils sont actifs dans le client de développement et pourront
- * être activés en production avec EXPO_PUBLIC_BHVP_PREVIEWS=1 après accord.
+ * Les images restent servies par la visionneuse de la BHVP : Reprise ne duplique pas le fonds.
+ * L'affichage peut être coupé à distance dans un build si la source change temporairement.
  */
 export const BHVP_PREVIEWS_ENABLED =
-  __DEV__ || process.env.EXPO_PUBLIC_BHVP_PREVIEWS === '1';
+  process.env.EXPO_PUBLIC_BHVP_PREVIEWS !== '0';
 
 function requestForArchiveLink(link: string) {
-  const source = new URL(link);
+  let source: URL;
+  try {
+    source = new URL(link);
+  } catch {
+    return undefined;
+  }
   const cleanPath = source.pathname.replace(/\.simple\.selectedTab=record.*$/, '');
   const parts = cleanPath.split('/').filter(Boolean);
 
@@ -61,11 +65,17 @@ async function picturesForRequest(
 
       const records = JSON.parse(match[1]) as PictureRecord[];
       return records
-        .map((record) => absoluteImageUrl(record.hiResimage ?? record.image ?? record.thumb))
+        // L'aperçu intermédiaire suffit à l'alignement et s'affiche beaucoup plus vite que
+        // l'original haute définition sur le terrain.
+        .map((record) => absoluteImageUrl(record.image ?? record.hiResimage ?? record.thumb))
         .filter((uri): uri is string => Boolean(uri))
         .map((uri) => ({ uri }));
     })
-    .catch(() => [])
+    .catch(() => {
+      // Une coupure réseau ne doit pas empoisonner le cache jusqu'au prochain redémarrage.
+      requestCache.delete(key);
+      return [];
+    })
     .finally(() => clearTimeout(timeout));
 
   requestCache.set(key, request);

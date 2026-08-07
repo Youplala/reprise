@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 const CAPTURES_KEY = 'reprise.fieldbook.captures.v1';
 const ALBUM_NAME = 'Reprise';
@@ -58,10 +59,14 @@ async function copyToLibrary(uri: string) {
   const MediaLibrary = loadMediaLibrary();
   if (!MediaLibrary) return undefined;
 
-  const permission = await MediaLibrary.requestPermissionsAsync();
+  const permission = await MediaLibrary.requestPermissionsAsync(true, []);
   if (!permission.granted) return undefined;
 
   const asset = await MediaLibrary.createAssetAsync(uri);
+
+  // Android autorise l'écriture de nos propres fichiers sans donner accès à toute la galerie.
+  // Éviter la recherche d'album permet de ne demander aucune permission de lecture globale.
+  if (Platform.OS === 'android') return { assetId: asset.id, uri: asset.uri };
 
   // L'album est un confort de rangement : son échec ne doit pas perdre la photo, déjà écrite.
   try {

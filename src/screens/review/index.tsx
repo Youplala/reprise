@@ -4,7 +4,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import {
-  Linking,
   Pressable,
   ScrollView,
   Share,
@@ -16,8 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BeforeAfterSlider } from '@/components/before-after-slider';
 import { PrimaryButton } from '@/components/primary-button';
+import { SIMULATED_CAMERA_IMAGE } from '@/constants/demo';
 import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
-import { OBSERVATOIRE_MAP_URL } from '@/data/archive';
+import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { saveCapture } from '@/services/fieldbook';
 
@@ -36,29 +36,38 @@ export function ReviewScreen() {
   const [inLibrary, setInLibrary] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>();
-  const [publishError, setPublishError] = useState<string>();
+  const [savedCaptureUri, setSavedCaptureUri] = useState<string>();
   const [comparisonActive, setComparisonActive] = useState(false);
+  const isSimulated = simulated !== '0';
+  const isArchiveSector = detail?.kind === 'archive-1970';
+  const { images: archiveImages } = useBhvpImages(
+    isArchiveSector ? detail?.archiveLinks : undefined,
+  );
+  const stationImages = archiveImages.length > 0 ? archiveImages : detail?.images ?? [];
 
   const requestedFrame = Number.parseInt(frame ?? '0', 10);
   const frameIndex = Number.isFinite(requestedFrame)
-    ? Math.max(0, Math.min(Math.max(0, (detail?.images.length ?? 1) - 1), requestedFrame))
+    ? Math.max(0, Math.min(Math.max(0, stationImages.length - 1), requestedFrame))
     : 0;
   const referenceImage =
-    detail?.images[frameIndex] ?? detail?.referenceImage;
-  const currentImage: ImageSource | undefined = uri ? { uri } : detail?.recaptureImage;
+    stationImages[frameIndex] ?? detail?.referenceImage;
+  const currentImage: ImageSource | undefined = uri
+    ? { uri }
+    : isSimulated
+      ? SIMULATED_CAMERA_IMAGE
+      : detail?.recaptureImage;
   // Inclinaisons relevées au moment du déclenchement. Ce ne sont pas des scores de
   // ressemblance : l'app ne compare aucune image, elle rapporte ce que les capteurs ont mesuré.
   const rollDegrees = Number(roll);
   const pitchDegrees = Number(pitch);
   const hasTilt = Number.isFinite(rollDegrees) && Number.isFinite(pitchDegrees);
   const isUpright = hasTilt && Math.abs(rollDegrees) <= 2 && Math.abs(pitchDegrees) <= 8;
-  const isSimulated = simulated !== '0';
 
   const save = async () => {
     setSaving(true);
     setSaveError(undefined);
     try {
-      const { savedToLibrary } = await saveCapture({
+      const { capture, savedToLibrary } = await saveCapture({
         stationId: id,
         imageUri: uri || undefined,
         simulated: isSimulated,
@@ -66,6 +75,7 @@ export function ReviewScreen() {
         pitch: hasTilt ? pitchDegrees : undefined,
       });
       setInLibrary(savedToLibrary);
+      setSavedCaptureUri(capture.imageUri);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSaved(true);
     } catch {
@@ -75,19 +85,17 @@ export function ReviewScreen() {
     }
   };
 
-  const openObservatoire = async () => {
-    setPublishError(undefined);
-    try {
-      const supported = await Linking.canOpenURL(OBSERVATOIRE_MAP_URL);
-      if (!supported) {
-        setPublishError('Le site de l’Observatoire ne peut pas être ouvert sur cet appareil.');
-        return;
-      }
-      await Linking.openURL(OBSERVATOIRE_MAP_URL);
-    } catch {
-      setPublishError('Le site de l’Observatoire est momentanément indisponible. Réessayez plus tard.');
-    }
-  };
+  const openObservatoire = () =>
+    router.push({
+      pathname: '/official-submit' as never,
+      params: {
+        id,
+        frame: String(frameIndex),
+        uri: savedCaptureUri ?? uri ?? '',
+        simulated: isSimulated ? '1' : '0',
+        currentSaved: saved && inLibrary ? '1' : '0',
+      },
+    });
 
   const share = () =>
     Share.share({
@@ -151,8 +159,8 @@ export function ReviewScreen() {
           <View style={styles.simulatorNote}>
             <SymbolView name="iphone.gen3" size={20} tintColor={Palette.parisBlue} />
             <Text style={styles.simulatorText}>
-              Cette comparaison utilise deux photos d’archive pour tester tout le parcours. Sur un
-              iPhone, la moitié droite affichera la photo réellement prise.
+              Cette comparaison utilise une scène parisienne de démonstration. Sur un iPhone, la
+              moitié droite affichera la photo réellement prise.
             </Text>
           </View>
         ) : null}
@@ -165,9 +173,8 @@ export function ReviewScreen() {
             <Text style={styles.publishTitle}>Comment votre photo rejoint la carte</Text>
             <Text style={styles.publishText}>
               {saved && inLibrary
-                ? 'Votre photo est enregistrée dans l’album Reprise de votre pellicule. Vous en aurez besoin pour la déposer. La publication sur la carte'
-                : 'Reprise garde cette prise dans votre carnet sur cet appareil. La publication sur la carte'}{' '}
-              officielle se fait ensuite sur le site de l’Observatoire.
+                ? 'Votre photo est enregistrée dans l’album Reprise. Le formulaire officiel peut maintenant être préparé sans ressaisir la date ni la position.'
+                : 'Reprise prépare le formulaire officiel, les deux images et les informations du point de vue. Vous gardez la main sur le règlement et l’envoi final.'}
             </Text>
           </View>
         </View>
@@ -210,13 +217,12 @@ export function ReviewScreen() {
         />
         {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}
         <PrimaryButton
-          label="Publier sur le site de l’Observatoire"
-          icon="arrow.up.right"
+          label="Préparer le dépôt officiel"
+          icon="lock.shield"
           variant="outline"
           onPress={openObservatoire}
           style={styles.secondaryButton}
         />
-        {publishError ? <Text style={styles.publishError}>{publishError}</Text> : null}
         <Pressable onPress={() => router.replace('/collective')} style={styles.collectiveLink}>
           <Text style={styles.collectiveText}>Voir les photos de la communauté</Text>
           <SymbolView name="person.2.fill" size={16} tintColor={Palette.parisBlue} />

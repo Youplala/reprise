@@ -54,6 +54,10 @@ export default function RootLayout() {
               name="capture-review"
               options={{ presentation: 'modal', sheetGrabberVisible: true }}
             />
+            <Stack.Screen
+              name="official-submit"
+              options={{ presentation: 'fullScreenModal', gestureEnabled: false }}
+            />
           </Stack>
         </StationsProvider>
       </ThemeProvider>

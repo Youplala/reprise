@@ -27,6 +27,25 @@ npx expo run:ios --device
 Un development build est nécessaire : l'app utilise `react-native-maps`, `expo-camera`,
 `expo-media-library` et `expo-glass-effect`, qui ne sont pas disponibles dans Expo Go.
 
+Sur Android, Google Maps requiert une clé native. La vraie valeur reste dans `.env.local` en local
+et dans les variables d’environnement EAS pour les builds distants :
+
+```bash
+cp .env.example .env.local
+# renseigner GOOGLE_MAPS_API_KEY dans .env.local
+```
+
+Pour tester le préremplissage, le sélecteur de photos de la WebView et son écran de confirmation
+sans envoyer de contribution réelle — notamment si le serveur officiel est indisponible — lancer
+Metro avec la fixture réservée au mode développement :
+
+```bash
+EXPO_PUBLIC_OFFICIAL_SUBMISSION_FIXTURE=1 npx expo start --dev-client --clear
+```
+
+La fixture affiche explicitement « TEST LOCAL », ne fait aucune requête et ne peut pas être activée
+dans un build de production.
+
 ## Les données
 
 L'app n'interroge jamais l'API de l'Observatoire à l'exécution. Un script produit un relevé
@@ -48,6 +67,15 @@ renommé côté serveur casserait une app déjà publiée.
 Le script filtre les champs par liste blanche et refuse d'écrire si une adresse e-mail survit.
 Le même contrôle est rejoué en intégration continue avant publication.
 
+Les auteurs et les lieux des dossiers de 1970 proviennent des notices BHVP normalisées par le
+projet [paris-1970](https://framagit.org/dohseven/paris-1970). Seul un index de
+métadonnées de moins de 300 Ko est versionné ; aucune de ses copies d'images n'est embarquée.
+Pour reconstruire cet index depuis un clone local :
+
+```bash
+npm run data:import-paris1970 -- /chemin/vers/paris-1970
+```
+
 ## Sources et licences
 
 **Données de l'Observatoire** : © les contributrices et contributeurs de l'Observatoire photo
@@ -59,11 +87,20 @@ autre donnée personnelle n'est reprise.
 **Grille de 1970** : découpage officiel du concours, exporté en WGS84 par le CAUE de Paris.
 
 **Photographies de 1970** : fonds « C'était Paris en 1970 », conservé par la Bibliothèque
-historique de la Ville de Paris. Ces images restent sous le droit d'auteur de leurs auteurs et
-**ne sont pas redistribuées par cette application** : Reprise renvoie vers les permaliens ARK du
-portail des bibliothèques spécialisées de la Ville de Paris.
+historique de la Ville de Paris. Elles ne sont pas incluses dans l'application : Reprise les
+charge depuis la visionneuse de la BHVP à partir de leurs permaliens ARK et affiche le nom du
+photographe, la BHVP et le nom du fonds. Les lieux visibles dans l'app sont les lieux indexés par
+la BHVP à partir des légendes des dossiers ; ils ne sont pas présentés comme une identification
+certaine de chaque vue.
 
 ## Publication
+
+La [politique de confidentialité](docs/CONFIDENTIALITE.md) doit être publiée avec le dépôt et son
+URL renseignée dans App Store Connect et Play Console.
+
+La clé Google Maps Android ne doit jamais être commitée. Pour un build distant, créer la variable
+`GOOGLE_MAPS_API_KEY` dans l’environnement EAS `production`; le build Android de production est
+volontairement bloqué si elle manque.
 
 L'identifiant Apple utilisé pour la soumission n'est pas versionné. Il se fournit par
 l'environnement :

@@ -11,6 +11,7 @@ import type { ImageSource } from 'expo-image';
 
 import {
   archiveLinksOf,
+  archiveMetadataOf,
   type Snapshot,
   type SnapshotSquare,
   type SnapshotStation,
@@ -66,12 +67,15 @@ function detailFromStation(station: SnapshotStation): StationDetail {
     address: station.address,
     author: station.author,
     currentAuthor: station.recaptureAuthor,
+    currentDevice: station.recaptureDevice,
+    referenceMetadata: station.referenceMetadata,
     recaptureDate: station.recaptureDate,
     dateLabel: station.dateLabel,
     referenceImage,
     recaptureImage,
     images,
     archiveLinks: [],
+    archiveMetadata: [],
     officialUrl: station.officialUrl,
     hasRecapture: station.hasRecapture,
     sourceLabel:
@@ -84,10 +88,11 @@ function detailFromStation(station: SnapshotStation): StationDetail {
 function detailFromSquare(snapshot: Snapshot, square: SnapshotSquare): StationDetail {
   return {
     ...summaryFromSquare(square),
-    // Le fonds de 1970 n'est pas rediffusé : on renvoie vers les permaliens du portail des
-    // bibliothèques spécialisées, seuls habilités à montrer ces images.
+    // Les images ne sont pas embarquées : le résolveur utilise ces permaliens pour demander les
+    // aperçus à la visionneuse de la BHVP au moment où la fiche est ouverte.
     images: [],
     archiveLinks: archiveLinksOf(snapshot, square),
+    archiveMetadata: archiveMetadataOf(snapshot, square),
     officialUrl: square.officialUrl,
     hasRecapture: square.recaptureCount > 0,
     sourceLabel: 'BHVP · Fonds C’était Paris en 1970',

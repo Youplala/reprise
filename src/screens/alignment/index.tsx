@@ -8,11 +8,21 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Animated,
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { SIMULATED_CAMERA_IMAGE } from '@/constants/demo';
 
+import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useCameraLenses } from '@/hooks/use-camera-lenses';
 import { useDeviceAttitude } from '@/hooks/use-device-attitude';
 import { useImageAspectRatio } from '@/hooks/use-image-aspect-ratio';
@@ -77,6 +87,8 @@ export function AlignmentScreen() {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraZoom, setCameraZoom] = useState(0);
   const [captureError, setCaptureError] = useState<string>();
+  const [failedReferenceKey, setFailedReferenceKey] = useState<string>();
+  const [loadedReferenceKey, setLoadedReferenceKey] = useState<string>();
   const [viewfinderSize, setViewfinderSize] = useState({ width: 0, height: 0 });
   const [overlayOpacity] = useState(() => new Animated.Value(0.52));
   const [overlayOffset] = useState(() => new Animated.ValueXY({ x: 0, y: 0 }));
@@ -87,22 +99,30 @@ export function AlignmentScreen() {
 
   const isSimulator = !Device.isDevice;
   const liveCamera = Device.isDevice && permission?.granted;
+  const isArchiveSector = detail?.kind === 'archive-1970';
+  const { images: archiveImages, loading: archiveImagesLoading } = useBhvpImages(
+    isArchiveSector ? detail?.archiveLinks : undefined,
+  );
   const requestedFrame = Number.parseInt(frame ?? '0', 10);
   const stationImages = useMemo(
-    () => detail?.images ?? [],
-    [detail?.images],
+    () => (archiveImages.length > 0 ? archiveImages : detail?.images ?? []),
+    [archiveImages, detail?.images],
   );
   const frameIndex = Number.isFinite(requestedFrame)
     ? Math.max(0, Math.min(Math.max(0, stationImages.length - 1), requestedFrame))
     : 0;
-  // Un carré de 1970 n'a aucune image dans l'app : sans référence, il n'y a rien à superposer.
   const referenceImage = useMemo<ImageSource | undefined>(() => {
     return stationImages[frameIndex] ?? detail?.referenceImage;
   }, [detail?.referenceImage, frameIndex, stationImages]);
+  const referenceImageKey = JSON.stringify(referenceImage ?? null);
+  const referenceImageFailed = failedReferenceKey === referenceImageKey;
+  const referenceImageLoaded = loadedReferenceKey === referenceImageKey;
   const { aspectRatio: referenceAspectRatio, orientation: referenceOrientation } =
     useImageAspectRatio(referenceImage);
 
-  const backgroundImage = detail?.recaptureImage ?? referenceImage;
+  const backgroundImage = isSimulator
+    ? SIMULATED_CAMERA_IMAGE
+    : detail?.recaptureImage ?? referenceImage;
 
   // Ces deux mesures viennent des capteurs et ne disent rien de la ressemblance avec la vue de
   // 1970 : aucune analyse d'image n'a lieu ici. Elles portent donc un nom qui correspond à ce
@@ -260,6 +280,14 @@ export function AlignmentScreen() {
   };
 
   const capture = async () => {
+    if (!referenceImage || referenceImageFailed) {
+      setCaptureError(
+        archiveImagesLoading
+          ? 'La photographie historique se charge encore.'
+          : 'La photographie historique est indisponible. Revenez au secteur puis réessayez.',
+      );
+      return;
+    }
     if (Device.isDevice && !permission?.granted) {
       await requestPermission();
       return;
@@ -390,21 +418,45 @@ export function AlignmentScreen() {
                   height: captureFrame.height,
                 },
               ]}>
-              <AnimatedArchiveImage
-                source={referenceImage}
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    opacity: overlayOpacity,
-                    transform: [
-                      { translateX: overlayOffset.x },
-                      { translateY: overlayOffset.y },
-                      { scale: overlayScale },
-                    ],
-                  },
-                ]}
-                contentFit="contain"
-              />
+              {referenceImage ? (
+                <AnimatedArchiveImage
+                  source={referenceImage}
+                  onError={() => setFailedReferenceKey(referenceImageKey)}
+                  onLoad={() => setLoadedReferenceKey(referenceImageKey)}
+                  style={[
+                    StyleSheet.absoluteFill,
+                    {
+                      opacity: overlayOpacity,
+                      transform: [
+                        { translateX: overlayOffset.x },
+                        { translateY: overlayOffset.y },
+                        { scale: overlayScale },
+                      ],
+                    },
+                  ]}
+                  contentFit="contain"
+                />
+              ) : null}
+              {!referenceImageLoaded || referenceImageFailed ? (
+                <View pointerEvents="none" style={styles.referenceStatus}>
+                  {!referenceImageFailed && (archiveImagesLoading || referenceImage) ? (
+                    <ActivityIndicator color={Palette.white} />
+                  ) : (
+                    <SymbolView
+                      name="photo.badge.exclamationmark"
+                      size={24}
+                      tintColor={Palette.brass}
+                    />
+                  )}
+                  <Text style={styles.referenceStatusText}>
+                    {referenceImageFailed
+                      ? 'APERÇU INDISPONIBLE'
+                      : archiveImagesLoading || referenceImage
+                        ? 'CHARGEMENT DE L’ARCHIVE…'
+                        : 'AUCUNE ARCHIVE À SUPERPOSER'}
+                  </Text>
+                </View>
+              ) : null}
               <View
                 accessibilityHint="Faites glisser pour déplacer l’archive dans le cadre final"
                 accessibilityLabel="Déplacer la photographie de référence"
@@ -627,7 +679,12 @@ export function AlignmentScreen() {
           </Pressable>
           <Pressable
             accessibilityLabel={liveCamera ? 'Prendre la photo' : 'Simuler la photo'}
-            disabled={capturing || (liveCamera && !cameraReady)}
+            disabled={
+              capturing ||
+              !referenceImage ||
+              referenceImageFailed ||
+              (liveCamera && !cameraReady)
+            }
             onPress={capture}
             style={({ pressed }) => [
               styles.shutterOuter,
@@ -645,11 +702,17 @@ export function AlignmentScreen() {
 
         <Text style={styles.captureHint}>
           {captureError ??
-            (isSimulator
-              ? 'Le simulateur utilise une photo d’essai. Sur iPhone, le flux caméra la remplace automatiquement.'
-              : liveCamera
-                ? 'Restez sur le domaine public et surveillez la circulation.'
-                : 'Touchez le déclencheur pour autoriser la caméra.')}
+            (archiveImagesLoading
+              ? 'Chargement de la photographie historique depuis la BHVP…'
+              : referenceImageFailed
+                ? 'L’aperçu BHVP est momentanément indisponible. Revenez en arrière pour réessayer.'
+                : !referenceImage
+                  ? 'Aucune photographie historique n’est disponible pour cette vue.'
+                  : isSimulator
+                    ? 'Le simulateur utilise une scène parisienne d’essai. Sur iPhone, le flux caméra la remplace automatiquement.'
+                    : liveCamera
+                      ? 'Restez sur le domaine public et surveillez la circulation.'
+                      : 'Touchez le déclencheur pour autoriser la caméra.')}
         </Text>
       </SafeAreaView>
     </View>
@@ -682,6 +745,21 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.9)',
     backgroundColor: 'rgba(8, 17, 22, 0.12)',
+  },
+  referenceStatus: {
+    position: 'absolute',
+    inset: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    backgroundColor: 'rgba(8, 17, 22, 0.54)',
+  },
+  referenceStatusText: {
+    color: Palette.white,
+    fontFamily: Fonts.mono,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.55,
   },
   overlayGesture: {
     position: 'absolute',
