@@ -10,7 +10,8 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+    <!-- Reproduit le viewport desktop défectueux observé sur le formulaire tiers. -->
+    <meta name="viewport" content="width=980" />
     <style>
       :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
       * { box-sizing: border-box; }
@@ -31,14 +32,16 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
       button { width: 100%; min-height: 48px; margin-top: 22px; border: 0; border-radius: 24px;
         color: #fff; background: #174b68; font: inherit; font-weight: 800; }
       #selected { margin-top: 10px; color: #59717d; font-size: 12px; }
+      .legacy-form-shell { min-width: 720px; }
     </style>
   </head>
   <body>
     <span class="test">MODE TEST LOCAL — AUCUN ENVOI</span>
     <h1>Déposer une reprise</h1>
+
     <p class="notice">Fixture du formulaire officiel observé : informations de la photo,
       sections 1970/2026, profil et règlement.</p>
-    <form id="fixture-form">
+    <form class="legacy-form-shell" id="fixture-form">
       <section>
         <h2>Localisation</h2>
         <div class="field-container">
@@ -117,6 +120,7 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
           <label for="fixture-consent">J'ai lu et j'accepte le règlement de participation</label>
         </div>
       </section>
+
 
       <p id="selected">0/2 photo sélectionnée</p>
       <button id="fixture-submit" type="submit">Simuler l'envoi</button>

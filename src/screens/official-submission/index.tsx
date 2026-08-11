@@ -22,6 +22,10 @@ import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { useUserLocation } from '@/hooks/use-user-location';
+import {
+  buildOfficialFormUsabilityScript,
+  officialChromeIsExpanded,
+} from '@/services/official-form-usability';
 import { OFFICIAL_SUBMISSION_FIXTURE_HTML } from '@/services/official-submission-fixture';
 import {
   buildObservatoirePrefillScript,
@@ -103,6 +107,7 @@ export function OfficialSubmissionScreen() {
     reference: { ready: false },
   });
   const [imageError, setImageError] = useState<string>();
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   useEffect(() => {
     if (!isSimulated) void locate();
@@ -127,7 +132,10 @@ export function OfficialSubmissionScreen() {
       postalCode: postalCodeFrom(detail?.address, detail?.arrondissement),
     };
   }, [coordinate, detail, frameIndex, isArchiveSector, isPrecise]);
-  const injectedScript = useMemo(() => buildObservatoirePrefillScript(prefill), [prefill]);
+  const injectedScript = useMemo(
+    () => `${buildOfficialFormUsabilityScript()}\n${buildObservatoirePrefillScript(prefill)}`,
+    [prefill],
+  );
   const webSource = useMemo(
     () =>
       OFFICIAL_SUBMISSION_FIXTURE_ENABLED
@@ -227,6 +235,10 @@ export function OfficialSubmissionScreen() {
   const permissionDenied =
     preparedImages.current.error === 'permission-denied' ||
     preparedImages.reference.error === 'permission-denied';
+  const chromeExpanded = officialChromeIsExpanded({
+    detailsRequested: detailsExpanded,
+    hasBlockingMessage: Boolean(imageError || validationMessage || hasPreparationError),
+  });
 
   return (
     <View style={styles.screen}>
@@ -255,74 +267,112 @@ export function OfficialSubmissionScreen() {
         </View>
       </SafeAreaView>
 
-      <View style={styles.trustBanner}>
-        <View style={styles.secureIcon}>
-          <SymbolView name="lock.shield.fill" size={18} tintColor={Palette.lichen} />
+      {chromeExpanded ? (
+        <>
+          <View style={styles.trustBanner}>
+            <View style={styles.secureIcon}>
+              <SymbolView name="lock.shield.fill" size={18} tintColor={Palette.lichen} />
+            </View>
+            <View style={styles.trustCopy}>
+              <Text style={styles.trustTitle}>
+                {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
+                  ? 'Formulaire de test embarqué'
+                  : 'Formulaire officiel du CAUE de Paris'}
+              </Text>
+              <Text style={styles.trustText}>
+                {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
+                  ? 'Aucune donnée ni photo ne quitte cet appareil.'
+                  : 'Reprise ne reçoit ni votre identité ni vos photos. Elles partent du formulaire officiel.'}
+              </Text>
+            </View>
+            <View style={styles.prefillBadge}>
+              <Text style={styles.prefillValue}>{prefilledCount || '—'}</Text>
+              <Text style={styles.prefillLabel}>CHAMPS</Text>
+            </View>
+          </View>
+          <View style={styles.preparationRow}>
+            <View style={styles.preparationCopy}>
+              <Text style={styles.preparationTitle}>
+                {isSimulated
+                  ? 'Aperçu de démonstration'
+                  : preparedCount === 2
+                    ? 'Les 2 photos sont prêtes'
+                    : `${preparedCount}/2 photo${preparedCount > 1 ? 's' : ''} prête${preparedCount > 1 ? 's' : ''}`}
+              </Text>
+              <Text style={styles.preparationText}>
+                {isPrecise
+                  ? 'Position actuelle et date préparées'
+                  : locating
+                    ? 'Recherche de votre position…'
+                    : locationError ?? 'Date et informations du point de vue préparées'}
+              </Text>
+              <Text style={preparedImages.current.ready ? styles.fileReady : styles.filePending}>
+                {preparedImages.current.ready
+                  ? '✓ Photo 2026 prête'
+                  : `Photo 2026 : ${preparationErrorLabel(preparedImages.current.error) ?? 'à préparer'}`}
+              </Text>
+              <Text style={preparedImages.reference.ready ? styles.fileReady : styles.filePending}>
+                {preparedImages.reference.ready
+                  ? '✓ Archive prête'
+                  : `Archive : ${preparationErrorLabel(preparedImages.reference.error) ?? 'à préparer'}`}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              disabled={preparingImages}
+              onPress={prepareImages}
+              style={({ pressed }) => [
+                styles.prepareButton,
+                pressed && styles.pressed,
+                preparingImages && styles.disabled,
+              ]}>
+              {preparingImages ? (
+                <ActivityIndicator color={Palette.parisBlue} size="small" />
+              ) : (
+                <SymbolView name="photo.on.rectangle.angled" size={18} tintColor={Palette.parisBlue} />
+              )}
+              <Text style={styles.prepareLabel}>
+                {isSimulated ? 'Voir le parcours' : hasPreparationError ? 'Réessayer' : 'Préparer'}
+              </Text>
+            </Pressable>
+          </View>
+          <Pressable
+            accessibilityLabel="Réduire les informations du dépôt"
+            accessibilityRole="button"
+            onPress={() => setDetailsExpanded(false)}
+            style={({ pressed }) => [styles.collapseButton, pressed && styles.pressed]}>
+            <Text style={styles.collapseLabel}>Agrandir le formulaire</Text>
+            <SymbolView name="chevron.up" size={11} tintColor={Palette.parisBlue} />
+          </Pressable>
+        </>
+      ) : (
+        <View style={styles.compactBar}>
+          <Text style={styles.compactStatus} numberOfLines={1}>
+            {prefilledCount || '—'} champs · {preparedCount}/2 photos prêtes
+          </Text>
+          <Pressable
+            accessibilityLabel="Préparer les photos"
+            accessibilityRole="button"
+            disabled={preparingImages}
+            onPress={prepareImages}
+            style={({ pressed }) => [styles.compactAction, pressed && styles.pressed]}>
+            {preparingImages ? (
+              <ActivityIndicator color={Palette.parisBlue} size="small" />
+            ) : (
+              <SymbolView name="photo.on.rectangle.angled" size={16} tintColor={Palette.parisBlue} />
+            )}
+            <Text style={styles.compactActionLabel}>Photos</Text>
+          </Pressable>
+          <Pressable
+            accessibilityLabel="Afficher les informations du dépôt"
+            accessibilityRole="button"
+            onPress={() => setDetailsExpanded(true)}
+            style={({ pressed }) => [styles.compactAction, pressed && styles.pressed]}>
+            <SymbolView name="info.circle" size={16} tintColor={Palette.parisBlue} />
+            <Text style={styles.compactActionLabel}>Infos</Text>
+          </Pressable>
         </View>
-        <View style={styles.trustCopy}>
-          <Text style={styles.trustTitle}>
-            {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
-              ? 'Formulaire de test embarqué'
-              : 'Formulaire officiel du CAUE de Paris'}
-          </Text>
-          <Text style={styles.trustText}>
-            {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
-              ? 'Aucune donnée ni photo ne quitte cet appareil.'
-              : 'Reprise ne reçoit ni votre identité ni vos photos. Elles partent du formulaire officiel.'}
-          </Text>
-        </View>
-        <View style={styles.prefillBadge}>
-          <Text style={styles.prefillValue}>{prefilledCount || '—'}</Text>
-          <Text style={styles.prefillLabel}>CHAMPS</Text>
-        </View>
-      </View>
-
-      <View style={styles.preparationRow}>
-        <View style={styles.preparationCopy}>
-          <Text style={styles.preparationTitle}>
-            {isSimulated
-              ? 'Aperçu de démonstration'
-              : preparedCount === 2
-                ? 'Les 2 photos sont prêtes'
-                : `${preparedCount}/2 photo${preparedCount > 1 ? 's' : ''} prête${preparedCount > 1 ? 's' : ''}`}
-          </Text>
-          <Text style={styles.preparationText}>
-            {isPrecise
-              ? 'Position actuelle et date préparées'
-              : locating
-                ? 'Recherche de votre position…'
-                : locationError ?? 'Date et informations du point de vue préparées'}
-          </Text>
-          <Text style={preparedImages.current.ready ? styles.fileReady : styles.filePending}>
-            {preparedImages.current.ready
-              ? '✓ Photo 2026 prête'
-              : `Photo 2026 : ${preparationErrorLabel(preparedImages.current.error) ?? 'à préparer'}`}
-          </Text>
-          <Text style={preparedImages.reference.ready ? styles.fileReady : styles.filePending}>
-            {preparedImages.reference.ready
-              ? '✓ Archive prête'
-              : `Archive : ${preparationErrorLabel(preparedImages.reference.error) ?? 'à préparer'}`}
-          </Text>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          disabled={preparingImages}
-          onPress={prepareImages}
-          style={({ pressed }) => [
-            styles.prepareButton,
-            pressed && styles.pressed,
-            preparingImages && styles.disabled,
-          ]}>
-          {preparingImages ? (
-            <ActivityIndicator color={Palette.parisBlue} size="small" />
-          ) : (
-            <SymbolView name="photo.on.rectangle.angled" size={18} tintColor={Palette.parisBlue} />
-          )}
-          <Text style={styles.prepareLabel}>
-            {isSimulated ? 'Voir le parcours' : hasPreparationError ? 'Réessayer' : 'Préparer'}
-          </Text>
-        </Pressable>
-      </View>
+      )}
       {imageError ? <Text style={styles.inlineError}>{imageError}</Text> : null}
       {permissionDenied ? (
         <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()}>
@@ -431,12 +481,14 @@ export function OfficialSubmissionScreen() {
         )}
       </View>
 
-      <SafeAreaView edges={['bottom']} style={styles.manualFooter}>
-        <SymbolView name="hand.tap.fill" size={18} tintColor={Palette.brass} />
-        <Text style={styles.manualText}>
-          Les photos, le règlement et le bouton d’envoi restent entièrement sous votre contrôle.
-        </Text>
-      </SafeAreaView>
+      {chromeExpanded ? (
+        <SafeAreaView edges={['bottom']} style={styles.manualFooter}>
+          <SymbolView name="hand.tap.fill" size={18} tintColor={Palette.brass} />
+          <Text style={styles.manualText}>
+            Les photos, le règlement et le bouton d’envoi restent entièrement sous votre contrôle.
+          </Text>
+        </SafeAreaView>
+      ) : null}
     </View>
   );
 }
@@ -537,6 +589,48 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 9,
     lineHeight: 12,
+  },
+  compactBar: {
+    minHeight: 46,
+    paddingHorizontal: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  compactStatus: {
+    flex: 1,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  compactAction: {
+    minHeight: 36,
+    paddingHorizontal: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  compactActionLabel: {
+    color: Palette.parisBlue,
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  collapseButton: {
+    minHeight: 32,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  collapseLabel: {
+    color: Palette.parisBlue,
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    fontWeight: '800',
+  },
   },
   prepareButton: {
     minHeight: 38,
