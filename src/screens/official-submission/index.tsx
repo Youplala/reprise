@@ -23,6 +23,7 @@ import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { useUserLocation } from '@/hooks/use-user-location';
 import { OFFICIAL_SUBMISSION_FIXTURE_HTML } from '@/services/official-submission-fixture';
+import { updateCapturePreparation } from '@/services/fieldbook';
 import {
   buildObservatoirePrefillScript,
   OFFICIAL_SUBMISSION_FIXTURE_ENABLED,
@@ -51,12 +52,15 @@ function postalCodeFrom(value?: string, arrondissement?: string) {
 export function OfficialSubmissionScreen() {
   const router = useRouter();
   const webViewRef = useRef<WebView>(null);
-  const { id, frame, uri, simulated, currentSaved } = useLocalSearchParams<{
+  const { id, frame, uri, simulated, currentSaved, captureId, latitude, longitude } = useLocalSearchParams<{
     id: string;
     frame?: string;
     uri?: string;
     simulated?: string;
     currentSaved?: string;
+    captureId?: string;
+    latitude?: string;
+    longitude?: string;
   }>();
   const { detail } = useStationDetail(id);
   const isArchiveSector = detail?.kind === 'archive-1970';
@@ -72,6 +76,10 @@ export function OfficialSubmissionScreen() {
   const referenceUri =
     typeof referenceSource === 'object' && referenceSource ? referenceSource.uri : undefined;
   const isSimulated = simulated !== '0';
+  const hasSavedCoordinate =
+    Boolean(latitude && longitude) &&
+    Number.isFinite(Number(latitude)) &&
+    Number.isFinite(Number(longitude));
   const { coordinate, isPrecise, loading: locating, error: locationError, locate } =
     useUserLocation();
   const [loading, setLoading] = useState(true);
@@ -88,12 +96,18 @@ export function OfficialSubmissionScreen() {
   const [imageError, setImageError] = useState<string>();
 
   useEffect(() => {
-    if (!isSimulated) void locate();
-  }, [isSimulated, locate]);
+    if (!isSimulated && !hasSavedCoordinate) void locate();
+  }, [hasSavedCoordinate, isSimulated, locate]);
 
   const prefill = useMemo(() => {
     const exactStationCoordinate = detail && !detail.approximate ? detail.coordinate : undefined;
-    const submissionCoordinate = isPrecise ? coordinate : exactStationCoordinate;
+    const savedLatitude = Number(latitude);
+    const savedLongitude = Number(longitude);
+    const savedCoordinate =
+      Number.isFinite(savedLatitude) && Number.isFinite(savedLongitude) && latitude && longitude
+        ? { latitude: savedLatitude, longitude: savedLongitude }
+        : undefined;
+    const submissionCoordinate = savedCoordinate ?? (isPrecise ? coordinate : exactStationCoordinate);
     const referenceUrl = isArchiveSector
       ? detail?.archiveLinks[frameIndex]
       : detail?.officialUrl;
@@ -109,7 +123,7 @@ export function OfficialSubmissionScreen() {
         : `Reprise de la vue de ${detail?.year ?? 1970}`,
       postalCode: postalCodeFrom(detail?.address, detail?.arrondissement),
     };
-  }, [coordinate, detail, frameIndex, isArchiveSector, isPrecise]);
+  }, [coordinate, detail, frameIndex, isArchiveSector, isPrecise, latitude, longitude]);
   const injectedScript = useMemo(() => buildObservatoirePrefillScript(prefill), [prefill]);
   const webSource = useMemo(
     () =>
@@ -174,6 +188,12 @@ export function OfficialSubmissionScreen() {
         stationId: id,
       });
       setPreparedImages(result);
+      if (captureId) {
+        await updateCapturePreparation(captureId, {
+          current: result.current,
+          reference: result.reference,
+        }).catch(() => undefined);
+      }
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       setImageError(

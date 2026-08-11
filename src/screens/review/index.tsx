@@ -19,24 +19,34 @@ import { SIMULATED_CAMERA_IMAGE } from '@/constants/demo';
 import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
+import { useUserLocation } from '@/hooks/use-user-location';
 import { saveCapture } from '@/services/fieldbook';
+import type { Coordinate } from '@/types/station';
 
 export function ReviewScreen() {
   const router = useRouter();
-  const { id, frame, uri, simulated, roll, pitch } = useLocalSearchParams<{
+  const { id, frame, uri, simulated, roll, pitch, captureId, resumed, currentSaved } = useLocalSearchParams<{
     id: string;
     frame?: string;
     uri?: string;
     simulated?: string;
     roll?: string;
     pitch?: string;
+    captureId?: string;
+    resumed?: string;
+    currentSaved?: string;
   }>();
   const { detail } = useStationDetail(id);
-  const [saved, setSaved] = useState(false);
-  const [inLibrary, setInLibrary] = useState(false);
+  const { locate } = useUserLocation();
+  const [saved, setSaved] = useState(resumed === '1');
+  const [inLibrary, setInLibrary] = useState(currentSaved === '1');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>();
-  const [savedCaptureUri, setSavedCaptureUri] = useState<string>();
+  const [savedCaptureUri, setSavedCaptureUri] = useState<string | undefined>(
+    resumed === '1' ? uri : undefined,
+  );
+  const [savedCaptureId, setSavedCaptureId] = useState<string | undefined>(captureId);
+  const [savedCoordinate, setSavedCoordinate] = useState<Coordinate>();
   const [comparisonActive, setComparisonActive] = useState(false);
   const isSimulated = simulated !== '0';
   const isArchiveSector = detail?.kind === 'archive-1970';
@@ -67,15 +77,22 @@ export function ReviewScreen() {
     setSaving(true);
     setSaveError(undefined);
     try {
+      const coordinate = isSimulated ? undefined : await locate();
       const { capture, savedToLibrary } = await saveCapture({
         stationId: id,
+        stationName: detail?.name,
+        stationAddress: detail?.address,
+        frameIndex,
         imageUri: uri || undefined,
         simulated: isSimulated,
         roll: hasTilt ? rollDegrees : undefined,
         pitch: hasTilt ? pitchDegrees : undefined,
+        coordinate,
       });
       setInLibrary(savedToLibrary);
       setSavedCaptureUri(capture.imageUri);
+      setSavedCaptureId(capture.id);
+      setSavedCoordinate(capture.coordinate);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSaved(true);
     } catch {
@@ -90,17 +107,20 @@ export function ReviewScreen() {
       pathname: '/official-submit' as never,
       params: {
         id,
+        captureId: savedCaptureId ?? '',
         frame: String(frameIndex),
         uri: savedCaptureUri ?? uri ?? '',
         simulated: isSimulated ? '1' : '0',
         currentSaved: saved && inLibrary ? '1' : '0',
+        latitude: savedCoordinate ? String(savedCoordinate.latitude) : '',
+        longitude: savedCoordinate ? String(savedCoordinate.longitude) : '',
       },
     });
 
   const share = () =>
     Share.share({
       message: `J’ai retrouvé un point de vue de ${detail?.year ?? 1970} à Paris avec Reprise.`,
-      url: uri,
+      url: savedCaptureUri ?? uri,
     });
 
   return (
@@ -209,7 +229,7 @@ export function ReviewScreen() {
         </View>
 
         <PrimaryButton
-          label={saved ? (inLibrary ? 'Enregistrée dans vos photos' : 'Ajoutée au carnet') : 'Enregistrer ma photo'}
+          label={saved ? (inLibrary ? 'Conservée et enregistrée dans Photos' : 'Conservée dans le carnet') : 'Enregistrer ma photo'}
           icon={saved ? 'checkmark' : 'bookmark'}
           loading={saving}
           disabled={saved}
