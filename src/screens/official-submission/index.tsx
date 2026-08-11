@@ -33,6 +33,23 @@ import {
   type PreparedImages,
 } from '@/services/official-submission';
 
+function preparationErrorLabel(error: PreparedImages['current']['error']) {
+  switch (error) {
+    case 'permission-denied':
+      return 'Accès Photos refusé — autorisez Reprise dans Réglages.';
+    case 'missing-uri':
+      return 'Fichier absent — choisissez cette image manuellement dans le formulaire.';
+    case 'download-failed':
+      return 'Téléchargement impossible — vérifiez le réseau puis réessayez.';
+    case 'unsupported-format':
+      return 'Format non pris en charge — choisissez cette image manuellement.';
+    case 'save-failed':
+      return 'Écriture dans Photos impossible — réessayez ou choisissez le fichier manuellement.';
+    default:
+      return undefined;
+  }
+}
+
 function localIsoDate() {
   const date = new Date();
   const year = date.getFullYear();
@@ -82,8 +99,8 @@ export function OfficialSubmissionScreen() {
   const [submissionStatus, setSubmissionStatus] = useState<'editing' | 'success'>('editing');
   const [preparingImages, setPreparingImages] = useState(false);
   const [preparedImages, setPreparedImages] = useState<PreparedImages>({
-    current: currentSaved === '1',
-    reference: false,
+    current: { ready: currentSaved === '1' },
+    reference: { ready: false },
   });
   const [imageError, setImageError] = useState<string>();
 
@@ -170,17 +187,16 @@ export function OfficialSubmissionScreen() {
       const result = await prepareImagesForOfficialForm({
         currentAlreadySaved: currentSaved === '1',
         currentUri: uri,
+        previous: preparedImages,
         referenceUri,
         stationId: id,
       });
       setPreparedImages(result);
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      setImageError(
-        error instanceof Error && error.message === 'PHOTO_LIBRARY_DENIED'
-          ? 'Autorisez l’accès aux photos pour préparer les deux fichiers.'
-          : 'Les images n’ont pas pu être préparées. Vous pourrez les choisir manuellement.',
-      );
+      if (result.current.ready || result.reference.ready) {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      setImageError('La préparation a été interrompue. Les fichiers déjà prêts restent disponibles.');
     } finally {
       setPreparingImages(false);
     }
@@ -200,7 +216,14 @@ export function OfficialSubmissionScreen() {
     }
   };
 
-  const preparedCount = Number(preparedImages.reference) + Number(preparedImages.current);
+  const preparedCount =
+    Number(preparedImages.reference.ready) + Number(preparedImages.current.ready);
+  const hasPreparationError = Boolean(
+    preparedImages.current.error || preparedImages.reference.error,
+  );
+  const permissionDenied =
+    preparedImages.current.error === 'permission-denied' ||
+    preparedImages.reference.error === 'permission-denied';
 
   return (
     <View style={styles.screen}>
@@ -267,6 +290,16 @@ export function OfficialSubmissionScreen() {
                 ? 'Recherche de votre position…'
                 : locationError ?? 'Date et informations du point de vue préparées'}
           </Text>
+          <Text style={preparedImages.current.ready ? styles.fileReady : styles.filePending}>
+            {preparedImages.current.ready
+              ? '✓ Photo 2026 prête'
+              : `Photo 2026 : ${preparationErrorLabel(preparedImages.current.error) ?? 'à préparer'}`}
+          </Text>
+          <Text style={preparedImages.reference.ready ? styles.fileReady : styles.filePending}>
+            {preparedImages.reference.ready
+              ? '✓ Archive prête'
+              : `Archive : ${preparationErrorLabel(preparedImages.reference.error) ?? 'à préparer'}`}
+          </Text>
         </View>
         <Pressable
           accessibilityRole="button"
@@ -282,10 +315,17 @@ export function OfficialSubmissionScreen() {
           ) : (
             <SymbolView name="photo.on.rectangle.angled" size={18} tintColor={Palette.parisBlue} />
           )}
-          <Text style={styles.prepareLabel}>{isSimulated ? 'Voir le parcours' : 'Préparer'}</Text>
+          <Text style={styles.prepareLabel}>
+            {isSimulated ? 'Voir le parcours' : hasPreparationError ? 'Réessayer' : 'Préparer'}
+          </Text>
         </Pressable>
       </View>
       {imageError ? <Text style={styles.inlineError}>{imageError}</Text> : null}
+      {permissionDenied ? (
+        <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()}>
+          <Text style={styles.settingsLink}>Ouvrir les réglages Photos</Text>
+        </Pressable>
+      ) : null}
       {validationMessage ? (
         <View style={styles.validationBanner}>
           <SymbolView name="exclamationmark.circle.fill" size={15} tintColor={Palette.copper} />
@@ -477,9 +517,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
   },
-  preparationCopy: { flex: 1 },
+  preparationCopy: { flex: 1, paddingVertical: Spacing.two },
   preparationTitle: { color: Palette.ink, fontFamily: Fonts.sans, fontSize: 12, fontWeight: '800' },
   preparationText: { marginTop: 2, color: Palette.inkSoft, fontFamily: Fonts.sans, fontSize: 10 },
+  fileReady: {
+    marginTop: 3,
+    color: Palette.lichen,
+    fontFamily: Fonts.sans,
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  filePending: {
+    marginTop: 3,
+    color: Palette.copper,
+    fontFamily: Fonts.sans,
+    fontSize: 9,
+    lineHeight: 12,
+  },
   prepareButton: {
     minHeight: 38,
     paddingHorizontal: Spacing.twoHalf,
@@ -498,6 +552,15 @@ const styles = StyleSheet.create({
     color: Palette.copper,
     fontFamily: Fonts.sans,
     fontSize: 10,
+  },
+  settingsLink: {
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
+    color: Palette.parisBlue,
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    fontWeight: '800',
+    textDecorationLine: 'underline',
   },
   validationBanner: {
     marginHorizontal: Spacing.three,
