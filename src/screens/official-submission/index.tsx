@@ -52,6 +52,7 @@ import {
   shouldInjectOfficialScripts,
 } from '@/services/official-navigation';
 import { OFFICIAL_SUBMISSION_FIXTURE_HTML } from '@/services/official-submission-fixture';
+import { updateCapturePreparation } from '@/services/fieldbook';
 import {
   buildObservatoirePrefillScript,
   OFFICIAL_SUBMISSION_FIXTURE_ENABLED,
@@ -95,6 +96,19 @@ function localIsoDate() {
   return `${year}-${month}-${day}`;
 }
 
+function restoredPreparation(
+  value: string | undefined,
+  fallbackReady = false,
+): PreparedImages['current'] {
+  if (!value) return { ready: fallbackReady };
+  try {
+    const parsed = JSON.parse(value) as PreparedImages['current'];
+    return typeof parsed.ready === 'boolean' ? parsed : { ready: fallbackReady };
+  } catch {
+    return { ready: fallbackReady };
+  }
+}
+
 function postalCodeFrom(value?: string, arrondissement?: string) {
   const explicit = `${value ?? ''} ${arrondissement ?? ''}`.match(/\b750\d{2}\b/)?.[0];
   if (explicit) return explicit;
@@ -114,11 +128,28 @@ export function OfficialSubmissionScreen() {
   const currentPageUrl = useRef(
     OFFICIAL_SUBMISSION_FIXTURE_ENABLED ? 'about:blank' : OBSERVATOIRE_CONTRIBUTION_URL,
   );
-  const { id, frame, uri, simulated } = useLocalSearchParams<{
+  const {
+    id,
+    frame,
+    uri,
+    simulated,
+    currentSaved,
+    captureId,
+    latitude,
+    longitude,
+    currentPreparation,
+    referencePreparation,
+  } = useLocalSearchParams<{
     id: string;
     frame?: string;
     uri?: string;
     simulated?: string;
+    currentSaved?: string;
+    captureId?: string;
+    latitude?: string;
+    longitude?: string;
+    currentPreparation?: string;
+    referencePreparation?: string;
   }>();
   const authorizedCurrentUri = useRef(
     uri && isOfficialCaptureAuthorized(id, uri) ? uri : undefined,
@@ -137,6 +168,10 @@ export function OfficialSubmissionScreen() {
   const referenceUri =
     typeof referenceSource === 'object' && referenceSource ? referenceSource.uri : undefined;
   const isSimulated = simulated !== '0';
+  const hasSavedCoordinate =
+    Boolean(latitude && longitude) &&
+    Number.isFinite(Number(latitude)) &&
+    Number.isFinite(Number(longitude));
   const { coordinate, isPrecise, loading: locating, error: locationError, locate } =
     useUserLocation();
   const [loading, setLoading] = useState(true);
@@ -149,8 +184,8 @@ export function OfficialSubmissionScreen() {
   const [imagePreparation, setImagePreparation] = useState<OfficialFormImagePreparation>({
     files: {},
     images: {
-      current: { ready: false },
-      reference: { ready: false },
+      current: restoredPreparation(currentPreparation, currentSaved === '1'),
+      reference: restoredPreparation(referencePreparation),
     },
     sources: {},
   });
@@ -161,8 +196,8 @@ export function OfficialSubmissionScreen() {
   const [guideVisible, setGuideVisible] = useState(false);
 
   useEffect(() => {
-    if (!isSimulated) void locate();
-  }, [isSimulated, locate]);
+    if (!isSimulated && !hasSavedCoordinate) void locate();
+  }, [hasSavedCoordinate, isSimulated, locate]);
 
   useEffect(() => {
     let active = true;
@@ -176,7 +211,13 @@ export function OfficialSubmissionScreen() {
 
   const prefill = useMemo(() => {
     const exactStationCoordinate = detail && !detail.approximate ? detail.coordinate : undefined;
-    const submissionCoordinate = isPrecise ? coordinate : exactStationCoordinate;
+    const savedLatitude = Number(latitude);
+    const savedLongitude = Number(longitude);
+    const savedCoordinate =
+      Number.isFinite(savedLatitude) && Number.isFinite(savedLongitude) && latitude && longitude
+        ? { latitude: savedLatitude, longitude: savedLongitude }
+        : undefined;
+    const submissionCoordinate = savedCoordinate ?? (isPrecise ? coordinate : exactStationCoordinate);
     return {
       address: detail && !detail.approximate ? detail.address : undefined,
       captureDate: localIsoDate(),
@@ -186,7 +227,7 @@ export function OfficialSubmissionScreen() {
       longitude: submissionCoordinate?.longitude,
       postalCode: postalCodeFrom(detail?.address, detail?.arrondissement),
     };
-  }, [coordinate, detail, isPrecise]);
+  }, [coordinate, detail, isPrecise, latitude, longitude]);
   const buildInjectedScript = useCallback(
     (currentDocumentGeneration: number) => {
       const { current, reference } = imagePreparation.files;
@@ -328,6 +369,9 @@ export function OfficialSubmissionScreen() {
       });
       if (!isCurrentOfficialPreparation(request, latestPreparationRequest.current)) return;
       setImagePreparation(result);
+      if (captureId) {
+        await updateCapturePreparation(captureId, result.images).catch(() => undefined);
+      }
       if (didAddReadyImage(previous.images, result.images)) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
@@ -344,7 +388,7 @@ export function OfficialSubmissionScreen() {
       }
       setPreparingImages(latestPreparationInFlight.current !== undefined);
     }
-  }, [authorizedCurrentUri, id, imagePreparation, isSimulated, referenceUri, uri]);
+  }, [authorizedCurrentUri, captureId, id, imagePreparation, isSimulated, referenceUri, uri]);
 
   useEffect(() => {
     const key = `${id}|${isSimulated ? 'simulated' : 'live'}|${uri ?? ''}|${referenceUri ?? ''}`;
@@ -374,7 +418,13 @@ export function OfficialSubmissionScreen() {
     }
     if (isSimulated || !uri || !referenceUri) return;
     void prepareImages(request);
-  }, [id, isSimulated, prepareImages, referenceUri, uri]);
+  }, [
+    id,
+    isSimulated,
+    prepareImages,
+    referenceUri,
+    uri,
+  ]);
 
   const allowNavigation = (request: { url: string }) => {
     return isAllowedOfficialNavigation(request.url, OFFICIAL_SUBMISSION_FIXTURE_ENABLED);
