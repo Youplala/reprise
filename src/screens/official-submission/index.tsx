@@ -98,7 +98,7 @@ export function OfficialSubmissionScreen() {
       ? detail?.archiveLinks[frameIndex]
       : detail?.officialUrl;
     return {
-      address: detail?.address,
+      address: detail && !detail.approximate ? detail.address : undefined,
       captureDate: localIsoDate(),
       city: 'Paris',
       device: Device.modelName ?? Device.deviceName ?? 'Smartphone',
@@ -149,6 +149,9 @@ export function OfficialSubmissionScreen() {
       setValidationMessage(
         message.message || 'Le formulaire officiel signale un champ à vérifier.',
       );
+    }
+    if (message.type === 'contract-error') {
+      setFormError(message.message);
     }
   };
 
@@ -349,6 +352,7 @@ export function OfficialSubmissionScreen() {
                 setLoading(true);
                 setFormError(undefined);
                 setValidationMessage(undefined);
+                setPrefilledCount(0);
               }}
               onLoadEnd={() => {
                 setLoading(false);
