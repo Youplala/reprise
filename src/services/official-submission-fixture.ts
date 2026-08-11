@@ -10,7 +10,8 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+    <!-- Reproduit le viewport desktop défectueux observé sur le formulaire tiers. -->
+    <meta name="viewport" content="width=980" />
     <style>
       :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
       * { box-sizing: border-box; }
@@ -27,6 +28,7 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
       button { width: 100%; min-height: 48px; margin-top: 22px; border: 0; border-radius: 24px;
         color: #fff; background: #174b68; font: inherit; font-weight: 800; }
       #selected { margin-top: 10px; color: #59717d; font-size: 12px; }
+      .legacy-form-shell { min-width: 720px; }
     </style>
   </head>
   <body>
@@ -34,7 +36,7 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
     <h1>Déposer une reprise</h1>
     <p class="notice">Cette fixture permet de vérifier le préremplissage et le sélecteur de photos
       de la WebView pendant l'indisponibilité du serveur officiel.</p>
-    <form id="fixture-form">
+    <form class="legacy-form-shell" id="fixture-form">
       <label for="address">Adresse</label>
       <input id="address" name="address" />
       <label for="postal-code">Code postal</label>
