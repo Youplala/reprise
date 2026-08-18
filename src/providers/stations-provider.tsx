@@ -60,29 +60,36 @@ export function StationsProvider({ children }: PropsWithChildren) {
   const [syncError, setSyncError] = useState<string>();
   const mounted = useRef(true);
   const appState = useRef(AppState.currentState);
-  const synchronizer = useRef(
-    createSnapshotSynchronizer({
-      initialSnapshot: BUNDLED_SNAPSHOT,
-      loadStoredSnapshot,
-      refreshSnapshot,
-    }),
-  ).current;
+  const synchronizer = useMemo(
+    () =>
+      createSnapshotSynchronizer({
+        initialSnapshot: BUNDLED_SNAPSHOT,
+        loadStoredSnapshot,
+        refreshSnapshot,
+      }),
+    [],
+  );
 
   const synchronise = useCallback(
     async (trigger: SnapshotSyncTrigger) => {
-      if (mounted.current) setRefreshing(true);
       const result = await synchronizer.synchronize(trigger);
       if (!mounted.current) return;
-      setSnapshot(result.snapshot);
       setLastCheckedAt(result.lastCheckedAt);
       setSyncError(result.error);
-      setRefreshing(false);
     },
     [synchronizer],
   );
 
   useEffect(() => {
     mounted.current = true;
+    const removeListeners = synchronizer.setListeners({
+      onSnapshot: (nextSnapshot) => {
+        if (mounted.current) setSnapshot(nextSnapshot);
+      },
+      onActivityChange: (active) => {
+        if (mounted.current) setRefreshing(active);
+      },
+    });
     void synchronise('startup');
 
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -93,9 +100,10 @@ export function StationsProvider({ children }: PropsWithChildren) {
 
     return () => {
       mounted.current = false;
+      removeListeners();
       subscription.remove();
     };
-  }, [synchronise]);
+  }, [synchronise, synchronizer]);
 
   const refresh = useCallback(() => synchronise('manual'), [synchronise]);
 
