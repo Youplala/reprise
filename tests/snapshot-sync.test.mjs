@@ -28,6 +28,67 @@ test('startup adopts the stored snapshot then the fresher remote snapshot', asyn
   assert.equal(result.error, undefined);
 });
 
+test('startup publishes the stored snapshot before the remote request finishes', async () => {
+  const published = [];
+  let resolveRemote;
+  let markRemoteStarted;
+  const remoteStarted = new Promise((resolve) => {
+    markRemoteStarted = resolve;
+  });
+  const synchronizer = createSnapshotSynchronizer({
+    initialSnapshot: bundled,
+    loadStoredSnapshot: async () => cached,
+    refreshSnapshot: () => {
+      markRemoteStarted();
+      return new Promise((resolve) => {
+        resolveRemote = resolve;
+      });
+    },
+    onSnapshot: (snapshot) => published.push(snapshot),
+    now: () => 1_000,
+  });
+
+  const pending = synchronizer.synchronize('startup');
+  await remoteStarted;
+
+  assert.deepEqual(published, [cached]);
+  resolveRemote(remote);
+  await pending;
+  assert.deepEqual(published, [cached, remote]);
+});
+
+test('activity stays true until a shared real refresh finishes', async () => {
+  const activity = [];
+  let defer = false;
+  let resolveRefresh;
+  const synchronizer = createSnapshotSynchronizer({
+    initialSnapshot: bundled,
+    loadStoredSnapshot: async () => bundled,
+    refreshSnapshot: () => {
+      if (!defer) return Promise.resolve(undefined);
+      return new Promise((resolve) => {
+        resolveRefresh = resolve;
+      });
+    },
+    onActivityChange: (active) => activity.push(active),
+    foregroundThrottleMs: 5_000,
+    now: () => 1_000,
+  });
+
+  await synchronizer.synchronize('startup');
+  activity.length = 0;
+  defer = true;
+
+  const manual = synchronizer.synchronize('manual');
+  const foreground = synchronizer.synchronize('foreground');
+  assert.equal(foreground, manual);
+  assert.deepEqual(activity, [true]);
+
+  resolveRefresh(remote);
+  await Promise.all([manual, foreground]);
+  assert.deepEqual(activity, [true, false]);
+});
+
 test('foreground checks are throttled while manual checks bypass the throttle', async () => {
   let calls = 0;
   let now = 1_000;

@@ -43,8 +43,8 @@ export async function loadStoredSnapshot(): Promise<Snapshot> {
 /**
  * Télécharge le relevé publié et le met en cache s'il est plus récent que `current`.
  *
- * Renvoie le relevé à adopter, ou `undefined` s'il n'y a rien de neuf. Un échec réseau n'est pas
- * une erreur : l'app doit continuer de fonctionner hors connexion avec ce qu'elle a déjà.
+ * Renvoie le relevé à adopter, ou `undefined` s'il n'y a rien de neuf. Les anomalies réseau ou de
+ * format sont remontées au provider, qui conserve le relevé courant et affiche l'état hors ligne.
  */
 export async function refreshSnapshot(current: Snapshot): Promise<Snapshot | undefined> {
   if (!REMOTE_URL) return undefined;

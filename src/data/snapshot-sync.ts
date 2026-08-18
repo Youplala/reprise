@@ -11,6 +11,8 @@ type SnapshotSynchronizerOptions<T> = {
   initialSnapshot: T;
   loadStoredSnapshot: () => Promise<T>;
   refreshSnapshot: (current: T) => Promise<T | undefined>;
+  onSnapshot?: (snapshot: T) => void;
+  onActivityChange?: (active: boolean) => void;
   foregroundThrottleMs?: number;
   now?: () => number;
 };
@@ -29,9 +31,13 @@ export function createSnapshotSynchronizer<T>({
   initialSnapshot,
   loadStoredSnapshot,
   refreshSnapshot,
+  onSnapshot,
+  onActivityChange,
   foregroundThrottleMs = DEFAULT_FOREGROUND_THROTTLE_MS,
   now = Date.now,
 }: SnapshotSynchronizerOptions<T>) {
+  let snapshotListener = onSnapshot;
+  let activityListener = onActivityChange;
   let snapshot = initialSnapshot;
   let lastCheckedAt: number | undefined;
   let lastError: string | undefined;
@@ -39,9 +45,15 @@ export function createSnapshotSynchronizer<T>({
 
   const run = async (trigger: SnapshotSyncTrigger): Promise<SnapshotSyncResult<T>> => {
     try {
-      if (trigger === 'startup') snapshot = await loadStoredSnapshot();
+      if (trigger === 'startup') {
+        snapshot = await loadStoredSnapshot();
+        snapshotListener?.(snapshot);
+      }
       const fresher = await refreshSnapshot(snapshot);
-      if (fresher) snapshot = fresher;
+      if (fresher) {
+        snapshot = fresher;
+        snapshotListener?.(snapshot);
+      }
       lastCheckedAt = now();
       lastError = undefined;
       return { snapshot, checked: true, lastCheckedAt };
@@ -61,11 +73,25 @@ export function createSnapshotSynchronizer<T>({
     ) {
       return Promise.resolve({ snapshot, checked: false, lastCheckedAt, error: lastError });
     }
+    activityListener?.(true);
     inFlight = run(trigger).finally(() => {
       inFlight = undefined;
+      activityListener?.(false);
     });
     return inFlight;
   };
 
-  return { synchronize };
+  const setListeners = (listeners: {
+    onSnapshot?: (nextSnapshot: T) => void;
+    onActivityChange?: (active: boolean) => void;
+  }) => {
+    snapshotListener = listeners.onSnapshot;
+    activityListener = listeners.onActivityChange;
+    return () => {
+      if (snapshotListener === listeners.onSnapshot) snapshotListener = undefined;
+      if (activityListener === listeners.onActivityChange) activityListener = undefined;
+    };
+  };
+
+  return { synchronize, setListeners };
 }
