@@ -16,6 +16,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { deliveryImageUrls } from './image-delivery.mjs';
 import { SOURCE_URL } from './observatoire-source.mjs';
 import { assertNoPersonalData } from './privacy-guard.mjs';
 
@@ -75,11 +76,6 @@ function normalizeArrondissement(value) {
   if (!match) return undefined;
   const digits = match[1];
   return digits.length === 5 ? digits : `750${digits.padStart(2, '0')}`;
-}
-
-function httpsOnly(values) {
-  const list = Array.isArray(values) ? values : [];
-  return [...new Set(list.filter((v) => typeof v === 'string' && v.startsWith('https://')))];
 }
 
 async function loadArchiveMetadata() {
@@ -146,7 +142,7 @@ function coordinateOf(element) {
 
 function toStation(element, coordinate, categoryIds, archiveCatalog) {
   const isRecapture1970 = categoryIds.includes(CATEGORY.RECAPTURE_1970);
-  const images = httpsOnly(element.images);
+  const images = deliveryImageUrls(element.images);
 
   // Sur une reprise, image[0] est l'original 1970 et la dernière la reprise contemporaine.
   const referenceImage = images[0];
