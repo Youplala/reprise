@@ -16,7 +16,9 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const SOURCE_URL = 'https://observatoire-photo.paris/api/elements.json';
+import { SOURCE_URL } from './observatoire-source.mjs';
+import { assertNoPersonalData } from './privacy-guard.mjs';
+
 const OFFICIAL_FICHE = 'https://observatoire-photo.paris/map#/fiche/';
 const USER_AGENT = 'Reprise/1.0 (+https://github.com/Youplala/reprise) snapshot quotidien';
 
@@ -43,8 +45,6 @@ function isWithinParis({ latitude, longitude }) {
     longitude <= PARIS_SANITY_BOUNDS.east
   );
 }
-
-const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ARCHIVE_METADATA_PATH = join(root, 'assets', 'data', 'paris1970-metadata.json');
@@ -357,19 +357,6 @@ function attachGridBounds(squares, index) {
   }
 
   return matched;
-}
-
-// --- garde-fou -----------------------------------------------------------------------------
-
-function assertNoPersonalData(payload) {
-  const serialized = JSON.stringify(payload);
-  const leak = serialized.match(EMAIL_PATTERN);
-  if (leak) {
-    throw new Error(
-      `Fuite de données personnelles : ${leak[0]} présent dans le snapshot. ` +
-        `Écriture annulée — corriger la liste blanche de champs avant de relancer.`,
-    );
-  }
 }
 
 // --- pipeline ------------------------------------------------------------------------------

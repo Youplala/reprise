@@ -26,6 +26,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Tester le contrat de source et le garde-fou vie privée
+        run: npm run data:test
+
       - name: Régénérer l'instantané
         run: node scripts/ingest-observatoire.mjs
 

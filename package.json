@@ -50,6 +50,7 @@
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "data:import-paris1970": "node scripts/import-paris1970-metadata.mjs",
+    "data:test": "node --test tests/ingest-security.test.mjs",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
