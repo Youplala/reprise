@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   Alert,
   Linking,
@@ -37,9 +37,9 @@ const STEPS = [
 
 export function HomeScreen() {
   const router = useRouter();
-  const { stations, snapshotVersion, coverage, stats } = useStations();
+  const { stations, snapshotVersion, coverage, stats, refresh, refreshing, syncError } =
+    useStations();
   const { coordinate, isPrecise, loading: locating, locate } = useUserLocation();
-  const [refreshing, setRefreshing] = useState(false);
 
   // Mission mise en avant : le point de vue de 2022 le plus proche, encore à reconduire.
   const featured = useFeaturedMission(isPrecise ? coordinate : undefined);
@@ -75,11 +75,8 @@ export function HomeScreen() {
     );
   };
 
-  // Les repères sont embarqués : ce qui mérite d'être rafraîchi ici, c'est la position.
   const handleRefresh = async () => {
-    setRefreshing(true);
-    await locate();
-    setRefreshing(false);
+    await Promise.all([refresh(), locate()]);
   };
 
   const openFeatured = () => {
@@ -257,6 +254,11 @@ export function HomeScreen() {
             photos actuelles publiées par l’Observatoire photo participatif des paysages parisiens, animé
             par le CAUE de Paris.
           </Text>
+          {syncError ? (
+            <Text accessibilityLiveRegion="polite" style={styles.dataError}>
+              Mise à jour impossible pour le moment — données disponibles hors connexion.
+            </Text>
+          ) : null}
           <Pressable
             accessibilityRole="link"
             onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)}
@@ -594,6 +596,13 @@ const styles = StyleSheet.create({
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
     fontSize: 12,
+    lineHeight: 17,
+  },
+  dataError: {
+    color: Palette.danger,
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '600',
     lineHeight: 17,
   },
   privacyLink: {

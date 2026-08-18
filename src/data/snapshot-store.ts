@@ -57,15 +57,14 @@ export async function refreshSnapshot(current: Snapshot): Promise<Snapshot | und
       signal: controller.signal,
       headers: { Accept: 'application/json' },
     });
-    if (!response.ok) return undefined;
+    if (!response.ok) throw new Error(`Mise à jour des données : HTTP ${response.status}`);
 
     const parsed: unknown = await response.json();
-    if (!isUsableSnapshot(parsed) || !isNewer(parsed, current)) return undefined;
+    if (!isUsableSnapshot(parsed)) throw new Error('Mise à jour des données : format invalide');
+    if (!isNewer(parsed, current)) return undefined;
 
     await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
     return parsed;
-  } catch {
-    return undefined;
   } finally {
     clearTimeout(timeout);
   }
