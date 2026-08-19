@@ -27,6 +27,7 @@ import { useCameraLenses } from '@/hooks/use-camera-lenses';
 import { useDeviceAttitude } from '@/hooks/use-device-attitude';
 import { useImageAspectRatio } from '@/hooks/use-image-aspect-ratio';
 import { useStationDetail } from '@/hooks/use-station-detail';
+import { readGrantedCaptureLocation } from '@/services/capture-location';
 
 const AnimatedArchiveImage = Animated.createAnimatedComponent(Image);
 // Inclinaison du capteur quand l'appareil est tenu vertical, en portrait.
@@ -300,6 +301,9 @@ export function AlignmentScreen() {
     setCapturing(true);
     setCaptureError(undefined);
     try {
+      const locationPromise = liveCamera
+        ? readGrantedCaptureLocation()
+        : Promise.resolve(undefined);
       const result = liveCamera
         ? await cameraRef.current?.takePictureAsync({ quality: 1, exif: true })
         : undefined;
@@ -311,6 +315,7 @@ export function AlignmentScreen() {
             referenceAspectRatio,
           )
         : undefined;
+      const captureLocation = await locationPromise;
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push({
         pathname: '/capture-review',
@@ -321,6 +326,9 @@ export function AlignmentScreen() {
           simulated: liveCamera ? '0' : '1',
           roll: rollDegrees.toFixed(1),
           pitch: pitchDegrees.toFixed(1),
+          latitude: captureLocation ? String(captureLocation.latitude) : '',
+          longitude: captureLocation ? String(captureLocation.longitude) : '',
+          locationPrecision: captureLocation?.precision ?? '',
         },
       });
     } catch {

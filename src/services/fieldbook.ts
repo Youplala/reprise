@@ -32,6 +32,9 @@ export type SavedCapture = {
   /** Inclinaisons relevées au déclenchement, en degrés. Aucune comparaison d'image n'a lieu. */
   roll?: number;
   pitch?: number;
+  /** Position relevée au déclenchement, uniquement si la permission était déjà accordée. */
+  coordinate?: { latitude: number; longitude: number };
+  locationPrecision?: 'precise' | 'approximate';
   createdAt: string;
 };
 

@@ -20,16 +20,20 @@ import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { saveCapture } from '@/services/fieldbook';
+import { getReviewStatusRows, type CaptureLocation } from '@/services/review-status';
 
 export function ReviewScreen() {
   const router = useRouter();
-  const { id, frame, uri, simulated, roll, pitch } = useLocalSearchParams<{
+  const { id, frame, uri, simulated, roll, pitch, latitude, longitude, locationPrecision } = useLocalSearchParams<{
     id: string;
     frame?: string;
     uri?: string;
     simulated?: string;
     roll?: string;
     pitch?: string;
+    latitude?: string;
+    longitude?: string;
+    locationPrecision?: string;
   }>();
   const { detail } = useStationDetail(id);
   const [saved, setSaved] = useState(false);
@@ -62,6 +66,20 @@ export function ReviewScreen() {
   const pitchDegrees = Number(pitch);
   const hasTilt = Number.isFinite(rollDegrees) && Number.isFinite(pitchDegrees);
   const isUpright = hasTilt && Math.abs(rollDegrees) <= 2 && Math.abs(pitchDegrees) <= 8;
+  const latitudeValue = Number(latitude);
+  const longitudeValue = Number(longitude);
+  const captureLocation: CaptureLocation | undefined =
+    Number.isFinite(latitudeValue) &&
+    Number.isFinite(longitudeValue) &&
+    (locationPrecision === 'precise' || locationPrecision === 'approximate')
+      ? { latitude: latitudeValue, longitude: longitudeValue, precision: locationPrecision }
+      : undefined;
+  const reviewStatusRows = getReviewStatusRows({
+    simulated: isSimulated,
+    location: captureLocation,
+    saved,
+    savedToLibrary: inLibrary,
+  });
 
   const save = async () => {
     setSaving(true);
@@ -73,6 +91,10 @@ export function ReviewScreen() {
         simulated: isSimulated,
         roll: hasTilt ? rollDegrees : undefined,
         pitch: hasTilt ? pitchDegrees : undefined,
+        coordinate: captureLocation
+          ? { latitude: captureLocation.latitude, longitude: captureLocation.longitude }
+          : undefined,
+        locationPrecision: captureLocation?.precision,
       });
       setInLibrary(savedToLibrary);
       setSavedCaptureUri(capture.imageUri);
@@ -182,8 +204,7 @@ export function ReviewScreen() {
         <View style={styles.checklist}>
           <Text style={styles.checklistKicker}>CONTRÔLE AVANT DÉPÔT</Text>
           {[
-            ['checkmark.circle.fill', 'Lieu', 'Coordonnées enregistrées'],
-            ['checkmark.circle.fill', 'Qualité', 'JPEG original conservé'],
+            ...reviewStatusRows.map(({ icon, title, copy }) => [icon, title, copy] as const),
             [
               !hasTilt || isUpright ? 'checkmark.circle.fill' : 'exclamationmark.circle.fill',
               'Tenue de l’appareil',
@@ -198,7 +219,13 @@ export function ReviewScreen() {
               <SymbolView
                 name={icon as 'checkmark.circle.fill'}
                 size={21}
-                tintColor={icon.startsWith('check') ? Palette.lichen : Palette.copper}
+                tintColor={
+                  icon.startsWith('check')
+                    ? Palette.lichen
+                    : icon.startsWith('info')
+                      ? Palette.parisBlue
+                      : Palette.copper
+                }
               />
               <View style={styles.checkCopy}>
                 <Text style={styles.checkTitle}>{title}</Text>
