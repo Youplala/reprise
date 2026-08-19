@@ -1,8 +1,10 @@
 export type ImagePreparationError =
   | 'download-failed'
+  | 'file-too-large'
   | 'missing-uri'
   | 'permission-denied'
   | 'save-failed'
+  | 'size-check-failed'
   | 'unsupported-format';
 
 export type PreparedImageState = {
@@ -31,6 +33,50 @@ export class OfficialImagePreparationError extends Error {
 }
 
 type ImageKind = keyof PreparedImages;
+
+export const OFFICIAL_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+
+type SynchronousFlight = { current: boolean };
+
+export function tryStartImagePreparation(inFlight: SynchronousFlight) {
+  if (inFlight.current) return false;
+  inFlight.current = true;
+  return true;
+}
+
+export function didAddReadyImage(previous: PreparedImages, next: PreparedImages) {
+  return (['current', 'reference'] as const).some(
+    (kind) => !previous[kind].ready && next[kind].ready,
+  );
+}
+
+function imageExtension(uri: string) {
+  let pathname: string;
+  try {
+    pathname = new URL(uri).pathname;
+  } catch {
+    pathname = uri.split(/[?#]/, 1)[0];
+  }
+  const extension = pathname.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
+  return extension && ['heic', 'heif', 'jpeg', 'jpg', 'png'].includes(extension)
+    ? extension
+    : undefined;
+}
+
+export function imageFilenameForUri(stem: string, uri: string) {
+  const extension = imageExtension(uri);
+  if (!extension) throw new OfficialImagePreparationError('unsupported-format');
+  return `${stem}.${extension}`;
+}
+
+export function assertOfficialImageSize(size: number | null) {
+  if (size === null) {
+    throw new OfficialImagePreparationError('size-check-failed');
+  }
+  if (size > OFFICIAL_IMAGE_MAX_BYTES) {
+    throw new OfficialImagePreparationError('file-too-large');
+  }
+}
 
 type PrepareImagePairInput = {
   currentAlreadySaved?: boolean;

@@ -2,8 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  assertOfficialImageSize,
+  didAddReadyImage,
+  imageFilenameForUri,
   OfficialImagePreparationError,
   prepareImagePair,
+  tryStartImagePreparation,
 } from '../src/services/official-image-preparation.ts';
 
 const uris = {
@@ -104,4 +108,67 @@ test('une URI absente est signalée sans bloquer l’autre fichier', async () =>
     current: { ready: true },
     reference: { ready: false, error: 'missing-uri' },
   });
+});
+
+test('conserve l’extension PNG ou JPEG de la source distante', () => {
+  assert.equal(
+    imageFilenameForUri('reprise-42-reference', 'https://example.test/archive.PNG?download=1'),
+    'reprise-42-reference.png',
+  );
+  assert.equal(
+    imageFilenameForUri('reprise-42-reference', 'https://example.test/archive.jpeg'),
+    'reprise-42-reference.jpeg',
+  );
+});
+
+test('refuse une source distante sans extension image vérifiable', () => {
+  assert.throws(
+    () => imageFilenameForUri('reprise-42-reference', 'https://example.test/archive'),
+    (error) => error instanceof OfficialImagePreparationError && error.code === 'unsupported-format',
+  );
+});
+
+test('refuse explicitement un fichier qui dépasse la limite officielle de 8 Mo', () => {
+  assert.doesNotThrow(() => assertOfficialImageSize(8 * 1024 * 1024));
+  assert.throws(
+    () => assertOfficialImageSize(8 * 1024 * 1024 + 1),
+    (error) => error instanceof OfficialImagePreparationError && error.code === 'file-too-large',
+  );
+});
+
+test('refuse explicitement un fichier dont la taille ne peut pas être vérifiée', () => {
+  assert.throws(
+    () => assertOfficialImageSize(null),
+    (error) => error instanceof OfficialImagePreparationError && error.code === 'size-check-failed',
+  );
+});
+
+test('le verrou synchrone refuse un second démarrage concurrent', () => {
+  const inFlight = { current: false };
+
+  assert.equal(tryStartImagePreparation(inFlight), true);
+  assert.equal(tryStartImagePreparation(inFlight), false);
+});
+
+test('le succès ne correspond qu’à une image devenue prête pendant la tentative', () => {
+  const previous = {
+    current: { ready: true },
+    reference: { ready: false, error: 'download-failed' },
+  };
+
+  assert.equal(didAddReadyImage(previous, previous), false);
+  assert.equal(
+    didAddReadyImage(previous, {
+      current: { ready: true },
+      reference: { ready: false, error: 'download-failed' },
+    }),
+    false,
+  );
+  assert.equal(
+    didAddReadyImage(previous, {
+      current: { ready: true },
+      reference: { ready: true },
+    }),
+    true,
+  );
 });

@@ -1,8 +1,9 @@
 import { File, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
-import { Platform } from 'react-native';
 
 import {
+  assertOfficialImageSize,
+  imageFilenameForUri,
   OfficialImagePreparationError,
   prepareImagePair,
   type PreparedImages,
@@ -23,48 +24,31 @@ export const OFFICIAL_SUBMISSION_FIXTURE_ENABLED =
   __DEV__ && process.env.EXPO_PUBLIC_OFFICIAL_SUBMISSION_FIXTURE === '1';
 
 
-async function addToRepriseAlbum(uri: string, filename: string) {
-  const extension = (() => {
-    try {
-      return new URL(uri).pathname.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
-    } catch {
-      return uri.split(/[?#]/, 1)[0].match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
-    }
-  })();
-  if (extension && !['heic', 'heif', 'jpeg', 'jpg', 'png'].includes(extension)) {
-    throw new OfficialImagePreparationError('unsupported-format');
-  }
-
+async function addToPhotos(uri: string, filenameStem: string) {
   let localUri = uri;
+  let localFile: File;
   if (/^https?:\/\//i.test(uri)) {
-    const target = new File(Paths.cache, filename);
+    const target = new File(Paths.cache, imageFilenameForUri(filenameStem, uri));
     try {
-      const downloaded = await File.downloadFileAsync(uri, target, { idempotent: true });
-      localUri = downloaded.uri;
+      localFile = await File.downloadFileAsync(uri, target, { idempotent: true });
+      localUri = localFile.uri;
     } catch {
       throw new OfficialImagePreparationError('download-failed');
     }
+  } else {
+    imageFilenameForUri(filenameStem, uri);
+    localFile = new File(uri);
   }
+  assertOfficialImageSize(localFile.size);
 
-  const asset = await MediaLibrary.createAssetAsync(localUri).catch(() => {
+  await MediaLibrary.createAssetAsync(localUri).catch(() => {
     throw new OfficialImagePreparationError('save-failed');
   });
-  if (Platform.OS === 'ios') {
-    try {
-      const album = await MediaLibrary.getAlbumAsync('Reprise');
-      if (album) {
-        await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
-      } else {
-        await MediaLibrary.createAlbumAsync('Reprise', asset, false);
-      }
-    } catch {
-      // La photo est déjà enregistrée ; l'album dédié reste un simple confort de rangement.
-    }
-  }
 }
 
 /**
- * Place les deux fichiers dans l'album Reprise, avant d'ouvrir les sélecteurs du formulaire.
+ * Copie les deux fichiers dans Photos (Récents), avant d'ouvrir les sélecteurs du formulaire.
+ * L'autorisation add-only suffit : aucune lecture de la photothèque ni gestion d'album.
  * Ils ne quittent pas le téléphone et ne sont jamais envoyés par ce service.
  */
 export async function prepareImagesForOfficialForm(input: {
@@ -75,21 +59,35 @@ export async function prepareImagesForOfficialForm(input: {
   stationId: string;
 }): Promise<PreparedImages> {
   const safeId = input.stationId.replace(/[^a-zA-Z0-9_-]/g, '-');
+  let currentAlreadySaved = input.currentAlreadySaved;
+  let previous = input.previous;
+  if (currentAlreadySaved) {
+    try {
+      if (!input.currentUri) throw new OfficialImagePreparationError('missing-uri');
+      assertOfficialImageSize(new File(input.currentUri).size);
+    } catch {
+      currentAlreadySaved = false;
+      previous = {
+        current: { ready: false },
+        reference: input.previous?.reference ?? { ready: false },
+      };
+    }
+  }
   return prepareImagePair({
-    currentAlreadySaved: input.currentAlreadySaved,
+    currentAlreadySaved,
     currentUri: input.currentUri,
-    previous: input.previous,
+    previous,
     referenceUri: input.referenceUri,
     requestPermission: async () => {
       const permission = await MediaLibrary.requestPermissionsAsync(true, []);
       return permission.granted;
     },
     save: (kind, imageUri) =>
-      addToRepriseAlbum(
+      addToPhotos(
         imageUri,
         kind === 'reference'
-          ? `reprise-${safeId}-reference.jpg`
-          : `reprise-${safeId}-${new Date().getFullYear()}.jpg`,
+          ? `reprise-${safeId}-reference`
+          : `reprise-${safeId}-${new Date().getFullYear()}`,
       ),
   });
 }

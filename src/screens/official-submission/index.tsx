@@ -26,6 +26,10 @@ import {
   buildOfficialFormUsabilityScript,
   officialChromeIsExpanded,
 } from '@/services/official-form-usability';
+import {
+  didAddReadyImage,
+  tryStartImagePreparation,
+} from '@/services/official-image-preparation';
 import { OFFICIAL_SUBMISSION_FIXTURE_HTML } from '@/services/official-submission-fixture';
 import {
   buildObservatoirePrefillScript,
@@ -45,6 +49,10 @@ function preparationErrorLabel(error: PreparedImages['current']['error']) {
       return 'Fichier absent — choisissez cette image manuellement dans le formulaire.';
     case 'download-failed':
       return 'Téléchargement impossible — vérifiez le réseau puis réessayez.';
+    case 'file-too-large':
+      return 'Fichier supérieur à 8 Mo — choisissez une version plus légère.';
+    case 'size-check-failed':
+      return 'Taille du fichier invérifiable — choisissez cette image manuellement.';
     case 'unsupported-format':
       return 'Format non pris en charge — choisissez cette image manuellement.';
     case 'save-failed':
@@ -72,6 +80,7 @@ function postalCodeFrom(value?: string, arrondissement?: string) {
 export function OfficialSubmissionScreen() {
   const router = useRouter();
   const webViewRef = useRef<WebView>(null);
+  const imagePreparationInFlight = useRef(false);
   const { id, frame, uri, simulated, currentSaved } = useLocalSearchParams<{
     id: string;
     frame?: string;
@@ -192,23 +201,26 @@ export function OfficialSubmissionScreen() {
       setImageError('Mode démo : aucune fausse photo ne sera placée dans votre photothèque.');
       return;
     }
+    if (!tryStartImagePreparation(imagePreparationInFlight)) return;
+    const previous = preparedImages;
     setPreparingImages(true);
     setImageError(undefined);
     try {
       const result = await prepareImagesForOfficialForm({
         currentAlreadySaved: currentSaved === '1',
         currentUri: uri,
-        previous: preparedImages,
+        previous,
         referenceUri,
         stationId: id,
       });
       setPreparedImages(result);
-      if (result.current.ready || result.reference.ready) {
+      if (didAddReadyImage(previous, result)) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch {
       setImageError('La préparation a été interrompue. Les fichiers déjà prêts restent disponibles.');
     } finally {
+      imagePreparationInFlight.current = false;
       setPreparingImages(false);
     }
   };

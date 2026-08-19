@@ -91,7 +91,7 @@ export function ReviewScreen() {
       params: {
         id,
         frame: String(frameIndex),
-        uri: savedCaptureUri ?? uri ?? '',
+        uri: uri ?? savedCaptureUri ?? '',
         simulated: isSimulated ? '1' : '0',
         currentSaved: saved && inLibrary ? '1' : '0',
       },
@@ -173,7 +173,7 @@ export function ReviewScreen() {
             <Text style={styles.publishTitle}>Comment votre photo rejoint la carte</Text>
             <Text style={styles.publishText}>
               {saved && inLibrary
-                ? 'Votre photo est enregistrée dans l’album Reprise. Le formulaire officiel peut maintenant être préparé sans ressaisir la date ni la position.'
+                ? 'Votre photo est enregistrée dans Photos (Récents). Le formulaire officiel peut maintenant être préparé sans ressaisir la date ni la position.'
                 : 'Reprise prépare le formulaire officiel, les deux images et les informations du point de vue. Vous gardez la main sur le règlement et l’envoi final.'}
             </Text>
           </View>
