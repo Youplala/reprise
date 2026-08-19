@@ -25,9 +25,10 @@ test('les écritures add-only ne tentent aucune lecture ni organisation en album
     assert.match(source, /requestPermissionsAsync\(true, \[\]\)/);
   }
   assert.doesNotMatch(fieldbookService, /assertOfficialImageSize/);
+  assert.match(officialService, /assertOfficialImageSize\(currentFile\.size\)/);
   assert.match(
     officialService,
-    /assertOfficialImageSize\(new File\(input\.currentUri\)\.size\)/,
+    /assertOfficialImageContent\(await currentFile\.bytes\(\), input\.currentUri\)/,
   );
 });
 

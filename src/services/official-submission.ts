@@ -2,6 +2,7 @@ import { File, Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 
 import {
+  assertOfficialImageContent,
   assertOfficialImageSize,
   imageFilenameForUri,
   OfficialImagePreparationError,
@@ -19,7 +20,6 @@ export {
 
 export const OBSERVATOIRE_CONTRIBUTION_URL =
   'https://observatoire-photo.paris/elements/add';
-export const OBSERVATOIRE_HOST = 'observatoire-photo.paris';
 export const OFFICIAL_SUBMISSION_FIXTURE_ENABLED =
   __DEV__ && process.env.EXPO_PUBLIC_OFFICIAL_SUBMISSION_FIXTURE === '1';
 
@@ -40,6 +40,7 @@ async function addToPhotos(uri: string, filenameStem: string) {
     localFile = new File(uri);
   }
   assertOfficialImageSize(localFile.size);
+  assertOfficialImageContent(await localFile.bytes(), uri);
 
   await MediaLibrary.createAssetAsync(localUri).catch(() => {
     throw new OfficialImagePreparationError('save-failed');
@@ -64,7 +65,9 @@ export async function prepareImagesForOfficialForm(input: {
   if (currentAlreadySaved) {
     try {
       if (!input.currentUri) throw new OfficialImagePreparationError('missing-uri');
-      assertOfficialImageSize(new File(input.currentUri).size);
+      const currentFile = new File(input.currentUri);
+      assertOfficialImageSize(currentFile.size);
+      assertOfficialImageContent(await currentFile.bytes(), input.currentUri);
     } catch {
       currentAlreadySaved = false;
       previous = {

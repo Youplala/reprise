@@ -76,13 +76,25 @@ test('préremplit le contrat live représentatif sans toucher aux données perso
   assert.equal(document.querySelector('[name="element[geo][latitude]"]').value, '48.856614');
   assert.equal(document.querySelector('[name="element[geo][longitude]"]').value, '2.352222');
 
-  assert.equal(document.querySelector('[name="data[fixture_identity]"]').value, '');
-  assert.equal(document.querySelector('[name="data[fixture_email]"]').value, '');
-  assert.equal(document.querySelector('[name="data[fixture_age]"]').value, '');
-  assert.equal(document.querySelector('[name="data[fixture_country]"]').value, '');
-  assert.equal(document.querySelector('[name="data[fixture_residence_city]"]').value, '');
-  assert.equal(Boolean(document.querySelector('[name="data[fixture_consent]"]').checked), false);
-  assert.equal(document.querySelectorAll('input[type=file]').length, 2);
+  for (const selector of [
+    '[name="data[fixture_identity_1970]"]',
+    '[name="data[fixture_identity_2026]"]',
+    '[name="data[fixture_email_1970]"]',
+    '[name="data[fixture_email_2026]"]',
+    '[name="data[fixture_age]"]',
+    '[name="data[fixture_country]"]',
+    '[name="data[fixture_residence_city]"]',
+  ]) {
+    assert.equal(document.querySelector(selector).value, '', selector);
+  }
+  for (const selector of [
+    '[name="data[fixture_consent_1970]"]',
+    '[name="data[fixture_consent_2026]"]',
+  ]) {
+    assert.equal(Boolean(document.querySelector(selector).checked), false, selector);
+  }
+  assert.equal(document.querySelectorAll('input[type=file]').length, 1);
+  assert.equal(document.querySelector('input[type=file]').getAttribute('accept'), '.jpg,.jpeg,.png');
 
   const prefill = messages.find((message) => message.type === 'prefill');
   assert.deepEqual(prefill.fields.sort(), [

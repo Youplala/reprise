@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  assertOfficialImageContent,
   assertOfficialImageSize,
   didAddReadyImage,
   imageFilenameForUri,
@@ -125,6 +126,39 @@ test('refuse une source distante sans extension image vérifiable', () => {
   assert.throws(
     () => imageFilenameForUri('reprise-42-reference', 'https://example.test/archive'),
     (error) => error instanceof OfficialImagePreparationError && error.code === 'unsupported-format',
+  );
+});
+
+test('accepte uniquement JPG/JPEG et PNG, conformément au formulaire live', () => {
+  assert.throws(
+    () => imageFilenameForUri('reprise-42', 'file:///capture.heic'),
+    (error) => error instanceof OfficialImagePreparationError && error.code === 'unsupported-format',
+  );
+  assert.doesNotThrow(() =>
+    assertOfficialImageContent(Uint8Array.from([0xff, 0xd8, 0xff, 0xe0]), 'file:///capture.jpg'),
+  );
+  assert.doesNotThrow(() =>
+    assertOfficialImageContent(
+      Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      'https://example.test/archive.png',
+    ),
+  );
+});
+
+test('refuse une extension trompeuse dont les octets ne sont pas une image valide', () => {
+  assert.throws(
+    () => assertOfficialImageContent(new TextEncoder().encode('<html>erreur</html>'), 'archive.jpg'),
+    (error) =>
+      error instanceof OfficialImagePreparationError && error.code === 'invalid-image-content',
+  );
+  assert.throws(
+    () =>
+      assertOfficialImageContent(
+        Uint8Array.from([0xff, 0xd8, 0xff, 0xe0]),
+        'archive.png',
+      ),
+    (error) =>
+      error instanceof OfficialImagePreparationError && error.code === 'invalid-image-content',
   );
 });
 

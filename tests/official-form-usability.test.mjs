@@ -110,6 +110,14 @@ test('fixture preserves the representative live contract and includes a nested w
   assert.match(OFFICIAL_SUBMISSION_FIXTURE_HTML, /min-width: 720px/);
   assert.match(OFFICIAL_SUBMISSION_FIXTURE_HTML, /class="nested-wide-wrapper"/);
   assert.match(OFFICIAL_SUBMISSION_FIXTURE_HTML, /\.nested-wide-wrapper\s*\{[^}]*min-width:/);
+  assert.match(OFFICIAL_SUBMISSION_FIXTURE_HTML, /<h2>Contributeur<\/h2>/);
+  assert.match(OFFICIAL_SUBMISSION_FIXTURE_HTML, /<h2>Contributeur 2026<\/h2>/);
+  assert.equal((OFFICIAL_SUBMISSION_FIXTURE_HTML.match(/Prénom NOM/g) || []).length, 2);
+  assert.equal((OFFICIAL_SUBMISSION_FIXTURE_HTML.match(/>Mail<\/label>/g) || []).length, 2);
+  assert.equal((OFFICIAL_SUBMISSION_FIXTURE_HTML.match(/règlement de participation/g) || []).length, 2);
+  assert.equal((OFFICIAL_SUBMISSION_FIXTURE_HTML.match(/type="file"/g) || []).length, 1);
+  assert.match(OFFICIAL_SUBMISSION_FIXTURE_HTML, /accept="\.jpg,\.jpeg,\.png"/);
+  assert.match(OFFICIAL_SUBMISSION_FIXTURE_HTML, /8 Mo maximum/);
 });
 
 test('native chrome stays compact by default', () => {

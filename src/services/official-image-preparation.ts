@@ -1,6 +1,7 @@
 export type ImagePreparationError =
   | 'download-failed'
   | 'file-too-large'
+  | 'invalid-image-content'
   | 'missing-uri'
   | 'permission-denied'
   | 'save-failed'
@@ -58,7 +59,7 @@ function imageExtension(uri: string) {
     pathname = uri.split(/[?#]/, 1)[0];
   }
   const extension = pathname.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
-  return extension && ['heic', 'heif', 'jpeg', 'jpg', 'png'].includes(extension)
+  return extension && ['jpeg', 'jpg', 'png'].includes(extension)
     ? extension
     : undefined;
 }
@@ -76,6 +77,19 @@ export function assertOfficialImageSize(size: number | null) {
   if (size > OFFICIAL_IMAGE_MAX_BYTES) {
     throw new OfficialImagePreparationError('file-too-large');
   }
+}
+
+export function assertOfficialImageContent(bytes: Uint8Array, uri: string) {
+  const extension = imageExtension(uri);
+  if (!extension) throw new OfficialImagePreparationError('unsupported-format');
+  const isJpeg =
+    bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  const isPng =
+    bytes.length >= pngSignature.length &&
+    pngSignature.every((value, index) => bytes[index] === value);
+  const matchesExtension = extension === 'png' ? isPng : isJpeg;
+  if (!matchesExtension) throw new OfficialImagePreparationError('invalid-image-content');
 }
 
 type PrepareImagePairInput = {

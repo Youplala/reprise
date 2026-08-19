@@ -81,8 +81,6 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
           <input id="fixture-1970-date-display" readonly />
           <label for="fixture-1970-date">Date de la prise de vue</label>
         </div>
-        <label for="reference-photo">Photographie historique</label>
-        <input id="reference-photo" name="reference-photo" type="file" accept="image/*" />
       </section>
 
       <section>
@@ -103,16 +101,33 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
             <label for="fixture-appareil-numerique">Appareil photo numérique</label>
           </div>
         </div>
-        <label for="current-photo">Photographie actuelle</label>
-        <input id="current-photo" name="current-photo" type="file" accept="image/*" />
+      </section>
+
+      <section>
+        <h2>Verser la photo</h2>
+        <p class="notice">Ajoutez d’abord la photographie de 1970, puis la reconduction actuelle.</p>
+        <label for="photo-uploader">JPG ou PNG — 8 Mo maximum</label>
+        <input id="photo-uploader" name="photo-uploader" type="file" accept=".jpg,.jpeg,.png" />
       </section>
 
       <section>
         <h2>Contributeur</h2>
-        <label for="fixture-identity">Prénom NOM</label>
-        <input id="fixture-identity" name="data[fixture_identity]" />
-        <label for="fixture-email">Mail</label>
-        <input id="fixture-email" name="data[fixture_email]" type="email" />
+        <label for="fixture-identity-1970">Prénom NOM</label>
+        <input id="fixture-identity-1970" name="data[fixture_identity_1970]" />
+        <label for="fixture-email-1970">Mail</label>
+        <input id="fixture-email-1970" name="data[fixture_email_1970]" type="email" />
+        <div class="radio-option">
+          <input id="fixture-consent-1970" name="data[fixture_consent_1970]" type="checkbox" />
+          <label for="fixture-consent-1970">J'ai lu et j'accepte le règlement de participation</label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Contributeur 2026</h2>
+        <label for="fixture-identity-2026">Prénom NOM</label>
+        <input id="fixture-identity-2026" name="data[fixture_identity_2026]" />
+        <label for="fixture-email-2026">Mail</label>
+        <input id="fixture-email-2026" name="data[fixture_email_2026]" type="email" />
         <label for="fixture-age">Age</label>
         <input id="fixture-age" name="data[fixture_age]" type="number" />
         <label for="fixture-country">Pays</label>
@@ -120,8 +135,8 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
         <label for="fixture-residence-city">Commune de résidence</label>
         <input id="fixture-residence-city" name="data[fixture_residence_city]" />
         <div class="radio-option">
-          <input id="fixture-consent" name="data[fixture_consent]" type="checkbox" />
-          <label for="fixture-consent">J'ai lu et j'accepte le règlement de participation</label>
+          <input id="fixture-consent-2026" name="data[fixture_consent_2026]" type="checkbox" />
+          <label for="fixture-consent-2026">J'ai lu et j'accepte le règlement de participation</label>
         </div>
       </section>
 
@@ -131,14 +146,27 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
       <button id="fixture-submit" type="submit">Simuler l'envoi</button>
     </form>
     <script>
-      const files = Array.from(document.querySelectorAll('input[type=file]'));
-      const updateSelected = () => {
-        const count = files.filter((input) => input.files && input.files.length > 0).length;
-        document.getElementById('selected').textContent = count + '/2 photo' + (count > 1 ? 's' : '') + ' sélectionnée' + (count > 1 ? 's' : '');
-      };
-      files.forEach((input) => input.addEventListener('change', updateSelected));
+      const uploader = document.getElementById('photo-uploader');
+      let selectedCount = 0;
+      uploader.addEventListener('change', () => {
+        if (uploader.files && uploader.files.length > 0) selectedCount = Math.min(2, selectedCount + 1);
+        document.getElementById('selected').textContent = selectedCount + '/2 photo' + (selectedCount > 1 ? 's' : '') + ' sélectionnée' + (selectedCount > 1 ? 's' : '');
+        uploader.value = '';
+      });
       document.getElementById('fixture-form').addEventListener('submit', (event) => {
         event.preventDefault();
+        if (selectedCount < 2) {
+          let error = document.getElementById('fixture-upload-error');
+          if (!error) {
+            error = document.createElement('p');
+            error.id = 'fixture-upload-error';
+            error.className = 'form-error';
+            error.setAttribute('role', 'alert');
+            document.getElementById('selected').after(error);
+          }
+          error.textContent = 'Ajoutez les deux photos avant de continuer.';
+          return;
+        }
         document.body.innerHTML = '<h1>Merci pour votre contribution</h1><p>Contribution enregistrée en attente de modération.</p>';
       });
     </script>

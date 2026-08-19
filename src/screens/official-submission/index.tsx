@@ -30,12 +30,17 @@ import {
   didAddReadyImage,
   tryStartImagePreparation,
 } from '@/services/official-image-preparation';
+import {
+  acceptsOfficialBridgeMessage,
+  isAllowedOfficialNavigation,
+  officialPageKind,
+  shouldInjectOfficialScripts,
+} from '@/services/official-navigation';
 import { OFFICIAL_SUBMISSION_FIXTURE_HTML } from '@/services/official-submission-fixture';
 import {
   buildObservatoirePrefillScript,
   OFFICIAL_SUBMISSION_FIXTURE_ENABLED,
   OBSERVATOIRE_CONTRIBUTION_URL,
-  OBSERVATOIRE_HOST,
   parseOfficialBridgeMessage,
   prepareImagesForOfficialForm,
   type PreparedImages,
@@ -51,6 +56,8 @@ function preparationErrorLabel(error: PreparedImages['current']['error']) {
       return 'Téléchargement impossible — vérifiez le réseau puis réessayez.';
     case 'file-too-large':
       return 'Fichier supérieur à 8 Mo — choisissez une version plus légère.';
+    case 'invalid-image-content':
+      return 'Le contenu ne correspond pas à une image JPG ou PNG valide.';
     case 'size-check-failed':
       return 'Taille du fichier invérifiable — choisissez cette image manuellement.';
     case 'unsupported-format':
@@ -81,6 +88,9 @@ export function OfficialSubmissionScreen() {
   const router = useRouter();
   const webViewRef = useRef<WebView>(null);
   const imagePreparationInFlight = useRef(false);
+  const currentPageUrl = useRef(
+    OFFICIAL_SUBMISSION_FIXTURE_ENABLED ? 'about:blank' : OBSERVATOIRE_CONTRIBUTION_URL,
+  );
   const { id, frame, uri, simulated, currentSaved } = useLocalSearchParams<{
     id: string;
     frame?: string;
@@ -154,7 +164,9 @@ export function OfficialSubmissionScreen() {
   );
 
   useEffect(() => {
-    webViewRef.current?.injectJavaScript(injectedScript);
+    if (shouldInjectOfficialScripts(currentPageUrl.current, OFFICIAL_SUBMISSION_FIXTURE_ENABLED)) {
+      webViewRef.current?.injectJavaScript(injectedScript);
+    }
   }, [injectedScript]);
 
   const openSafari = useCallback(async () => {
@@ -172,6 +184,9 @@ export function OfficialSubmissionScreen() {
   };
 
   const onMessage = (event: WebViewMessageEvent) => {
+    if (!acceptsOfficialBridgeMessage(currentPageUrl.current, OFFICIAL_SUBMISSION_FIXTURE_ENABLED)) {
+      return;
+    }
     const message = parseOfficialBridgeMessage(event.nativeEvent.data);
     if (!message) return;
     if (message.type === 'prefill') setPrefilledCount(message.count);
@@ -190,8 +205,8 @@ export function OfficialSubmissionScreen() {
   };
 
   const onNavigationChange = (navigation: WebViewNavigation) => {
-    if (/\/(elements\/add|map)(?:[/?#]|$)/.test(navigation.url)) return;
-    if (/\/elements\/added(?:[/?#]|$)/.test(navigation.url)) {
+    currentPageUrl.current = navigation.url;
+    if (officialPageKind(navigation.url) === 'success') {
       setSubmissionStatus('success');
     }
   };
@@ -226,17 +241,9 @@ export function OfficialSubmissionScreen() {
   };
 
   const allowNavigation = (request: { url: string }) => {
-    if (request.url === 'about:blank') return true;
-    try {
-      const url = new URL(request.url);
-      if (url.hostname === OBSERVATOIRE_HOST || url.hostname.endsWith('.observatoire-photo.paris')) {
-        return true;
-      }
-      void Linking.openURL(request.url);
-      return false;
-    } catch {
-      return false;
-    }
+    if (isAllowedOfficialNavigation(request.url)) return true;
+    if (/^https?:\/\//i.test(request.url)) void Linking.openURL(request.url);
+    return false;
   };
 
   const preparedCount =
@@ -441,23 +448,31 @@ export function OfficialSubmissionScreen() {
               key={webKey}
               ref={webViewRef}
               source={webSource}
-              originWhitelist={['https://*']}
+              originWhitelist={['https://observatoire-photo.paris', 'about:blank']}
               allowsBackForwardNavigationGestures
               allowsInlineMediaPlayback
               javaScriptEnabled
               domStorageEnabled
               sharedCookiesEnabled
               thirdPartyCookiesEnabled={false}
-              injectedJavaScript={injectedScript}
-              onLoadStart={() => {
+              onLoadStart={(event) => {
+                currentPageUrl.current = event.nativeEvent.url;
                 setLoading(true);
                 setFormError(undefined);
                 setValidationMessage(undefined);
                 setPrefilledCount(0);
               }}
-              onLoadEnd={() => {
+              onLoadEnd={(event) => {
+                currentPageUrl.current = event.nativeEvent.url;
                 setLoading(false);
-                webViewRef.current?.injectJavaScript(injectedScript);
+                if (
+                  shouldInjectOfficialScripts(
+                    event.nativeEvent.url,
+                    OFFICIAL_SUBMISSION_FIXTURE_ENABLED,
+                  )
+                ) {
+                  webViewRef.current?.injectJavaScript(injectedScript);
+                }
               }}
               onMessage={onMessage}
               onNavigationStateChange={onNavigationChange}
