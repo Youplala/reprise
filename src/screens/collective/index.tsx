@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -16,7 +16,11 @@ import { SourcePill } from '@/components/source-pill';
 import { StationCard } from '@/components/station-card';
 import { Fonts, Palette, Radius, Shadow, Spacing, TabBarClearance } from '@/constants/theme';
 
-import { useFeaturedMission, useStations } from '@/providers/stations-provider';
+import { useStations } from '@/providers/stations-provider';
+import {
+  buildLocalSuggestion,
+  formatSnapshotDate,
+} from '@/services/collective-content';
 
 import type { StationDetail } from '@/types/station';
 import { formatContributorName } from '@/utils/community-stats';
@@ -24,13 +28,9 @@ import { mappingStatus } from '@/utils/mapping-coverage';
 
 function LiveComparisonCard({
   detail,
-  cheered,
-  onCheer,
   onOpen,
 }: {
   detail: StationDetail;
-  cheered: boolean;
-  onCheer: () => void;
   onOpen: () => void;
 }) {
   if (!detail.referenceImage || !detail.recaptureImage) return null;
@@ -52,18 +52,6 @@ function LiveComparisonCard({
           {detail.arrondissement ?? 'Paris'}
         </Text>
         <View style={styles.activityActions}>
-          <Pressable
-            onPress={onCheer}
-            style={[styles.cheerButton, cheered && styles.cheerButtonActive]}>
-            <SymbolView
-              name={cheered ? 'hands.clap.fill' : 'hands.clap'}
-              size={17}
-              tintColor={cheered ? Palette.blueDeep : Palette.parisBlue}
-            />
-            <Text style={[styles.cheerText, cheered && styles.cheerTextActive]}>
-              {cheered ? 'Encouragé' : 'Encourager'}
-            </Text>
-          </Pressable>
           <Pressable onPress={onOpen} style={styles.detailButton}>
             <Text style={styles.detailText}>Voir la photo</Text>
             <SymbolView name="arrow.right" size={13} tintColor={Palette.parisBlue} />
@@ -77,23 +65,16 @@ function LiveComparisonCard({
 export function CollectiveScreen() {
   const router = useRouter();
   const { stations, snapshotVersion, coverage, stats, publishedSubmissions } = useStations();
-  const featured = useFeaturedMission();
   // Les reprises publiées sont dans l'instantané : plus de requêtes en cascade pour les trouver.
   const feed = publishedSubmissions;
   const feedStatus: 'loading' | 'ready' | 'error' = feed.length ? 'ready' : 'error';
-  const [cheers, setCheers] = useState<Record<string, boolean>>({});
-  const remainingMissions = useMemo(
-    () => stations.filter((station) => mappingStatus(station) === 'to-reprise').slice(0, 6),
+  const openStations = useMemo(
+    () => stations.filter((station) => mappingStatus(station) === 'to-reprise'),
     [stations],
   );
-
-  const toggleCheer = (id: string) => {
-    const next = !cheers[id];
-    void (next
-      ? Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-      : Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft));
-    setCheers((current) => ({ ...current, [id]: next }));
-  };
+  const remainingMissions = openStations.slice(0, 6);
+  const localSuggestion = useMemo(() => buildLocalSuggestion(openStations), [openStations]);
+  const snapshotDate = formatSnapshotDate(snapshotVersion);
 
   return (
     <View style={styles.screen}>
@@ -109,10 +90,10 @@ export function CollectiveScreen() {
             <SourcePill version={snapshotVersion} />
           </View>
 
-          <Text style={styles.eyebrow}>EN DIRECT DE L’OBSERVATOIRE</Text>
+          <Text style={styles.eyebrow}>INSTANTANÉ DE L’OBSERVATOIRE</Text>
           <Text style={styles.title}>Paris, avant{'\n'}et aujourd’hui.</Text>
           <Text style={styles.copy}>
-            Découvrez les photos de 1970 refaites aujourd’hui par la communauté.
+            Découvrez les reprises publiées dans le relevé public du {snapshotDate}.
           </Text>
         </SafeAreaView>
 
@@ -205,8 +186,6 @@ export function CollectiveScreen() {
             <LiveComparisonCard
               key={detail.id}
               detail={detail}
-              cheered={Boolean(cheers[detail.id])}
-              onCheer={() => toggleCheer(detail.id)}
               onOpen={() =>
                 router.push({ pathname: '/station/[id]', params: { id: detail.id } })
               }
@@ -240,54 +219,41 @@ export function CollectiveScreen() {
           ))}
         </ScrollView>
 
-        <View style={styles.walkCard}>
-          <View style={styles.walkMap}>
-            <View style={[styles.walkPath, { transform: [{ rotate: '-8deg' }] }]} />
-            {[
-              { left: '19%' as const, top: '58%' as const },
-              { left: '43%' as const, top: '33%' as const },
-              { left: '71%' as const, top: '49%' as const },
-            ].map((position, index) => (
-              <View key={index} style={[styles.walkPin, position]}>
-                <Text style={styles.walkPinText}>{index + 1}</Text>
-              </View>
-            ))}
-          </View>
-          <View style={styles.walkBody}>
-            <View style={styles.walkKickerRow}>
-              <Text style={styles.walkKicker}>MARCHE DE LA COMMUNAUTÉ · 11e</Text>
-              <View style={styles.walkAvatarStack}>
-                {['#B95F3E', '#70897C', '#F0B642'].map((color, index) => (
-                  <View
-                    key={color}
-                    style={[styles.walkAvatar, { backgroundColor: color, marginLeft: index ? -7 : 0 }]}
-                  />
-                ))}
-              </View>
+        {localSuggestion ? (
+          <View style={styles.walkCard}>
+            <View style={styles.suggestionMark}>
+              <SymbolView name="map.fill" size={28} tintColor={Palette.parisBlue} />
+              <Text style={styles.suggestionCount}>{localSuggestion.missionCount}</Text>
+              <Text style={styles.suggestionCountLabel}>POINTS DE VUE OUVERTS</Text>
             </View>
-            <Text style={styles.walkTitle}>Résoudre le secteur 839 ensemble</Text>
-            <Text style={styles.walkCopy}>
-              Treize photos, une zone de 250 m et beaucoup d’indices. Préparez une sortie à plusieurs.
-            </Text>
-            <Pressable
-              onPress={() =>
-                router.push({
-                  pathname: '/station/[id]',
-                  params: { id: featured?.id ?? '' },
-                })
-              }
-              style={({ pressed }) => [styles.walkAction, pressed && styles.pressed]}>
-              <Text style={styles.walkActionText}>Rejoindre la mission</Text>
-              <SymbolView name="arrow.right" size={14} tintColor={Palette.white} />
-            </Pressable>
+            <View style={styles.walkBody}>
+              <Text style={styles.walkKicker}>SUGGESTION LOCALE · {localSuggestion.sector}</Text>
+              <Text style={styles.walkTitle}>Explorer ce secteur</Text>
+              <Text style={styles.walkCopy}>
+                Sélection calculée sur cet iPhone à partir des missions du relevé du {snapshotDate}.
+              </Text>
+              <Pressable
+                accessibilityLabel={`Voir un point de départ dans le ${localSuggestion.sector}`}
+                onPress={() =>
+                  router.push({
+                    pathname: '/station/[id]',
+                    params: { id: localSuggestion.stationId },
+                  })
+                }
+                style={({ pressed }) => [styles.walkAction, pressed && styles.pressed]}>
+                <Text style={styles.walkActionText}>Voir un point de départ</Text>
+                <SymbolView name="arrow.right" size={14} tintColor={Palette.white} />
+              </Pressable>
+            </View>
           </View>
-        </View>
+        ) : null}
 
         <View style={styles.prototypeNote}>
-          <SymbolView name="person.2.wave.2" size={22} tintColor={Palette.parisBlue} />
+          <SymbolView name="info.circle" size={22} tintColor={Palette.parisBlue} />
           <Text style={styles.prototypeText}>
-            Archives 1970: Bibliothèques spécialisées de la Ville de Paris. Photos actuelles: Observatoire
-            public. Les encouragements et sorties restent sur cet iPhone dans cette version.
+            Données Observatoire : relevé public du {snapshotDate}. Archives 1970 : Bibliothèques
+            spécialisées de la Ville de Paris. Les suggestions sont calculées localement, sans
+            activité sociale ni envoi depuis l’app.
           </Text>
         </View>
       </ScrollView>
@@ -548,29 +514,8 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Palette.line,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-  },
-  cheerButton: {
-    minHeight: 38,
-    paddingHorizontal: Spacing.twoHalf,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.blueMist,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  cheerButtonActive: {
-    backgroundColor: Palette.brass,
-  },
-  cheerText: {
-    color: Palette.parisBlue,
-    fontFamily: Fonts.sans,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  cheerTextActive: {
-    color: Palette.blueDeep,
   },
   detailButton: {
     flexDirection: 'row',
@@ -626,47 +571,30 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.blueDeep,
     ...Shadow.card,
   },
-  walkMap: {
+  suggestionMark: {
     height: 170,
     backgroundColor: Palette.blueMist,
-    overflow: 'hidden',
-  },
-  walkPath: {
-    position: 'absolute',
-    left: '12%',
-    right: '10%',
-    top: '46%',
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: Palette.copper,
-  },
-  walkPin: {
-    position: 'absolute',
-    width: 34,
-    height: 34,
-    marginLeft: -17,
-    marginTop: -17,
-    borderRadius: 17,
-    backgroundColor: Palette.parisBlue,
-    borderWidth: 3,
-    borderColor: Palette.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  walkPinText: {
-    color: Palette.white,
-    fontFamily: Fonts.mono,
-    fontSize: 10,
+  suggestionCount: {
+    marginTop: Spacing.one,
+    color: Palette.parisBlue,
+    fontFamily: Fonts.display,
+    fontSize: 42,
     fontWeight: '900',
+  },
+  suggestionCountLabel: {
+    color: Palette.inkSoft,
+    fontFamily: Fonts.mono,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
   walkBody: {
     padding: Spacing.three,
   },
-  walkKickerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+
   walkKicker: {
     color: Palette.brass,
     fontFamily: Fonts.mono,
@@ -674,16 +602,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.6,
   },
-  walkAvatarStack: {
-    flexDirection: 'row',
-  },
-  walkAvatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: Palette.blueDeep,
-  },
+
   walkTitle: {
     marginTop: Spacing.two,
     color: Palette.white,
