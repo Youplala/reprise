@@ -48,7 +48,8 @@ export function buildOfficialFormUsabilityScript() {
         const style = document.createElement('style');
         style.id = 'reprise-mobile-usability';
         style.textContent = [
-          'html, body { max-width: 100% !important; overflow-x: hidden !important; -webkit-text-size-adjust: 100% !important; }',
+          'html { max-width: 100% !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; }',
+          'body { max-width: 100% !important; overflow-x: visible !important; -webkit-text-size-adjust: 100% !important; }',
           'img, video, iframe, table { max-width: 100% !important; }',
           '@media (max-width: 430px) {',
           '  form, fieldset, [class*="form"], [class*="field"] { min-width: 0 !important; max-width: 100% !important; }',
@@ -63,9 +64,19 @@ export function buildOfficialFormUsabilityScript() {
         document.addEventListener('focusin', (event) => {
           const target = event.target;
           if (!target || !/^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) return;
-          window.setTimeout(() => {
-            try { target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' }); } catch (_) {}
+          window.clearTimeout(window.__repriseFocusScrollTimer);
+          window.__repriseFocusScrollTarget = target;
+          window.__repriseFocusScrollTimer = window.setTimeout(() => {
+            window.__repriseFocusScrollTimer = undefined;
+            if (document.activeElement !== target || target.isConnected === false) return;
+            try { target.scrollIntoView({ block: 'center', inline: 'nearest' }); } catch (_) {}
           }, 320);
+        }, true);
+        document.addEventListener('focusout', (event) => {
+          if (event.target !== window.__repriseFocusScrollTarget) return;
+          window.clearTimeout(window.__repriseFocusScrollTimer);
+          window.__repriseFocusScrollTimer = undefined;
+          window.__repriseFocusScrollTarget = undefined;
         }, true);
       }
       send({ type: 'usability-ready', viewportPatched });

@@ -142,7 +142,7 @@ export function OfficialSubmissionScreen() {
     };
   }, [coordinate, detail, frameIndex, isArchiveSector, isPrecise]);
   const injectedScript = useMemo(
-    () => `${buildOfficialFormUsabilityScript()}\n${buildObservatoirePrefillScript(prefill)}`,
+    () => `${buildObservatoirePrefillScript(prefill)}\n${buildOfficialFormUsabilityScript()}`,
     [prefill],
   );
   const webSource = useMemo(
@@ -449,7 +449,6 @@ export function OfficialSubmissionScreen() {
               sharedCookiesEnabled
               thirdPartyCookiesEnabled={false}
               injectedJavaScript={injectedScript}
-              injectedJavaScriptBeforeContentLoaded={injectedScript}
               onLoadStart={() => {
                 setLoading(true);
                 setFormError(undefined);

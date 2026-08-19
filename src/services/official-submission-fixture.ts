@@ -33,6 +33,7 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
         color: #fff; background: #174b68; font: inherit; font-weight: 800; }
       #selected { margin-top: 10px; color: #59717d; font-size: 12px; }
       .legacy-form-shell { min-width: 720px; }
+      .nested-wide-wrapper { min-width: 840px; }
     </style>
   </head>
   <body>
@@ -42,6 +43,7 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
     <p class="notice">Fixture du formulaire officiel observé : informations de la photo,
       sections 1970/2026, profil et règlement.</p>
     <form class="legacy-form-shell" id="fixture-form">
+      <div class="nested-wide-wrapper">
       <section>
         <h2>Localisation</h2>
         <div class="field-container">
@@ -124,6 +126,7 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
       </section>
 
 
+      </div>
       <p id="selected">0/2 photo sélectionnée</p>
       <button id="fixture-submit" type="submit">Simuler l'envoi</button>
     </form>
