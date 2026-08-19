@@ -115,6 +115,8 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
         <input id="fixture-age" name="data[fixture_age]" type="number" />
         <label for="fixture-country">Pays</label>
         <input id="fixture-country" name="data[fixture_country]" />
+        <label for="fixture-residence-city">Commune de résidence</label>
+        <input id="fixture-residence-city" name="data[fixture_residence_city]" />
         <div class="radio-option">
           <input id="fixture-consent" name="data[fixture_consent]" type="checkbox" />
           <label for="fixture-consent">J'ai lu et j'accepte le règlement de participation</label>

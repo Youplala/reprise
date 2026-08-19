@@ -65,6 +65,10 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
         control && control.getAttribute && control.getAttribute('placeholder'),
       ].filter(Boolean).join(' '));
       const textOf = (element) => normalize(element && element.textContent);
+      const ownedValues = window.__repriseOwnedValues instanceof WeakMap
+        ? window.__repriseOwnedValues
+        : new WeakMap();
+      window.__repriseOwnedValues = ownedValues;
       const emitEvents = (control) => {
         control.dispatchEvent(new Event('input', { bubbles: true }));
         control.dispatchEvent(new Event('change', { bubbles: true }));
@@ -73,7 +77,9 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
         if (!control || value === undefined || value === null || String(value).length === 0) return false;
         if (['checkbox', 'radio', 'file', 'email', 'submit', 'button'].includes(control.type)) return false;
         const current = String(control.value || '').trim();
-        if (current && !(options.zeroIsEmpty && Number(current) === 0)) return false;
+        const owned = options.ownershipKey && ownedValues.get(control)?.[options.ownershipKey];
+        const mayReplaceOwned = options.replaceOwned && owned === current;
+        if (current && !(options.zeroIsEmpty && Number(current) === 0) && !mayReplaceOwned) return false;
         const prototype = control.tagName === 'TEXTAREA'
           ? window.HTMLTextAreaElement.prototype
           : control.tagName === 'SELECT'
@@ -82,13 +88,19 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
         const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
         if (setter) setter.call(control, String(value));
         else control.value = String(value);
+        if (options.ownershipKey) {
+          ownedValues.set(control, {
+            ...(ownedValues.get(control) || {}),
+            [options.ownershipKey]: String(value),
+          });
+        }
         emitEvents(control);
         return true;
       };
-      const labels = () => Array.from(document.querySelectorAll('label'));
-      const labelMatches = (label, aliases) => {
+      const labels = (root = document) => Array.from(root.querySelectorAll('label'));
+      const labelMatches = (label, aliases, exact = false) => {
         const text = textOf(label);
-        return aliases.some((alias) => text === alias || text.startsWith(alias + ' '));
+        return aliases.some((alias) => text === alias || (!exact && text.startsWith(alias + ' ')));
       };
       const controlsForLabel = (label) => {
         const controls = [];
@@ -102,9 +114,9 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
           ?.querySelectorAll('input, textarea, select') || []).forEach(add);
         return controls;
       };
-      const findByLabel = (aliases, validator = () => true) => {
-        for (const label of labels()) {
-          if (!labelMatches(label, aliases)) continue;
+      const findByLabel = (aliases, validator = () => true, root = document, exact = false) => {
+        for (const label of labels(root)) {
+          if (!labelMatches(label, aliases, exact)) continue;
           const control = controlsForLabel(label).find(validator);
           if (control) return control;
         }
@@ -113,6 +125,10 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
       const fillByLabel = (aliases, value, validator = textControl, options) => {
         const control = findByLabel(aliases, validator);
         return control ? setValue(control, value, options) : false;
+      };
+      const fillExactByLabel = (aliases, value) => {
+        const control = findByLabel(aliases, textControl, document, true);
+        return control ? setValue(control, value) : false;
       };
       const findCoordinate = (kind) => {
         const aliases = kind === 'latitude' ? ['latitude', 'lat'] : ['longitude', 'lng', 'lon'];
@@ -123,7 +139,11 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
       };
       const fillCoordinate = (kind, value) => {
         if (!Number.isFinite(value)) return false;
-        return setValue(findCoordinate(kind), Number(value).toFixed(6), { zeroIsEmpty: true });
+        return setValue(findCoordinate(kind), Number(value).toFixed(6), {
+          ownershipKey: kind,
+          replaceOwned: true,
+          zeroIsEmpty: true,
+        });
       };
       const fillCaptureDate = (value) => {
         const control = findByLabel(
@@ -163,7 +183,7 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
       const knownControls = () => ({
         title: findByLabel(['titre de la fiche'], textControl),
         arrondissement: findByLabel(['arrondissement', 'code postal'], textControl),
-        city: findByLabel(['ville', 'commune'], textControl),
+        city: findByLabel(['ville'], textControl, document, true),
         captureDate: findByLabel(
           ['date de prise de vue', 'date de la prise de vue'],
           (control) => textControl(control) && keyOf(control).includes('2026') && !keyOf(control).includes('display'),
@@ -175,7 +195,7 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
         if (fillByLabel(['adresse complete', 'adresse', 'adresse postale', 'numero et rue'], payload.address)) fields.add('address');
         if (fillByLabel(['titre de la fiche'], payload.address)) fields.add('title');
         if (fillByLabel(['arrondissement', 'code postal'], payload.postalCode)) fields.add('arrondissement');
-        if (fillByLabel(['ville', 'commune'], payload.city)) fields.add('city');
+        if (fillExactByLabel(['ville'], payload.city)) fields.add('city');
         if (fillCaptureDate(payload.captureDate)) fields.add('captureDate');
         if (selectDevice()) fields.add('device');
         if (fillByLabel(['observations commentaires', 'commentaire', 'legende', 'observation', 'elements de reperage'], payload.note)) fields.add('note');

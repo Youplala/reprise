@@ -20,6 +20,25 @@ const payload = {
   postalCode: '75004',
 };
 
+function injectBridge(window, document, input, setTimeout = () => 1) {
+  new Function(
+    'window',
+    'document',
+    'MutationObserver',
+    'Event',
+    'setTimeout',
+    'clearTimeout',
+    buildObservatoirePrefillScript(input),
+  )(
+    window,
+    document,
+    window.MutationObserver,
+    window.Event,
+    setTimeout,
+    () => undefined,
+  );
+}
+
 function runBridge(html, input = payload, { runTimers = false } = {}) {
   const { window, document } = parseHTML(html);
   delete window.__reprisePrefilledFields;
@@ -38,23 +57,7 @@ function runBridge(html, input = payload, { runTimers = false } = {}) {
     else timers.push(callback);
     return timers.length;
   };
-  const run = new Function(
-    'window',
-    'document',
-    'MutationObserver',
-    'Event',
-    'setTimeout',
-    'clearTimeout',
-    buildObservatoirePrefillScript(input),
-  );
-  run(
-    window,
-    document,
-    window.MutationObserver,
-    window.Event,
-    setTimeoutForTest,
-    () => undefined,
-  );
+  injectBridge(window, document, input, setTimeoutForTest);
   return { document, messages, timers, window };
 }
 
@@ -77,6 +80,7 @@ test('préremplit le contrat live représentatif sans toucher aux données perso
   assert.equal(document.querySelector('[name="data[fixture_email]"]').value, '');
   assert.equal(document.querySelector('[name="data[fixture_age]"]').value, '');
   assert.equal(document.querySelector('[name="data[fixture_country]"]').value, '');
+  assert.equal(document.querySelector('[name="data[fixture_residence_city]"]').value, '');
   assert.equal(Boolean(document.querySelector('[name="data[fixture_consent]"]').checked), false);
   assert.equal(document.querySelectorAll('input[type=file]').length, 2);
 
@@ -127,6 +131,35 @@ test('ne remplace ni un contrôle renseigné ni un choix radio existant', () => 
   assert.equal(document.querySelector('[value="Appareil photo numérique"]').checked, true);
   assert.equal(Boolean(document.querySelector('[value="Smartphone"]').checked), false);
   assert.equal(messages.filter((message) => message.type === 'prefill').length, 1);
+});
+
+test('échoue fermé si le libellé Ville dérive sans écrire dans Commune de résidence', () => {
+  const drifted = OFFICIAL_SUBMISSION_FIXTURE_HTML.replace(
+    '<label for="fixture-city">Ville</label>',
+    '<label for="fixture-city">Municipalité</label>',
+  );
+  const { document, messages } = runBridge(drifted, payload, { runTimers: true });
+
+  assert.equal(document.querySelector('[name="data[fixture_ville]"]').value, '');
+  assert.equal(document.querySelector('[name="data[fixture_residence_city]"]').value, '');
+  assert.equal(messages.find((message) => message.type === 'contract-error').fields.includes('city'), true);
+  assert.equal(
+    messages.find((message) => message.type === 'prefill')?.fields.includes('city') ?? false,
+    false,
+  );
+});
+
+test('une réinjection précise actualise seulement les coordonnées encore détenues par Reprise', () => {
+  const approximate = { ...payload, latitude: 48.85, longitude: 2.35 };
+  const { document, window } = runBridge(OFFICIAL_SUBMISSION_FIXTURE_HTML, approximate);
+  const latitude = document.querySelector('[name="element[geo][latitude]"]');
+  const longitude = document.querySelector('[name="element[geo][longitude]"]');
+
+  latitude.value = '48.900000';
+  injectBridge(window, document, payload);
+
+  assert.equal(latitude.value, '48.900000');
+  assert.equal(longitude.value, '2.352222');
 });
 
 test('signale un contrat cassé au bridge au lieu de compter un faux préremplissage', () => {
