@@ -631,7 +631,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
   },
-  },
   prepareButton: {
     minHeight: 38,
     paddingHorizontal: Spacing.twoHalf,
