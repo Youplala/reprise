@@ -1,8 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 
 const CAPTURES_KEY = 'reprise.fieldbook.captures.v1';
-const ALBUM_NAME = 'Reprise';
 
 type MediaLibraryModule = typeof import('expo-media-library');
 
@@ -49,7 +47,7 @@ export async function getSavedCaptures() {
 }
 
 /**
- * Copie la reprise dans la photothèque, album « Reprise ».
+ * Copie la reprise dans Photos (Récents) avec l'autorisation add-only.
  *
  * L'URI rendue par la caméra pointe vers un cache temporaire qu'iOS purge : conservée telle
  * quelle, la photo du carnet finissait par ne plus s'afficher. C'est aussi ce dont l'utilisateur
@@ -63,23 +61,6 @@ async function copyToLibrary(uri: string) {
   if (!permission.granted) return undefined;
 
   const asset = await MediaLibrary.createAssetAsync(uri);
-
-  // Android autorise l'écriture de nos propres fichiers sans donner accès à toute la galerie.
-  // Éviter la recherche d'album permet de ne demander aucune permission de lecture globale.
-  if (Platform.OS === 'android') return { assetId: asset.id, uri: asset.uri };
-
-  // L'album est un confort de rangement : son échec ne doit pas perdre la photo, déjà écrite.
-  try {
-    const album = await MediaLibrary.getAlbumAsync(ALBUM_NAME);
-    if (album) {
-      await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
-    } else {
-      await MediaLibrary.createAlbumAsync(ALBUM_NAME, asset, false);
-    }
-  } catch {
-    // L'asset existe malgré tout dans la photothèque.
-  }
-
   return { assetId: asset.id, uri: asset.uri };
 }
 

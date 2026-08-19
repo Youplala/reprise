@@ -1,0 +1,200 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { parseHTML } from 'linkedom';
+
+import {
+  buildObservatoirePrefillScript,
+  parseOfficialBridgeMessage,
+} from '../src/services/official-prefill.ts';
+import { OFFICIAL_SUBMISSION_FIXTURE_HTML } from '../src/services/official-submission-fixture.ts';
+
+const payload = {
+  address: '12 rue de Rivoli',
+  captureDate: '2026-08-11',
+  city: 'Paris',
+  device: 'iPhone 17 Pro',
+  latitude: 48.856614,
+  longitude: 2.352222,
+  note: 'Reprise de la vue de 1970',
+  postalCode: '75004',
+};
+
+function injectBridge(window, document, input, setTimeout = () => 1) {
+  new Function(
+    'window',
+    'document',
+    'MutationObserver',
+    'Event',
+    'setTimeout',
+    'clearTimeout',
+    buildObservatoirePrefillScript(input),
+  )(
+    window,
+    document,
+    window.MutationObserver,
+    window.Event,
+    setTimeout,
+    () => undefined,
+  );
+}
+
+function runBridge(html, input = payload, { runTimers = false } = {}) {
+  const { window, document } = parseHTML(html);
+  delete window.__reprisePrefilledFields;
+  delete window.__reprisePrefillSignature;
+  delete window.__repriseContractSignature;
+  delete window.__repriseObserver;
+  const messages = [];
+  const timers = [];
+  window.ReactNativeWebView = {
+    postMessage(value) {
+      messages.push(JSON.parse(value));
+    },
+  };
+  const setTimeoutForTest = (callback) => {
+    if (runTimers) callback();
+    else timers.push(callback);
+    return timers.length;
+  };
+  injectBridge(window, document, input, setTimeoutForTest);
+  return { document, messages, timers, window };
+}
+
+test('préremplit le contrat live représentatif sans toucher aux données personnelles', () => {
+  const { document, messages } = runBridge(OFFICIAL_SUBMISSION_FIXTURE_HTML);
+
+  assert.equal(document.querySelector('[name="element[fullAddress]"]').value, payload.address);
+  assert.equal(document.querySelector('[name="element[name]"]').value, payload.address);
+  assert.equal(document.querySelector('[name="data[fixture_arrondissement]"]').value, '75004');
+  assert.equal(document.querySelector('[name="data[fixture_ville]"]').value, 'Paris');
+  assert.equal(document.querySelector('[name="data[fixture_observations]"]').value, payload.note);
+  assert.equal(document.querySelector('[name="data[fixture_1970_date]"]').value, '');
+  assert.equal(document.querySelector('[name="data[fixture_2026_date]"]').value, '2026-08-11');
+  assert.equal(document.querySelector('#fixture-2026-date-display').value, '11 août 2026');
+  assert.equal(document.querySelector('[value="Smartphone"]').checked, true);
+  assert.equal(document.querySelector('[name="element[geo][latitude]"]').value, '48.856614');
+  assert.equal(document.querySelector('[name="element[geo][longitude]"]').value, '2.352222');
+
+  for (const selector of [
+    '[name="data[fixture_identity_1970]"]',
+    '[name="data[fixture_identity_2026]"]',
+    '[name="data[fixture_email_1970]"]',
+    '[name="data[fixture_email_2026]"]',
+    '[name="data[fixture_age]"]',
+    '[name="data[fixture_country]"]',
+    '[name="data[fixture_residence_city]"]',
+  ]) {
+    assert.equal(document.querySelector(selector).value, '', selector);
+  }
+  for (const selector of [
+    '[name="data[fixture_consent_1970]"]',
+    '[name="data[fixture_consent_2026]"]',
+  ]) {
+    assert.equal(Boolean(document.querySelector(selector).checked), false, selector);
+  }
+  assert.equal(document.querySelectorAll('input[type=file]').length, 1);
+  assert.equal(document.querySelector('input[type=file]').getAttribute('accept'), '.jpg,.jpeg,.png');
+
+  const prefill = messages.find((message) => message.type === 'prefill');
+  assert.deepEqual(prefill.fields.sort(), [
+    'address',
+    'arrondissement',
+    'captureDate',
+    'city',
+    'device',
+    'latitude',
+    'longitude',
+    'note',
+    'title',
+  ]);
+  assert.equal(prefill.count, 9);
+});
+
+test('ne remplace ni un contrôle renseigné ni un choix radio existant', () => {
+  const { window, document } = parseHTML(OFFICIAL_SUBMISSION_FIXTURE_HTML);
+  delete window.__reprisePrefilledFields;
+  delete window.__reprisePrefillSignature;
+  delete window.__repriseContractSignature;
+  delete window.__repriseObserver;
+  document.querySelector('[name="element[name]"]').value = 'Valeur manuelle';
+  document.querySelector('[value="Appareil photo numérique"]').checked = true;
+
+  const messages = [];
+  window.ReactNativeWebView = { postMessage: (value) => messages.push(JSON.parse(value)) };
+  new Function(
+    'window',
+    'document',
+    'MutationObserver',
+    'Event',
+    'setTimeout',
+    'clearTimeout',
+    buildObservatoirePrefillScript(payload),
+  )(
+    window,
+    document,
+    window.MutationObserver,
+    window.Event,
+    () => 1,
+    () => undefined,
+  );
+
+  assert.equal(document.querySelector('[name="element[name]"]').value, 'Valeur manuelle');
+  assert.equal(document.querySelector('[value="Appareil photo numérique"]').checked, true);
+  assert.equal(Boolean(document.querySelector('[value="Smartphone"]').checked), false);
+  assert.equal(messages.filter((message) => message.type === 'prefill').length, 1);
+});
+
+test('échoue fermé si le libellé Ville dérive sans écrire dans Commune de résidence', () => {
+  const drifted = OFFICIAL_SUBMISSION_FIXTURE_HTML.replace(
+    '<label for="fixture-city">Ville</label>',
+    '<label for="fixture-city">Municipalité</label>',
+  );
+  const { document, messages } = runBridge(drifted, payload, { runTimers: true });
+
+  assert.equal(document.querySelector('[name="data[fixture_ville]"]').value, '');
+  assert.equal(document.querySelector('[name="data[fixture_residence_city]"]').value, '');
+  assert.equal(messages.find((message) => message.type === 'contract-error').fields.includes('city'), true);
+  assert.equal(
+    messages.find((message) => message.type === 'prefill')?.fields.includes('city') ?? false,
+    false,
+  );
+});
+
+test('une réinjection précise actualise seulement les coordonnées encore détenues par Reprise', () => {
+  const approximate = { ...payload, latitude: 48.85, longitude: 2.35 };
+  const { document, window } = runBridge(OFFICIAL_SUBMISSION_FIXTURE_HTML, approximate);
+  const latitude = document.querySelector('[name="element[geo][latitude]"]');
+  const longitude = document.querySelector('[name="element[geo][longitude]"]');
+
+  latitude.value = '48.900000';
+  injectBridge(window, document, payload);
+
+  assert.equal(latitude.value, '48.900000');
+  assert.equal(longitude.value, '2.352222');
+});
+
+test('signale un contrat cassé au bridge au lieu de compter un faux préremplissage', () => {
+  const broken = '<html><body><form><label for="email">Mail</label><input id="email" type="email"></form></body></html>';
+  const { messages } = runBridge(broken, payload, { runTimers: true });
+  const error = messages.find((message) => message.type === 'contract-error');
+
+  assert.equal(messages.some((message) => message.type === 'prefill'), false);
+  assert.deepEqual(error.fields, ['title', 'arrondissement', 'city', 'captureDate', 'device']);
+  assert.match(error.message, /formulaire officiel a changé/i);
+});
+
+test('le parseur accepte les erreurs de contrat et ignore les messages tiers', () => {
+  assert.deepEqual(
+    parseOfficialBridgeMessage(
+      JSON.stringify({
+        type: 'contract-error',
+        fields: ['captureDate'],
+        message: 'Contrat modifié',
+      }),
+    ),
+    { type: 'contract-error', fields: ['captureDate'], message: 'Contrat modifié' },
+  );
+  assert.equal(parseOfficialBridgeMessage('{pas du json'), undefined);
+  assert.equal(parseOfficialBridgeMessage(JSON.stringify({ type: 'tracking-event' })), undefined);
+});

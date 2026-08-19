@@ -22,16 +22,52 @@ import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { useUserLocation } from '@/hooks/use-user-location';
+import {
+  buildOfficialFormUsabilityScript,
+  officialChromeIsExpanded,
+} from '@/services/official-form-usability';
+import {
+  didAddReadyImage,
+  tryStartImagePreparation,
+} from '@/services/official-image-preparation';
+import {
+  acceptsOfficialBridgeMessage,
+  isAllowedOfficialNavigation,
+  officialPageKind,
+  shouldInjectOfficialScripts,
+} from '@/services/official-navigation';
 import { OFFICIAL_SUBMISSION_FIXTURE_HTML } from '@/services/official-submission-fixture';
 import {
   buildObservatoirePrefillScript,
   OFFICIAL_SUBMISSION_FIXTURE_ENABLED,
   OBSERVATOIRE_CONTRIBUTION_URL,
-  OBSERVATOIRE_HOST,
   parseOfficialBridgeMessage,
   prepareImagesForOfficialForm,
   type PreparedImages,
 } from '@/services/official-submission';
+
+function preparationErrorLabel(error: PreparedImages['current']['error']) {
+  switch (error) {
+    case 'permission-denied':
+      return 'Accès Photos refusé — autorisez Reprise dans Réglages.';
+    case 'missing-uri':
+      return 'Fichier absent — choisissez cette image manuellement dans le formulaire.';
+    case 'download-failed':
+      return 'Téléchargement impossible — vérifiez le réseau puis réessayez.';
+    case 'file-too-large':
+      return 'Fichier supérieur à 8 Mo — choisissez une version plus légère.';
+    case 'invalid-image-content':
+      return 'Le contenu ne correspond pas à une image JPG ou PNG valide.';
+    case 'size-check-failed':
+      return 'Taille du fichier invérifiable — choisissez cette image manuellement.';
+    case 'unsupported-format':
+      return 'Format non pris en charge — choisissez cette image manuellement.';
+    case 'save-failed':
+      return 'Écriture dans Photos impossible — réessayez ou choisissez le fichier manuellement.';
+    default:
+      return undefined;
+  }
+}
 
 function localIsoDate() {
   const date = new Date();
@@ -51,6 +87,10 @@ function postalCodeFrom(value?: string, arrondissement?: string) {
 export function OfficialSubmissionScreen() {
   const router = useRouter();
   const webViewRef = useRef<WebView>(null);
+  const imagePreparationInFlight = useRef(false);
+  const currentPageUrl = useRef(
+    OFFICIAL_SUBMISSION_FIXTURE_ENABLED ? 'about:blank' : OBSERVATOIRE_CONTRIBUTION_URL,
+  );
   const { id, frame, uri, simulated, currentSaved } = useLocalSearchParams<{
     id: string;
     frame?: string;
@@ -82,10 +122,11 @@ export function OfficialSubmissionScreen() {
   const [submissionStatus, setSubmissionStatus] = useState<'editing' | 'success'>('editing');
   const [preparingImages, setPreparingImages] = useState(false);
   const [preparedImages, setPreparedImages] = useState<PreparedImages>({
-    current: currentSaved === '1',
-    reference: false,
+    current: { ready: currentSaved === '1' },
+    reference: { ready: false },
   });
   const [imageError, setImageError] = useState<string>();
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   useEffect(() => {
     if (!isSimulated) void locate();
@@ -98,7 +139,7 @@ export function OfficialSubmissionScreen() {
       ? detail?.archiveLinks[frameIndex]
       : detail?.officialUrl;
     return {
-      address: detail?.address,
+      address: detail && !detail.approximate ? detail.address : undefined,
       captureDate: localIsoDate(),
       city: 'Paris',
       device: Device.modelName ?? Device.deviceName ?? 'Smartphone',
@@ -110,7 +151,10 @@ export function OfficialSubmissionScreen() {
       postalCode: postalCodeFrom(detail?.address, detail?.arrondissement),
     };
   }, [coordinate, detail, frameIndex, isArchiveSector, isPrecise]);
-  const injectedScript = useMemo(() => buildObservatoirePrefillScript(prefill), [prefill]);
+  const injectedScript = useMemo(
+    () => `${buildObservatoirePrefillScript(prefill)}\n${buildOfficialFormUsabilityScript()}`,
+    [prefill],
+  );
   const webSource = useMemo(
     () =>
       OFFICIAL_SUBMISSION_FIXTURE_ENABLED
@@ -120,7 +164,9 @@ export function OfficialSubmissionScreen() {
   );
 
   useEffect(() => {
-    webViewRef.current?.injectJavaScript(injectedScript);
+    if (shouldInjectOfficialScripts(currentPageUrl.current, OFFICIAL_SUBMISSION_FIXTURE_ENABLED)) {
+      webViewRef.current?.injectJavaScript(injectedScript);
+    }
   }, [injectedScript]);
 
   const openSafari = useCallback(async () => {
@@ -138,6 +184,9 @@ export function OfficialSubmissionScreen() {
   };
 
   const onMessage = (event: WebViewMessageEvent) => {
+    if (!acceptsOfficialBridgeMessage(currentPageUrl.current, OFFICIAL_SUBMISSION_FIXTURE_ENABLED)) {
+      return;
+    }
     const message = parseOfficialBridgeMessage(event.nativeEvent.data);
     if (!message) return;
     if (message.type === 'prefill') setPrefilledCount(message.count);
@@ -150,11 +199,14 @@ export function OfficialSubmissionScreen() {
         message.message || 'Le formulaire officiel signale un champ à vérifier.',
       );
     }
+    if (message.type === 'contract-error') {
+      setFormError(message.message);
+    }
   };
 
   const onNavigationChange = (navigation: WebViewNavigation) => {
-    if (/\/(elements\/add|map)(?:[/?#]|$)/.test(navigation.url)) return;
-    if (/\/elements\/added(?:[/?#]|$)/.test(navigation.url)) {
+    currentPageUrl.current = navigation.url;
+    if (officialPageKind(navigation.url) === 'success') {
       setSubmissionStatus('success');
     }
   };
@@ -164,43 +216,48 @@ export function OfficialSubmissionScreen() {
       setImageError('Mode démo : aucune fausse photo ne sera placée dans votre photothèque.');
       return;
     }
+    if (!tryStartImagePreparation(imagePreparationInFlight)) return;
+    const previous = preparedImages;
     setPreparingImages(true);
     setImageError(undefined);
     try {
       const result = await prepareImagesForOfficialForm({
         currentAlreadySaved: currentSaved === '1',
         currentUri: uri,
+        previous,
         referenceUri,
         stationId: id,
       });
       setPreparedImages(result);
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      setImageError(
-        error instanceof Error && error.message === 'PHOTO_LIBRARY_DENIED'
-          ? 'Autorisez l’accès aux photos pour préparer les deux fichiers.'
-          : 'Les images n’ont pas pu être préparées. Vous pourrez les choisir manuellement.',
-      );
+      if (didAddReadyImage(previous, result)) {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch {
+      setImageError('La préparation a été interrompue. Les fichiers déjà prêts restent disponibles.');
     } finally {
+      imagePreparationInFlight.current = false;
       setPreparingImages(false);
     }
   };
 
   const allowNavigation = (request: { url: string }) => {
-    if (request.url === 'about:blank') return true;
-    try {
-      const url = new URL(request.url);
-      if (url.hostname === OBSERVATOIRE_HOST || url.hostname.endsWith('.observatoire-photo.paris')) {
-        return true;
-      }
-      void Linking.openURL(request.url);
-      return false;
-    } catch {
-      return false;
-    }
+    if (isAllowedOfficialNavigation(request.url)) return true;
+    if (/^https?:\/\//i.test(request.url)) void Linking.openURL(request.url);
+    return false;
   };
 
-  const preparedCount = Number(preparedImages.reference) + Number(preparedImages.current);
+  const preparedCount =
+    Number(preparedImages.reference.ready) + Number(preparedImages.current.ready);
+  const hasPreparationError = Boolean(
+    preparedImages.current.error || preparedImages.reference.error,
+  );
+  const permissionDenied =
+    preparedImages.current.error === 'permission-denied' ||
+    preparedImages.reference.error === 'permission-denied';
+  const chromeExpanded = officialChromeIsExpanded({
+    detailsRequested: detailsExpanded,
+    hasBlockingMessage: Boolean(imageError || validationMessage || hasPreparationError),
+  });
 
   return (
     <View style={styles.screen}>
@@ -229,63 +286,118 @@ export function OfficialSubmissionScreen() {
         </View>
       </SafeAreaView>
 
-      <View style={styles.trustBanner}>
-        <View style={styles.secureIcon}>
-          <SymbolView name="lock.shield.fill" size={18} tintColor={Palette.lichen} />
-        </View>
-        <View style={styles.trustCopy}>
-          <Text style={styles.trustTitle}>
-            {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
-              ? 'Formulaire de test embarqué'
-              : 'Formulaire officiel du CAUE de Paris'}
+      {chromeExpanded ? (
+        <>
+          <View style={styles.trustBanner}>
+            <View style={styles.secureIcon}>
+              <SymbolView name="lock.shield.fill" size={18} tintColor={Palette.lichen} />
+            </View>
+            <View style={styles.trustCopy}>
+              <Text style={styles.trustTitle}>
+                {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
+                  ? 'Formulaire de test embarqué'
+                  : 'Formulaire officiel du CAUE de Paris'}
+              </Text>
+              <Text style={styles.trustText}>
+                {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
+                  ? 'Aucune donnée ni photo ne quitte cet appareil.'
+                  : 'Reprise ne reçoit ni votre identité ni vos photos. Elles partent du formulaire officiel.'}
+              </Text>
+            </View>
+            <View style={styles.prefillBadge}>
+              <Text style={styles.prefillValue}>{prefilledCount || '—'}</Text>
+              <Text style={styles.prefillLabel}>CHAMPS</Text>
+            </View>
+          </View>
+          <View style={styles.preparationRow}>
+            <View style={styles.preparationCopy}>
+              <Text style={styles.preparationTitle}>
+                {isSimulated
+                  ? 'Aperçu de démonstration'
+                  : preparedCount === 2
+                    ? 'Les 2 photos sont prêtes'
+                    : `${preparedCount}/2 photo${preparedCount > 1 ? 's' : ''} prête${preparedCount > 1 ? 's' : ''}`}
+              </Text>
+              <Text style={styles.preparationText}>
+                {isPrecise
+                  ? 'Position actuelle et date préparées'
+                  : locating
+                    ? 'Recherche de votre position…'
+                    : locationError ?? 'Date et informations du point de vue préparées'}
+              </Text>
+              <Text style={preparedImages.current.ready ? styles.fileReady : styles.filePending}>
+                {preparedImages.current.ready
+                  ? '✓ Photo 2026 prête'
+                  : `Photo 2026 : ${preparationErrorLabel(preparedImages.current.error) ?? 'à préparer'}`}
+              </Text>
+              <Text style={preparedImages.reference.ready ? styles.fileReady : styles.filePending}>
+                {preparedImages.reference.ready
+                  ? '✓ Archive prête'
+                  : `Archive : ${preparationErrorLabel(preparedImages.reference.error) ?? 'à préparer'}`}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              disabled={preparingImages}
+              onPress={prepareImages}
+              style={({ pressed }) => [
+                styles.prepareButton,
+                pressed && styles.pressed,
+                preparingImages && styles.disabled,
+              ]}>
+              {preparingImages ? (
+                <ActivityIndicator color={Palette.parisBlue} size="small" />
+              ) : (
+                <SymbolView name="photo.on.rectangle.angled" size={18} tintColor={Palette.parisBlue} />
+              )}
+              <Text style={styles.prepareLabel}>
+                {isSimulated ? 'Voir le parcours' : hasPreparationError ? 'Réessayer' : 'Préparer'}
+              </Text>
+            </Pressable>
+          </View>
+          <Pressable
+            accessibilityLabel="Réduire les informations du dépôt"
+            accessibilityRole="button"
+            onPress={() => setDetailsExpanded(false)}
+            style={({ pressed }) => [styles.collapseButton, pressed && styles.pressed]}>
+            <Text style={styles.collapseLabel}>Agrandir le formulaire</Text>
+            <SymbolView name="chevron.up" size={11} tintColor={Palette.parisBlue} />
+          </Pressable>
+        </>
+      ) : (
+        <View style={styles.compactBar}>
+          <Text style={styles.compactStatus} numberOfLines={1}>
+            {prefilledCount || '—'} champs · {preparedCount}/2 photos prêtes
           </Text>
-          <Text style={styles.trustText}>
-            {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
-              ? 'Aucune donnée ni photo ne quitte cet appareil.'
-              : 'Reprise ne reçoit ni votre identité ni vos photos. Elles partent du formulaire officiel.'}
-          </Text>
+          <Pressable
+            accessibilityLabel="Préparer les photos"
+            accessibilityRole="button"
+            disabled={preparingImages}
+            onPress={prepareImages}
+            style={({ pressed }) => [styles.compactAction, pressed && styles.pressed]}>
+            {preparingImages ? (
+              <ActivityIndicator color={Palette.parisBlue} size="small" />
+            ) : (
+              <SymbolView name="photo.on.rectangle.angled" size={16} tintColor={Palette.parisBlue} />
+            )}
+            <Text style={styles.compactActionLabel}>Photos</Text>
+          </Pressable>
+          <Pressable
+            accessibilityLabel="Afficher les informations du dépôt"
+            accessibilityRole="button"
+            onPress={() => setDetailsExpanded(true)}
+            style={({ pressed }) => [styles.compactAction, pressed && styles.pressed]}>
+            <SymbolView name="info.circle" size={16} tintColor={Palette.parisBlue} />
+            <Text style={styles.compactActionLabel}>Infos</Text>
+          </Pressable>
         </View>
-        <View style={styles.prefillBadge}>
-          <Text style={styles.prefillValue}>{prefilledCount || '—'}</Text>
-          <Text style={styles.prefillLabel}>CHAMPS</Text>
-        </View>
-      </View>
-
-      <View style={styles.preparationRow}>
-        <View style={styles.preparationCopy}>
-          <Text style={styles.preparationTitle}>
-            {isSimulated
-              ? 'Aperçu de démonstration'
-              : preparedCount === 2
-                ? 'Les 2 photos sont prêtes'
-                : `${preparedCount}/2 photo${preparedCount > 1 ? 's' : ''} prête${preparedCount > 1 ? 's' : ''}`}
-          </Text>
-          <Text style={styles.preparationText}>
-            {isPrecise
-              ? 'Position actuelle et date préparées'
-              : locating
-                ? 'Recherche de votre position…'
-                : locationError ?? 'Date et informations du point de vue préparées'}
-          </Text>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          disabled={preparingImages}
-          onPress={prepareImages}
-          style={({ pressed }) => [
-            styles.prepareButton,
-            pressed && styles.pressed,
-            preparingImages && styles.disabled,
-          ]}>
-          {preparingImages ? (
-            <ActivityIndicator color={Palette.parisBlue} size="small" />
-          ) : (
-            <SymbolView name="photo.on.rectangle.angled" size={18} tintColor={Palette.parisBlue} />
-          )}
-          <Text style={styles.prepareLabel}>{isSimulated ? 'Voir le parcours' : 'Préparer'}</Text>
-        </Pressable>
-      </View>
+      )}
       {imageError ? <Text style={styles.inlineError}>{imageError}</Text> : null}
+      {permissionDenied ? (
+        <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()}>
+          <Text style={styles.settingsLink}>Ouvrir les réglages Photos</Text>
+        </Pressable>
+      ) : null}
       {validationMessage ? (
         <View style={styles.validationBanner}>
           <SymbolView name="exclamationmark.circle.fill" size={15} tintColor={Palette.copper} />
@@ -336,23 +448,31 @@ export function OfficialSubmissionScreen() {
               key={webKey}
               ref={webViewRef}
               source={webSource}
-              originWhitelist={['https://*']}
+              originWhitelist={['https://observatoire-photo.paris', 'about:blank']}
               allowsBackForwardNavigationGestures
               allowsInlineMediaPlayback
               javaScriptEnabled
               domStorageEnabled
               sharedCookiesEnabled
               thirdPartyCookiesEnabled={false}
-              injectedJavaScript={injectedScript}
-              injectedJavaScriptBeforeContentLoaded={injectedScript}
-              onLoadStart={() => {
+              onLoadStart={(event) => {
+                currentPageUrl.current = event.nativeEvent.url;
                 setLoading(true);
                 setFormError(undefined);
                 setValidationMessage(undefined);
+                setPrefilledCount(0);
               }}
-              onLoadEnd={() => {
+              onLoadEnd={(event) => {
+                currentPageUrl.current = event.nativeEvent.url;
                 setLoading(false);
-                webViewRef.current?.injectJavaScript(injectedScript);
+                if (
+                  shouldInjectOfficialScripts(
+                    event.nativeEvent.url,
+                    OFFICIAL_SUBMISSION_FIXTURE_ENABLED,
+                  )
+                ) {
+                  webViewRef.current?.injectJavaScript(injectedScript);
+                }
               }}
               onMessage={onMessage}
               onNavigationStateChange={onNavigationChange}
@@ -387,12 +507,14 @@ export function OfficialSubmissionScreen() {
         )}
       </View>
 
-      <SafeAreaView edges={['bottom']} style={styles.manualFooter}>
-        <SymbolView name="hand.tap.fill" size={18} tintColor={Palette.brass} />
-        <Text style={styles.manualText}>
-          Les photos, le règlement et le bouton d’envoi restent entièrement sous votre contrôle.
-        </Text>
-      </SafeAreaView>
+      {chromeExpanded ? (
+        <SafeAreaView edges={['bottom']} style={styles.manualFooter}>
+          <SymbolView name="hand.tap.fill" size={18} tintColor={Palette.brass} />
+          <Text style={styles.manualText}>
+            Les photos, le règlement et le bouton d’envoi restent entièrement sous votre contrôle.
+          </Text>
+        </SafeAreaView>
+      ) : null}
     </View>
   );
 }
@@ -477,9 +599,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
   },
-  preparationCopy: { flex: 1 },
+  preparationCopy: { flex: 1, paddingVertical: Spacing.two },
   preparationTitle: { color: Palette.ink, fontFamily: Fonts.sans, fontSize: 12, fontWeight: '800' },
   preparationText: { marginTop: 2, color: Palette.inkSoft, fontFamily: Fonts.sans, fontSize: 10 },
+  fileReady: {
+    marginTop: 3,
+    color: Palette.lichen,
+    fontFamily: Fonts.sans,
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  filePending: {
+    marginTop: 3,
+    color: Palette.copper,
+    fontFamily: Fonts.sans,
+    fontSize: 9,
+    lineHeight: 12,
+  },
+  compactBar: {
+    minHeight: 46,
+    paddingHorizontal: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  compactStatus: {
+    flex: 1,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  compactAction: {
+    minHeight: 36,
+    paddingHorizontal: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  compactActionLabel: {
+    color: Palette.parisBlue,
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  collapseButton: {
+    minHeight: 32,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  collapseLabel: {
+    color: Palette.parisBlue,
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    fontWeight: '800',
+  },
   prepareButton: {
     minHeight: 38,
     paddingHorizontal: Spacing.twoHalf,
@@ -498,6 +675,15 @@ const styles = StyleSheet.create({
     color: Palette.copper,
     fontFamily: Fonts.sans,
     fontSize: 10,
+  },
+  settingsLink: {
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
+    color: Palette.parisBlue,
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    fontWeight: '800',
+    textDecorationLine: 'underline',
   },
   validationBanner: {
     marginHorizontal: Spacing.three,
