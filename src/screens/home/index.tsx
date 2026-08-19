@@ -103,17 +103,26 @@ export function HomeScreen() {
               <Text style={styles.brand}>REPRISE</Text>
               <Text style={styles.brandSub}>Observatoire mobile de Paris</Text>
             </View>
-            <Pressable
-              accessibilityLabel="Utiliser ma position"
-              accessibilityRole="button"
-              onPress={handleLocate}
-              style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
-              <SymbolView
-                name={isPrecise ? 'location.fill' : 'location'}
-                size={21}
-                tintColor={Palette.parisBlue}
-              />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                accessibilityLabel="Ouvrir le carnet"
+                accessibilityRole="button"
+                onPress={() => router.push('/fieldbook')}
+                style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
+                <SymbolView name="book.closed.fill" size={20} tintColor={Palette.parisBlue} />
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Utiliser ma position"
+                accessibilityRole="button"
+                onPress={handleLocate}
+                style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
+                <SymbolView
+                  name={isPrecise ? 'location.fill' : 'location'}
+                  size={21}
+                  tintColor={Palette.parisBlue}
+                />
+              </Pressable>
+            </View>
           </View>
 
           <View>
@@ -309,6 +318,10 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 11,
     marginTop: -2,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
   },
   locationButton: {
     width: 44,

@@ -1,17 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Directory, File, Paths } from 'expo-file-system';
 
-const CAPTURES_KEY = 'reprise.fieldbook.captures.v1';
+import {
+  createFieldbookStore,
+  type CapturePreparation,
+  type NewCapture,
+  type SavedCapture,
+} from '@/services/fieldbook-store';
+
+export type { CapturePreparation, NewCapture, SavedCapture } from '@/services/fieldbook-store';
 
 type MediaLibraryModule = typeof import('expo-media-library');
 
-/**
- * Chargement paresseux d'expo-media-library.
- *
- * Un `import` en tête de module fait tomber toute l'application quand le module natif est
- * absent : c'est le cas dans Expo Go et dans tout build compilé avant l'ajout de la dépendance.
- * Le carnet doit continuer de fonctionner dans ces environnements, quitte à ne pas pouvoir
- * écrire dans la photothèque.
- */
+const CAPTURES_DIRECTORY = new Directory(Paths.document, 'reprise-captures');
+
 function loadMediaLibrary(): MediaLibraryModule | undefined {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -21,41 +23,36 @@ function loadMediaLibrary(): MediaLibraryModule | undefined {
   }
 }
 
-export type SavedCapture = {
-  id: string;
-  stationId: string;
-  /** URI affichable : celle de la photothèque si l'enregistrement a réussi, sinon le cache. */
-  imageUri?: string;
-  /** Identifiant de l'élément dans la photothèque, quand il a pu y être ajouté. */
-  assetId?: string;
-  simulated: boolean;
-  /** Inclinaisons relevées au déclenchement, en degrés. Aucune comparaison d'image n'a lieu. */
-  roll?: number;
-  pitch?: number;
-  /** Position relevée au déclenchement, uniquement si la permission était déjà accordée. */
-  coordinate?: { latitude: number; longitude: number };
-  locationPrecision?: 'precise' | 'approximate';
-  createdAt: string;
-};
-
-export type CaptureSaveOutcome = {
-  capture: SavedCapture;
-  /** Faux si la photo n'a pas pu rejoindre la photothèque (permission refusée, simulateur…). */
-  savedToLibrary: boolean;
-};
-
-export async function getSavedCaptures() {
-  const value = await AsyncStorage.getItem(CAPTURES_KEY);
-  return value ? (JSON.parse(value) as SavedCapture[]) : [];
+function captureExtension(uri: string) {
+  const extension = uri.match(/\.(jpe?g|png|heic|heif)(?:[?#]|$)/i)?.[1]?.toLowerCase();
+  return extension ? `.${extension === 'jpeg' ? 'jpg' : extension}` : '.jpg';
 }
 
-/**
- * Copie la reprise dans Photos (Récents) avec l'autorisation add-only.
- *
- * L'URI rendue par la caméra pointe vers un cache temporaire qu'iOS purge : conservée telle
- * quelle, la photo du carnet finissait par ne plus s'afficher. C'est aussi ce dont l'utilisateur
- * a besoin pour la déposer ensuite sur le site de l'Observatoire, depuis son navigateur.
- */
+const files = {
+  async copyToDocuments(sourceUri: string, captureId: string) {
+    CAPTURES_DIRECTORY.create({ idempotent: true, intermediates: true });
+    const source = new File(sourceUri);
+    const destination = new File(
+      CAPTURES_DIRECTORY,
+      `${captureId}${captureExtension(sourceUri)}`,
+    );
+    await source.copy(destination);
+    return destination.uri;
+  },
+  async exists(uri: string) {
+    return new File(uri).exists;
+  },
+  isManaged(uri: string) {
+    return uri.startsWith(`${CAPTURES_DIRECTORY.uri}/`);
+  },
+  async remove(uri: string) {
+    new File(uri).delete();
+  },
+};
+
+const store = createFieldbookStore({ storage: AsyncStorage, files });
+
+/** Ajoute une copie facultative à Photos avec la permission add-only, sans lire la photothèque. */
 async function copyToLibrary(uri: string) {
   const MediaLibrary = loadMediaLibrary();
   if (!MediaLibrary) return undefined;
@@ -64,36 +61,48 @@ async function copyToLibrary(uri: string) {
   if (!permission.granted) return undefined;
 
   const asset = await MediaLibrary.createAssetAsync(uri);
-  return { assetId: asset.id, uri: asset.uri };
+  return asset.id;
 }
 
-export async function saveCapture(
-  capture: Omit<SavedCapture, 'id' | 'createdAt' | 'assetId'>,
-): Promise<CaptureSaveOutcome> {
-  let assetId: string | undefined;
-  let imageUri = capture.imageUri;
+export type CaptureSaveOutcome = {
+  capture: SavedCapture;
+  savedToLibrary: boolean;
+};
 
-  if (capture.imageUri && !capture.simulated) {
+export async function getSavedCaptures() {
+  return store.list();
+}
+
+/**
+ * Écrit d'abord une copie privée durable dans Documents. Photos reste une copie facultative :
+ * un refus de permission ne peut donc plus fragiliser le brouillon.
+ */
+export async function saveCapture(capture: NewCapture): Promise<CaptureSaveOutcome> {
+  let saved = await store.save(capture);
+  let assetId: string | undefined;
+
+  if (saved.imageUri && !saved.simulated) {
     try {
-      const stored = await copyToLibrary(capture.imageUri);
-      if (stored) {
-        assetId = stored.assetId;
-        imageUri = stored.uri;
-      }
+      assetId = await copyToLibrary(saved.imageUri);
     } catch {
-      // On garde l'URI de cache : mieux vaut une photo fragile que pas de trace du tout.
+      // Le brouillon Documents est déjà durable et reste la source de vérité.
     }
   }
 
-  const current = await getSavedCaptures();
-  const next: SavedCapture = {
-    ...capture,
-    imageUri,
-    assetId,
-    id: `${capture.stationId}-${Date.now()}`,
-    createdAt: new Date().toISOString(),
-  };
+  if (assetId) {
+    saved =
+      (await store.update(saved.id, {
+        assetId,
+        preparation: { ...saved.preparation, current: { ready: true } },
+      })) ?? saved;
+  }
+  return { capture: saved, savedToLibrary: Boolean(assetId) };
+}
 
-  await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify([next, ...current].slice(0, 50)));
-  return { capture: next, savedToLibrary: Boolean(assetId) };
+export async function updateCapturePreparation(id: string, preparation: CapturePreparation) {
+  return store.update(id, { preparation });
+}
+
+export async function deleteCapture(id: string) {
+  return store.remove(id);
 }
