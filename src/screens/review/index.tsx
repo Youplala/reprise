@@ -107,17 +107,19 @@ export function ReviewScreen() {
     }
   };
 
-  const openObservatoire = () =>
+  const openObservatoire = () => {
+    const captureUri = uri ?? savedCaptureUri ?? '';
     router.push({
       pathname: '/official-submit' as never,
       params: {
         id,
         frame: String(frameIndex),
-        uri: uri ?? savedCaptureUri ?? '',
+        uri: captureUri,
         simulated: isSimulated ? '1' : '0',
         currentSaved: saved && inLibrary ? '1' : '0',
       },
     });
+  };
 
   const share = () =>
     Share.share({

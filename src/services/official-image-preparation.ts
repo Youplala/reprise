@@ -6,7 +6,8 @@ export type ImagePreparationError =
   | 'permission-denied'
   | 'save-failed'
   | 'size-check-failed'
-  | 'unsupported-format';
+  | 'unsupported-format'
+  | 'untrusted-uri';
 
 export type PreparedImageState = {
   error?: ImagePreparationError;
@@ -18,10 +19,14 @@ export type PreparedImages = {
   reference: PreparedImageState;
 };
 
-export const EMPTY_PREPARED_IMAGES: PreparedImages = {
-  current: { ready: false },
-  reference: { ready: false },
-};
+export function emptyPreparedImages(): PreparedImages {
+  return {
+    current: { ready: false },
+    reference: { ready: false },
+  };
+}
+
+export const EMPTY_PREPARED_IMAGES: PreparedImages = emptyPreparedImages();
 
 export class OfficialImagePreparationError extends Error {
   readonly code: ImagePreparationError;

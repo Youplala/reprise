@@ -22,14 +22,25 @@ import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { useUserLocation } from '@/hooks/use-user-location';
+import { isOfficialCaptureAuthorized } from '@/services/official-capture-authority';
 import {
   buildOfficialFormUsabilityScript,
   officialChromeIsExpanded,
 } from '@/services/official-form-usability';
 import {
+  buildObservatoireFileCleanupScript,
+  buildObservatoireFileInjectionScript,
+  type OfficialUploadFiles,
+} from '@/services/official-file-injection';
+import {
   didAddReadyImage,
-  tryStartImagePreparation,
+  emptyPreparedImages,
 } from '@/services/official-image-preparation';
+import {
+  isCurrentOfficialFileMessage,
+  isCurrentOfficialPreparation,
+  type OfficialPreparationRequest,
+} from '@/services/official-preparation-state';
 import {
   acceptsOfficialBridgeMessage,
   isAllowedOfficialNavigation,
@@ -43,6 +54,7 @@ import {
   OBSERVATOIRE_CONTRIBUTION_URL,
   parseOfficialBridgeMessage,
   prepareImagesForOfficialForm,
+  type OfficialFormImagePreparation,
   type PreparedImages,
 } from '@/services/official-submission';
 
@@ -62,6 +74,8 @@ function preparationErrorLabel(error: PreparedImages['current']['error']) {
       return 'Taille du fichier invérifiable — choisissez cette image manuellement.';
     case 'unsupported-format':
       return 'Format non pris en charge — choisissez cette image manuellement.';
+    case 'untrusted-uri':
+      return 'Source de photo non reconnue — reprenez la photo depuis Reprise.';
     case 'save-failed':
       return 'Écriture dans Photos impossible — réessayez ou choisissez le fichier manuellement.';
     default:
@@ -87,17 +101,24 @@ function postalCodeFrom(value?: string, arrondissement?: string) {
 export function OfficialSubmissionScreen() {
   const router = useRouter();
   const webViewRef = useRef<WebView>(null);
-  const imagePreparationInFlight = useRef(false);
+  const automaticPreparationKey = useRef<string | undefined>(undefined);
+  const preparationGeneration = useRef(0);
+  const latestPreparationRequest = useRef<OfficialPreparationRequest | undefined>(undefined);
+  const latestPreparationInFlight = useRef<number | undefined>(undefined);
+  const documentGenerationRef = useRef(0);
+  const [documentGeneration, setDocumentGeneration] = useState(0);
   const currentPageUrl = useRef(
     OFFICIAL_SUBMISSION_FIXTURE_ENABLED ? 'about:blank' : OBSERVATOIRE_CONTRIBUTION_URL,
   );
-  const { id, frame, uri, simulated, currentSaved } = useLocalSearchParams<{
+  const { id, frame, uri, simulated } = useLocalSearchParams<{
     id: string;
     frame?: string;
     uri?: string;
     simulated?: string;
-    currentSaved?: string;
   }>();
+  const authorizedCurrentUri = useRef(
+    uri && isOfficialCaptureAuthorized(id, uri) ? uri : undefined,
+  ).current;
   const { detail } = useStationDetail(id);
   const isArchiveSector = detail?.kind === 'archive-1970';
   const { images: archiveImages } = useBhvpImages(
@@ -121,10 +142,16 @@ export function OfficialSubmissionScreen() {
   const [validationMessage, setValidationMessage] = useState<string>();
   const [submissionStatus, setSubmissionStatus] = useState<'editing' | 'success'>('editing');
   const [preparingImages, setPreparingImages] = useState(false);
-  const [preparedImages, setPreparedImages] = useState<PreparedImages>({
-    current: { ready: currentSaved === '1' },
-    reference: { ready: false },
+  const [imagePreparation, setImagePreparation] = useState<OfficialFormImagePreparation>({
+    files: {},
+    images: {
+      current: { ready: false },
+      reference: { ready: false },
+    },
+    sources: {},
   });
+  const preparedImages = imagePreparation.images;
+  const [attachedFileCount, setAttachedFileCount] = useState(0);
   const [imageError, setImageError] = useState<string>();
   const [detailsExpanded, setDetailsExpanded] = useState(false);
 
@@ -151,9 +178,24 @@ export function OfficialSubmissionScreen() {
       postalCode: postalCodeFrom(detail?.address, detail?.arrondissement),
     };
   }, [coordinate, detail, frameIndex, isArchiveSector, isPrecise]);
+  const buildInjectedScript = useCallback(
+    (currentDocumentGeneration: number) => {
+      const { current, reference } = imagePreparation.files;
+      const fileScript =
+        current && reference && imagePreparation.preparationId
+          ? buildObservatoireFileInjectionScript(
+              { current, reference } as OfficialUploadFiles,
+              imagePreparation.preparationId,
+              String(currentDocumentGeneration),
+            )
+          : '';
+      return `${buildObservatoirePrefillScript(prefill)}\n${fileScript}\n${buildOfficialFormUsabilityScript()}`;
+    },
+    [imagePreparation.files, imagePreparation.preparationId, prefill],
+  );
   const injectedScript = useMemo(
-    () => `${buildObservatoirePrefillScript(prefill)}\n${buildOfficialFormUsabilityScript()}`,
-    [prefill],
+    () => buildInjectedScript(documentGeneration),
+    [buildInjectedScript, documentGeneration],
   );
   const webSource = useMemo(
     () =>
@@ -164,10 +206,13 @@ export function OfficialSubmissionScreen() {
   );
 
   useEffect(() => {
-    if (shouldInjectOfficialScripts(currentPageUrl.current, OFFICIAL_SUBMISSION_FIXTURE_ENABLED)) {
+    if (
+      !loading &&
+      shouldInjectOfficialScripts(currentPageUrl.current, OFFICIAL_SUBMISSION_FIXTURE_ENABLED)
+    ) {
       webViewRef.current?.injectJavaScript(injectedScript);
     }
-  }, [injectedScript]);
+  }, [injectedScript, loading]);
 
   const openSafari = useCallback(async () => {
     try {
@@ -189,9 +234,34 @@ export function OfficialSubmissionScreen() {
     }
     const message = parseOfficialBridgeMessage(event.nativeEvent.data);
     if (!message) return;
+    if (
+      (message.type === 'files-ready' || message.type === 'files-error') &&
+      !isCurrentOfficialFileMessage(
+        message,
+        latestPreparationRequest.current,
+        documentGenerationRef.current,
+      )
+    ) {
+      return;
+    }
     if (message.type === 'prefill') setPrefilledCount(message.count);
+    if (message.type === 'files-ready') {
+      setAttachedFileCount(message.count);
+      setImageError(undefined);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    if (message.type === 'files-error') {
+      setAttachedFileCount(0);
+      setImageError(message.message);
+    }
     if (message.type === 'success') {
       setSubmissionStatus('success');
+      setImagePreparation((value) => ({
+        ...value,
+        files: {},
+        preparationId: undefined,
+        sources: {},
+      }));
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
     if (message.type === 'form-error') {
@@ -208,37 +278,96 @@ export function OfficialSubmissionScreen() {
     currentPageUrl.current = navigation.url;
     if (officialPageKind(navigation.url) === 'success') {
       setSubmissionStatus('success');
+      setImagePreparation((value) => ({
+        ...value,
+        files: {},
+        preparationId: undefined,
+        sources: {},
+      }));
     }
   };
 
-  const prepareImages = async () => {
+  const prepareImages = useCallback(async (requestInput?: unknown) => {
+    const explicitRequest =
+      requestInput &&
+      typeof requestInput === 'object' &&
+      typeof (requestInput as Partial<OfficialPreparationRequest>).generation === 'number' &&
+      typeof (requestInput as Partial<OfficialPreparationRequest>).key === 'string'
+        ? (requestInput as OfficialPreparationRequest)
+        : undefined;
+    if (!explicitRequest && latestPreparationInFlight.current !== undefined) return;
+    const request = explicitRequest ?? {
+      generation: ++preparationGeneration.current,
+      key: `${id}|${uri}|${referenceUri}`,
+    };
+    if (!explicitRequest) latestPreparationRequest.current = request;
+    latestPreparationInFlight.current = request.generation;
     if (isSimulated) {
-      setImageError('Mode démo : aucune fausse photo ne sera placée dans votre photothèque.');
+      setImageError('Mode démo : utilisez le formulaire de test sans photo personnelle.');
+      latestPreparationInFlight.current = undefined;
       return;
     }
-    if (!tryStartImagePreparation(imagePreparationInFlight)) return;
-    const previous = preparedImages;
+    const previous = imagePreparation;
     setPreparingImages(true);
     setImageError(undefined);
     try {
       const result = await prepareImagesForOfficialForm({
-        currentAlreadySaved: currentSaved === '1',
+        currentAuthorized: Boolean(uri && uri === authorizedCurrentUri),
         currentUri: uri,
+        preparationId: String(request.generation),
         previous,
         referenceUri,
         stationId: id,
       });
-      setPreparedImages(result);
-      if (didAddReadyImage(previous, result)) {
+      if (!isCurrentOfficialPreparation(request, latestPreparationRequest.current)) return;
+      setImagePreparation(result);
+      if (didAddReadyImage(previous.images, result.images)) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
+      if (!result.files.current || !result.files.reference) {
+        setAttachedFileCount(0);
+      }
     } catch {
-      setImageError('La préparation a été interrompue. Les fichiers déjà prêts restent disponibles.');
+      if (isCurrentOfficialPreparation(request, latestPreparationRequest.current)) {
+        setImageError('La préparation a été interrompue. Les fichiers déjà prêts restent disponibles.');
+      }
     } finally {
-      imagePreparationInFlight.current = false;
-      setPreparingImages(false);
+      if (latestPreparationInFlight.current === request.generation) {
+        latestPreparationInFlight.current = undefined;
+      }
+      setPreparingImages(latestPreparationInFlight.current !== undefined);
     }
-  };
+  }, [authorizedCurrentUri, id, imagePreparation, isSimulated, referenceUri, uri]);
+
+  useEffect(() => {
+    const key = `${id}|${isSimulated ? 'simulated' : 'live'}|${uri ?? ''}|${referenceUri ?? ''}`;
+    if (automaticPreparationKey.current === key) return;
+    automaticPreparationKey.current = key;
+    preparationGeneration.current += 1;
+    const request: OfficialPreparationRequest = {
+      generation: preparationGeneration.current,
+      key,
+    };
+    latestPreparationRequest.current = request;
+    latestPreparationInFlight.current = undefined;
+    setPreparingImages(false);
+    setImageError(undefined);
+    setImagePreparation((value) => ({
+      ...value,
+      files: {},
+      images: emptyPreparedImages(),
+      preparationId: undefined,
+      sources: {},
+    }));
+    setAttachedFileCount(0);
+    if (shouldInjectOfficialScripts(currentPageUrl.current, OFFICIAL_SUBMISSION_FIXTURE_ENABLED)) {
+      webViewRef.current?.injectJavaScript(
+        buildObservatoireFileCleanupScript(String(request.generation)),
+      );
+    }
+    if (isSimulated || !uri || !referenceUri) return;
+    void prepareImages(request);
+  }, [id, isSimulated, prepareImages, referenceUri, uri]);
 
   const allowNavigation = (request: { url: string }) => {
     if (isAllowedOfficialNavigation(request.url)) return true;
@@ -251,9 +380,6 @@ export function OfficialSubmissionScreen() {
   const hasPreparationError = Boolean(
     preparedImages.current.error || preparedImages.reference.error,
   );
-  const permissionDenied =
-    preparedImages.current.error === 'permission-denied' ||
-    preparedImages.reference.error === 'permission-denied';
   const chromeExpanded = officialChromeIsExpanded({
     detailsRequested: detailsExpanded,
     hasBlockingMessage: Boolean(imageError || validationMessage || hasPreparationError),
@@ -314,9 +440,11 @@ export function OfficialSubmissionScreen() {
               <Text style={styles.preparationTitle}>
                 {isSimulated
                   ? 'Aperçu de démonstration'
-                  : preparedCount === 2
-                    ? 'Les 2 photos sont prêtes'
-                    : `${preparedCount}/2 photo${preparedCount > 1 ? 's' : ''} prête${preparedCount > 1 ? 's' : ''}`}
+                  : attachedFileCount === 2
+                    ? 'Les 2 photos sont jointes automatiquement'
+                    : preparingImages
+                      ? 'Préparation automatique des photos…'
+                      : `${preparedCount}/2 photo${preparedCount > 1 ? 's' : ''} préparée${preparedCount > 1 ? 's' : ''}`}
               </Text>
               <Text style={styles.preparationText}>
                 {isPrecise
@@ -367,7 +495,7 @@ export function OfficialSubmissionScreen() {
       ) : (
         <View style={styles.compactBar}>
           <Text style={styles.compactStatus} numberOfLines={1}>
-            {prefilledCount || '—'} champs · {preparedCount}/2 photos prêtes
+            {prefilledCount || '—'} champs · {attachedFileCount}/2 photos jointes
           </Text>
           <Pressable
             accessibilityLabel="Préparer les photos"
@@ -393,11 +521,6 @@ export function OfficialSubmissionScreen() {
         </View>
       )}
       {imageError ? <Text style={styles.inlineError}>{imageError}</Text> : null}
-      {permissionDenied ? (
-        <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()}>
-          <Text style={styles.settingsLink}>Ouvrir les réglages Photos</Text>
-        </Pressable>
-      ) : null}
       {validationMessage ? (
         <View style={styles.validationBanner}>
           <SymbolView name="exclamationmark.circle.fill" size={15} tintColor={Palette.copper} />
@@ -423,7 +546,7 @@ export function OfficialSubmissionScreen() {
             </Text>
             <Text style={styles.successText}>
               {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
-                ? 'Les champs, les deux sélecteurs de photos et le bridge WebView fonctionnent. Aucune contribution n’a été envoyée.'
+                ? 'Les champs publics et les deux photos automatiques ont été vérifiés. Aucune contribution n’a été envoyée.'
                 : 'Elle rejoint maintenant la file de modération de l’Observatoire. Le CAUE pourra vous contacter à l’adresse renseignée dans le formulaire.'}
             </Text>
             <PrimaryButton label="Revenir à la carte" onPress={() => router.replace('/map')} />
@@ -456,11 +579,14 @@ export function OfficialSubmissionScreen() {
               sharedCookiesEnabled
               thirdPartyCookiesEnabled={false}
               onLoadStart={(event) => {
+                documentGenerationRef.current += 1;
+                setDocumentGeneration(documentGenerationRef.current);
                 currentPageUrl.current = event.nativeEvent.url;
                 setLoading(true);
                 setFormError(undefined);
                 setValidationMessage(undefined);
                 setPrefilledCount(0);
+                setAttachedFileCount(0);
               }}
               onLoadEnd={(event) => {
                 currentPageUrl.current = event.nativeEvent.url;
@@ -471,7 +597,9 @@ export function OfficialSubmissionScreen() {
                     OFFICIAL_SUBMISSION_FIXTURE_ENABLED,
                   )
                 ) {
-                  webViewRef.current?.injectJavaScript(injectedScript);
+                  webViewRef.current?.injectJavaScript(
+                    buildInjectedScript(documentGenerationRef.current),
+                  );
                 }
               }}
               onMessage={onMessage}
@@ -511,7 +639,7 @@ export function OfficialSubmissionScreen() {
         <SafeAreaView edges={['bottom']} style={styles.manualFooter}>
           <SymbolView name="hand.tap.fill" size={18} tintColor={Palette.brass} />
           <Text style={styles.manualText}>
-            Les photos, le règlement et le bouton d’envoi restent entièrement sous votre contrôle.
+            Les deux photos sont ajoutées automatiquement. Votre identité, le règlement et l’envoi final restent sous votre contrôle.
           </Text>
         </SafeAreaView>
       ) : null}

@@ -1,14 +1,21 @@
 import { File, Paths } from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
 
 import {
   assertOfficialImageContent,
   assertOfficialImageSize,
   imageFilenameForUri,
   OfficialImagePreparationError,
-  prepareImagePair,
   type PreparedImages,
 } from '@/services/official-image-preparation';
+import type {
+  OfficialUploadFile,
+  OfficialUploadFiles,
+} from '@/services/official-file-injection';
+import {
+  canReusePreparedOfficialFile,
+  isAllowedOfficialReferenceUri,
+  nextOfficialTemporaryFilename,
+} from '@/services/official-preparation-state';
 
 export type { PreparedImages } from '@/services/official-image-preparation';
 export {
@@ -23,74 +30,114 @@ export const OBSERVATOIRE_CONTRIBUTION_URL =
 export const OFFICIAL_SUBMISSION_FIXTURE_ENABLED =
   __DEV__ && process.env.EXPO_PUBLIC_OFFICIAL_SUBMISSION_FIXTURE === '1';
 
+export type OfficialFormImagePreparation = {
+  files: Partial<OfficialUploadFiles>;
+  images: PreparedImages;
+  preparationId?: string;
+  sources: Partial<Record<'current' | 'reference', { sourceUri: string }>>;
+};
 
-async function addToPhotos(uri: string, filenameStem: string) {
-  let localUri = uri;
-  let localFile: File;
+function mimeTypeForFilename(filename: string): OfficialUploadFile['mimeType'] {
+  return /\.png$/i.test(filename) ? 'image/png' : 'image/jpeg';
+}
+
+async function prepareUploadFile(uri: string, filenameStem: string): Promise<OfficialUploadFile> {
+  const filename = imageFilenameForUri(filenameStem, uri);
+  let localFile = new File(uri);
+  let downloaded = false;
   if (/^https?:\/\//i.test(uri)) {
-    const target = new File(Paths.cache, imageFilenameForUri(filenameStem, uri));
+    const target = new File(Paths.cache, nextOfficialTemporaryFilename(filename));
     try {
       localFile = await File.downloadFileAsync(uri, target, { idempotent: true });
-      localUri = localFile.uri;
+      downloaded = true;
     } catch {
       throw new OfficialImagePreparationError('download-failed');
     }
-  } else {
-    imageFilenameForUri(filenameStem, uri);
-    localFile = new File(uri);
   }
-  assertOfficialImageSize(localFile.size);
-  assertOfficialImageContent(await localFile.bytes(), uri);
 
-  await MediaLibrary.createAssetAsync(localUri).catch(() => {
-    throw new OfficialImagePreparationError('save-failed');
-  });
+  try {
+    assertOfficialImageSize(localFile.size);
+    assertOfficialImageContent(await localFile.bytes(), uri);
+    return {
+      base64: await localFile.base64(),
+      filename,
+      mimeType: mimeTypeForFilename(filename),
+      size: localFile.size ?? 0,
+    };
+  } finally {
+    // La copie distante n'est utile que le temps de créer le File WebView. Le cache ne doit pas
+    // devenir une seconde photothèque durable.
+    if (downloaded) {
+      try {
+        localFile.delete();
+      } catch {
+        // Le cache système reste éphémère si sa suppression immédiate échoue.
+      }
+    }
+  }
 }
 
 /**
- * Copie les deux fichiers dans Photos (Récents), avant d'ouvrir les sélecteurs du formulaire.
- * L'autorisation add-only suffit : aucune lecture de la photothèque ni gestion d'album.
- * Ils ne quittent pas le téléphone et ne sont jamais envoyés par ce service.
+ * Prépare les deux fichiers directement pour le multipart GoGoCarto. Aucune autorisation Photos
+ * n'est nécessaire et aucun fichier personnel n'est envoyé à Reprise : les octets restent en
+ * mémoire jusqu'à leur injection sur l'origine officielle exacte.
  */
 export async function prepareImagesForOfficialForm(input: {
-  currentAlreadySaved?: boolean;
+  currentAuthorized: boolean;
   currentUri?: string;
-  previous?: PreparedImages;
+  preparationId: string;
+  previous?: OfficialFormImagePreparation;
   referenceUri?: string;
   stationId: string;
-}): Promise<PreparedImages> {
+}): Promise<OfficialFormImagePreparation> {
   const safeId = input.stationId.replace(/[^a-zA-Z0-9_-]/g, '-');
-  let currentAlreadySaved = input.currentAlreadySaved;
-  let previous = input.previous;
-  if (currentAlreadySaved) {
-    try {
-      if (!input.currentUri) throw new OfficialImagePreparationError('missing-uri');
-      const currentFile = new File(input.currentUri);
-      assertOfficialImageSize(currentFile.size);
-      assertOfficialImageContent(await currentFile.bytes(), input.currentUri);
-    } catch {
-      currentAlreadySaved = false;
-      previous = {
-        current: { ready: false },
-        reference: input.previous?.reference ?? { ready: false },
-      };
+  const files: Partial<OfficialUploadFiles> = {};
+  const sources: OfficialFormImagePreparation['sources'] = {};
+  for (const kind of ['reference', 'current'] as const) {
+    const uri = kind === 'reference' ? input.referenceUri : input.currentUri;
+    const trusted =
+      kind === 'current' ? input.currentAuthorized : Boolean(uri && isAllowedOfficialReferenceUri(uri));
+    if (trusted && canReusePreparedOfficialFile(input.previous?.sources[kind], uri)) {
+      files[kind] = input.previous?.files[kind];
+      sources[kind] = input.previous?.sources[kind];
     }
   }
-  return prepareImagePair({
-    currentAlreadySaved,
-    currentUri: input.currentUri,
-    previous,
-    referenceUri: input.referenceUri,
-    requestPermission: async () => {
-      const permission = await MediaLibrary.requestPermissionsAsync(true, []);
-      return permission.granted;
-    },
-    save: (kind, imageUri) =>
-      addToPhotos(
-        imageUri,
+  const images: PreparedImages = {
+    current: files.current ? { ready: true } : { ready: false },
+    reference: files.reference ? { ready: true } : { ready: false },
+  };
+
+  for (const kind of ['reference', 'current'] as const) {
+    if (files[kind]) continue;
+    const uri = kind === 'reference' ? input.referenceUri : input.currentUri;
+    if (!uri) {
+      images[kind] = { ready: false, error: 'missing-uri' };
+      continue;
+    }
+    if (
+      (kind === 'current' && !input.currentAuthorized) ||
+      (kind === 'reference' && !isAllowedOfficialReferenceUri(uri))
+    ) {
+      images[kind] = { ready: false, error: 'untrusted-uri' };
+      continue;
+    }
+    try {
+      files[kind] = await prepareUploadFile(
+        uri,
         kind === 'reference'
           ? `reprise-${safeId}-reference`
           : `reprise-${safeId}-${new Date().getFullYear()}`,
-      ),
-  });
+      );
+      sources[kind] = { sourceUri: uri };
+      images[kind] = { ready: true };
+    } catch (error) {
+      images[kind] = {
+        ready: false,
+        error:
+          error instanceof OfficialImagePreparationError ? error.code : 'save-failed',
+      };
+    }
+  }
+
+  return { files, images, preparationId: input.preparationId, sources };
 }

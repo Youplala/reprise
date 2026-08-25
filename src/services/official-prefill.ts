@@ -12,6 +12,14 @@ export type OfficialPrefill = {
 export type OfficialBridgeMessage =
   | { type: 'ready' }
   | { type: 'prefill'; count: number; fields: string[] }
+  | {
+      type: 'files-ready';
+      count: number;
+      files: ('reference' | 'current')[];
+      preparationId: string;
+      documentId: string;
+    }
+  | { type: 'files-error'; message: string; preparationId: string; documentId: string }
   | { type: 'success'; message?: string }
   | { type: 'form-error'; message?: string }
   | { type: 'contract-error'; fields: string[]; message: string };
@@ -25,6 +33,15 @@ export function parseOfficialBridgeMessage(value: string): OfficialBridgeMessage
       parsed.type === 'success' ||
       parsed.type === 'form-error' ||
       parsed.type === 'contract-error'
+    ) {
+      return parsed as OfficialBridgeMessage;
+    }
+    if (
+      (parsed.type === 'files-ready' || parsed.type === 'files-error') &&
+      typeof parsed.preparationId === 'string' &&
+      parsed.preparationId.length > 0 &&
+      typeof parsed.documentId === 'string' &&
+      parsed.documentId.length > 0
     ) {
       return parsed as OfficialBridgeMessage;
     }
