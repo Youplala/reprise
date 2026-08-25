@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import * as imagePreparationModule from '../src/services/official-image-preparation.ts';
 import {
   assertOfficialImageContent,
   assertOfficialImageSize,
@@ -16,6 +17,18 @@ const uris = {
   currentUri: 'file:///capture.jpg',
   referenceUri: 'https://example.test/archive.jpg',
 };
+
+test('encode exactement les octets distants en base64 par blocs', () => {
+  assert.equal(typeof imagePreparationModule.officialBytesToBase64, 'function');
+  const encode = imagePreparationModule.officialBytesToBase64;
+  assert.equal(encode(Uint8Array.from([])), '');
+  assert.equal(encode(Uint8Array.from([0xff])), '/w==');
+  assert.equal(encode(Uint8Array.from([0xff, 0xd8, 0xff, 0xe0])), '/9j/4A==');
+  const acrossChunkBoundary = new Uint8Array(24 * 1024 + 2);
+  acrossChunkBoundary.set([0xff, 0xd8, 0xff]);
+  acrossChunkBoundary.set([0x01, 0x02], 24 * 1024);
+  assert.equal(encode(acrossChunkBoundary), Buffer.from(acrossChunkBoundary).toString('base64'));
+});
 
 test('réinitialise les deux indicateurs visuels lors d’une transition de source', () => {
   assert.deepEqual(emptyPreparedImages(), {

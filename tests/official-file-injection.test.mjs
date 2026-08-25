@@ -113,6 +113,21 @@ test('injecte automatiquement les deux images dans la collection multipart GoGoC
   });
 });
 
+test('reconnaît le formulaire officiel réel sans identifiant par son uploader exact', () => {
+  const liveForm = OFFICIAL_SUBMISSION_FIXTURE_HTML.replace(
+    '<form class="legacy-form-shell" id="fixture-form">',
+    '<form class="keep-data 2022">',
+  );
+  const { document, messages } = runInjection(liveForm);
+  const inputs = [...document.querySelectorAll('[data-reprise-upload="1"] input[type=file]')];
+
+  assert.deepEqual(inputs.map((input) => input.files[0].name), [
+    'reprise-archive.jpg',
+    'reprise-2026.png',
+  ]);
+  assert.equal(messages.some((message) => message.type === 'files-error'), false);
+});
+
 test('reste idempotent lors des réinjections WebView', () => {
   const { window, document } = parseHTML(OFFICIAL_SUBMISSION_FIXTURE_HTML);
   const messages = [];

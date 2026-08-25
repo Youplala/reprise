@@ -1,4 +1,4 @@
-import { File, Paths } from 'expo-file-system';
+import { File } from 'expo-file-system';
 
 import {
   assertOfficialImageContent,
@@ -14,8 +14,8 @@ import type {
 import {
   canReusePreparedOfficialFile,
   isAllowedOfficialReferenceUri,
-  nextOfficialTemporaryFilename,
 } from '@/services/official-preparation-state';
+import { fetchOfficialReferenceUpload } from '@/services/official-reference-download';
 
 export type { PreparedImages } from '@/services/official-image-preparation';
 export {
@@ -43,38 +43,19 @@ function mimeTypeForFilename(filename: string): OfficialUploadFile['mimeType'] {
 
 async function prepareUploadFile(uri: string, filenameStem: string): Promise<OfficialUploadFile> {
   const filename = imageFilenameForUri(filenameStem, uri);
-  let localFile = new File(uri);
-  let downloaded = false;
   if (/^https?:\/\//i.test(uri)) {
-    const target = new File(Paths.cache, nextOfficialTemporaryFilename(filename));
-    try {
-      localFile = await File.downloadFileAsync(uri, target, { idempotent: true });
-      downloaded = true;
-    } catch {
-      throw new OfficialImagePreparationError('download-failed');
-    }
+    return fetchOfficialReferenceUpload(uri, filename);
   }
 
-  try {
-    assertOfficialImageSize(localFile.size);
-    assertOfficialImageContent(await localFile.bytes(), uri);
-    return {
-      base64: await localFile.base64(),
-      filename,
-      mimeType: mimeTypeForFilename(filename),
-      size: localFile.size ?? 0,
-    };
-  } finally {
-    // La copie distante n'est utile que le temps de créer le File WebView. Le cache ne doit pas
-    // devenir une seconde photothèque durable.
-    if (downloaded) {
-      try {
-        localFile.delete();
-      } catch {
-        // Le cache système reste éphémère si sa suppression immédiate échoue.
-      }
-    }
-  }
+  const localFile = new File(uri);
+  assertOfficialImageSize(localFile.size);
+  assertOfficialImageContent(await localFile.bytes(), uri);
+  return {
+    base64: await localFile.base64(),
+    filename,
+    mimeType: mimeTypeForFilename(filename),
+    size: localFile.size ?? 0,
+  };
 }
 
 /**
