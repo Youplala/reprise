@@ -5,6 +5,7 @@ import {
   assertOfficialImageContent,
   assertOfficialImageSize,
   didAddReadyImage,
+  emptyPreparedImages,
   imageFilenameForUri,
   OfficialImagePreparationError,
   prepareImagePair,
@@ -15,6 +16,13 @@ const uris = {
   currentUri: 'file:///capture.jpg',
   referenceUri: 'https://example.test/archive.jpg',
 };
+
+test('réinitialise les deux indicateurs visuels lors d’une transition de source', () => {
+  assert.deepEqual(emptyPreparedImages(), {
+    current: { ready: false },
+    reference: { ready: false },
+  });
+});
 
 test('prépare les deux images quand chaque écriture réussit', async () => {
   const saved = [];

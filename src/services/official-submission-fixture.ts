@@ -106,8 +106,16 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
       <section>
         <h2>Verser la photo</h2>
         <p class="notice">Ajoutez d’abord la photographie de 1970, puis la reconduction actuelle.</p>
-        <label for="photo-uploader">JPG ou PNG — 8 Mo maximum</label>
-        <input id="photo-uploader" name="photo-uploader" type="file" accept=".jpg,.jpeg,.png" />
+        <ul class="new-file-fields-list images"></ul>
+        <button class="btn-add-file" data-count="0" data-type="images" type="button">
+          Verser ma photo de 1970
+        </button>
+        <div class="new-file-template images" style="display:none">
+          <div class="file-field input-field">
+            <input name="element[images][__count__][file][file]" type="file" accept="image/*" />
+          </div>
+        </div>
+        <p>JPG ou PNG — 8 Mo maximum</p>
       </section>
 
       <section>
@@ -146,15 +154,12 @@ export const OFFICIAL_SUBMISSION_FIXTURE_HTML = `
       <button id="fixture-submit" type="submit">Simuler l'envoi</button>
     </form>
     <script>
-      const uploader = document.getElementById('photo-uploader');
-      let selectedCount = 0;
-      uploader.addEventListener('change', () => {
-        if (uploader.files && uploader.files.length > 0) selectedCount = Math.min(2, selectedCount + 1);
-        document.getElementById('selected').textContent = selectedCount + '/2 photo' + (selectedCount > 1 ? 's' : '') + ' sélectionnée' + (selectedCount > 1 ? 's' : '');
-        uploader.value = '';
-      });
       document.getElementById('fixture-form').addEventListener('submit', (event) => {
         event.preventDefault();
+        const selectedCount = Array.from(
+          document.querySelectorAll('.new-file-fields-list.images input[type=file]'),
+        ).filter((input) => input.files && input.files.length === 1).length;
+        document.getElementById('selected').textContent = selectedCount + '/2 photo' + (selectedCount > 1 ? 's' : '') + ' sélectionnée' + (selectedCount > 1 ? 's' : '');
         if (selectedCount < 2) {
           let error = document.getElementById('fixture-upload-error');
           if (!error) {

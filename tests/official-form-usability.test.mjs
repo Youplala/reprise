@@ -116,7 +116,7 @@ test('fixture preserves the representative live contract and includes a nested w
   assert.equal((OFFICIAL_SUBMISSION_FIXTURE_HTML.match(/>Mail<\/label>/g) || []).length, 2);
   assert.equal((OFFICIAL_SUBMISSION_FIXTURE_HTML.match(/règlement de participation/g) || []).length, 2);
   assert.equal((OFFICIAL_SUBMISSION_FIXTURE_HTML.match(/type="file"/g) || []).length, 1);
-  assert.match(OFFICIAL_SUBMISSION_FIXTURE_HTML, /accept="\.jpg,\.jpeg,\.png"/);
+  assert.match(OFFICIAL_SUBMISSION_FIXTURE_HTML, /accept="image\/\*"/);
   assert.match(OFFICIAL_SUBMISSION_FIXTURE_HTML, /8 Mo maximum/);
 });
 
@@ -140,7 +140,8 @@ test('screen injects prefill before usability after load and never at document s
     new URL('../src/screens/official-submission/index.tsx', import.meta.url),
     'utf8',
   );
-  const injection = source.match(/const injectedScript = useMemo\(([\s\S]*?)\n  \);/)?.[1] ?? '';
+  const injection =
+    source.match(/const buildInjectedScript = useCallback\(([\s\S]*?)\n  const injectedScript/)?.[1] ?? '';
   const prefillIndex = injection.indexOf('buildObservatoirePrefillScript(prefill)');
   const usabilityIndex = injection.indexOf('buildOfficialFormUsabilityScript()');
 

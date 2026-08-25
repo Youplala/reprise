@@ -94,7 +94,7 @@ test('préremplit le contrat live représentatif sans toucher aux données perso
     assert.equal(Boolean(document.querySelector(selector).checked), false, selector);
   }
   assert.equal(document.querySelectorAll('input[type=file]').length, 1);
-  assert.equal(document.querySelector('input[type=file]').getAttribute('accept'), '.jpg,.jpeg,.png');
+  assert.equal(document.querySelector('input[type=file]').getAttribute('accept'), 'image/*');
 
   const prefill = messages.find((message) => message.type === 'prefill');
   assert.deepEqual(prefill.fields.sort(), [
@@ -197,4 +197,19 @@ test('le parseur accepte les erreurs de contrat et ignore les messages tiers', (
   );
   assert.equal(parseOfficialBridgeMessage('{pas du json'), undefined);
   assert.equal(parseOfficialBridgeMessage(JSON.stringify({ type: 'tracking-event' })), undefined);
+  assert.equal(
+    parseOfficialBridgeMessage(JSON.stringify({ type: 'files-ready', count: 2 })),
+    undefined,
+  );
+  assert.deepEqual(
+    parseOfficialBridgeMessage(
+      JSON.stringify({
+        type: 'files-error',
+        message: 'Erreur',
+        preparationId: '7',
+        documentId: '3',
+      }),
+    ),
+    { type: 'files-error', message: 'Erreur', preparationId: '7', documentId: '3' },
+  );
 });
