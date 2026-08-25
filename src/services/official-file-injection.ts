@@ -50,7 +50,12 @@ export function buildObservatoireFileCleanupScript(preparationId: string) {
       if (!Number.isFinite(incomingPreparation) ||
           (Number.isFinite(latestPreparation) && latestPreparation > incomingPreparation)) return;
       window.__repriseLatestPreparationId = preparationId;
-      const form = document.querySelector('form#formElement, form#fixture-form');
+      const matchingForms = Array.from(document.querySelectorAll('form')).filter((candidate) =>
+        candidate.querySelector('.new-file-fields-list.images') &&
+        candidate.querySelector('.new-file-template.images') &&
+        candidate.querySelector('.btn-add-file[data-type="images"]')
+      );
+      const form = matchingForms.length === 1 ? matchingForms[0] : null;
       const list = form && form.querySelector('.new-file-fields-list.images');
       if (!list) return;
       const ownedFiles = window.__repriseOwnedFiles instanceof WeakMap
@@ -117,7 +122,12 @@ export function buildObservatoireFileInjectionScript(
         fail('Une photo préparée n’est pas conforme au contrat JPG/PNG de 8 Mo.');
         return;
       }
-      const form = document.querySelector('form#formElement, form#fixture-form');
+      const matchingForms = Array.from(document.querySelectorAll('form')).filter((candidate) =>
+        candidate.querySelector('.new-file-fields-list.images') &&
+        candidate.querySelector('.new-file-template.images') &&
+        candidate.querySelector('.btn-add-file[data-type="images"]')
+      );
+      const form = matchingForms.length === 1 ? matchingForms[0] : null;
       const list = form && form.querySelector('.new-file-fields-list.images');
       const template = form && form.querySelector('.new-file-template.images');
       const button = form && form.querySelector('.btn-add-file[data-type="images"]');

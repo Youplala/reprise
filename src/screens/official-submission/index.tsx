@@ -77,7 +77,7 @@ function preparationErrorLabel(error: PreparedImages['current']['error']) {
     case 'untrusted-uri':
       return 'Source de photo non reconnue — reprenez la photo depuis Reprise.';
     case 'save-failed':
-      return 'Écriture dans Photos impossible — réessayez ou choisissez le fichier manuellement.';
+      return 'Préparation du fichier impossible — réessayez ou choisissez-le manuellement.';
     default:
       return undefined;
   }

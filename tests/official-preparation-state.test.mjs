@@ -6,7 +6,6 @@ import {
   isAllowedOfficialReferenceUri,
   isCurrentOfficialFileMessage,
   isCurrentOfficialPreparation,
-  nextOfficialTemporaryFilename,
 } from '../src/services/official-preparation-state.ts';
 
 test('ne réutilise un fichier préparé que pour la même source', () => {
@@ -57,14 +56,6 @@ test('autorise uniquement les hôtes et chemins d’images de référence connus
   );
   assert.equal(isAllowedOfficialReferenceUri('https://example.invalid/archive.jpg'), false);
   assert.equal(isAllowedOfficialReferenceUri('file:///private/archive.jpg'), false);
-});
-
-test('isole chaque téléchargement distant dans un fichier temporaire unique', () => {
-  const first = nextOfficialTemporaryFilename('reprise-reference.jpg');
-  const second = nextOfficialTemporaryFilename('reprise-reference.jpg');
-  assert.notEqual(first, second);
-  assert.match(first, /reprise-reference\.jpg$/);
-  assert.match(second, /reprise-reference\.jpg$/);
 });
 
 test('rejette les messages provenant d’une ancienne source ou d’un ancien document WebView', () => {

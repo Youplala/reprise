@@ -6,6 +6,10 @@ const officialService = readFileSync(
   new URL('../src/services/official-submission.ts', import.meta.url),
   'utf8',
 );
+const referenceDownloadService = readFileSync(
+  new URL('../src/services/official-reference-download.ts', import.meta.url),
+  'utf8',
+);
 const fieldbookService = readFileSync(
   new URL('../src/services/fieldbook.ts', import.meta.url),
   'utf8',
@@ -29,13 +33,19 @@ test('la préparation automatique ne demande aucun accès Photos et reste éphé
   assert.match(fieldbookService, /requestPermissionsAsync\(true, \[\]\)/);
   assert.doesNotMatch(fieldbookService, /getAlbumAsync|createAlbumAsync|addAssetsToAlbumAsync/);
   assert.doesNotMatch(fieldbookService, /assertOfficialImageSize/);
-  assert.match(officialService, /assertOfficialImageSize\(localFile\.size\)/);
+});
+
+test('la référence distante est récupérée en mémoire sans copie temporaire disque', () => {
+  assert.match(officialService, /fetchOfficialReferenceUpload\(uri, filename\)/);
+  assert.doesNotMatch(officialService, /File\.downloadFileAsync/);
+  assert.doesNotMatch(officialService, /Paths\.cache/);
+});
+
+test('la destination finale après redirection reste sur une source d’archive autorisée', () => {
   assert.match(
-    officialService,
-    /assertOfficialImageContent\(await localFile\.bytes\(\), uri\)/,
+    referenceDownloadService,
+    /isAllowedOfficialReferenceUri\(response\.url\)/,
   );
-  assert.match(officialService, /base64: await localFile\.base64\(\)/);
-  assert.match(officialService, /localFile\.delete\(\)/);
 });
 
 test('la copie utilisateur dans Photos reste distincte de la pièce jointe automatique', () => {
@@ -43,6 +53,7 @@ test('la copie utilisateur dans Photos reste distincte de la pièce jointe autom
   assert.doesNotMatch(reviewScreen, /album Reprise/);
   assert.match(reviewScreen, /Photos \(Récents\)/);
   assert.match(officialScreen, /Les deux photos sont ajoutées automatiquement/);
+  assert.doesNotMatch(officialScreen, /Écriture dans Photos impossible/);
 });
 
 test('l’écran ignore les préparations obsolètes et limite le haptique aux nouveaux succès', () => {

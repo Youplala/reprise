@@ -54,10 +54,3 @@ export function isAllowedOfficialReferenceUri(value: string) {
     return false;
   }
 }
-
-let temporaryFileSequence = 0;
-
-export function nextOfficialTemporaryFilename(filename: string) {
-  temporaryFileSequence += 1;
-  return `reprise-upload-${Date.now()}-${temporaryFileSequence}-${filename}`;
-}

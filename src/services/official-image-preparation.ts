@@ -42,6 +42,27 @@ type ImageKind = keyof PreparedImages;
 
 export const OFFICIAL_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 
+export function officialBytesToBase64(bytes: Uint8Array) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const chunks: string[] = [];
+  const chunkBytes = 24 * 1024;
+  for (let start = 0; start < bytes.length; start += chunkBytes) {
+    const end = Math.min(start + chunkBytes, bytes.length);
+    let chunk = '';
+    for (let index = start; index < end; index += 3) {
+      const first = bytes[index];
+      const second = index + 1 < end ? bytes[index + 1] : 0;
+      const third = index + 2 < end ? bytes[index + 2] : 0;
+      chunk += alphabet[first >> 2];
+      chunk += alphabet[((first & 3) << 4) | (second >> 4)];
+      chunk += index + 1 < end ? alphabet[((second & 15) << 2) | (third >> 6)] : '=';
+      chunk += index + 2 < end ? alphabet[third & 63] : '=';
+    }
+    chunks.push(chunk);
+  }
+  return chunks.join('');
+}
+
 type SynchronousFlight = { current: boolean };
 
 export function tryStartImagePreparation(inFlight: SynchronousFlight) {
