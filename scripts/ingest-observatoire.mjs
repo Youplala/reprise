@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 import { deliveryImageUrls } from './image-delivery.mjs';
 import { SOURCE_URL } from './observatoire-source.mjs';
-import { assertNoPersonalData } from './privacy-guard.mjs';
+import { assertNoPersonalData, sanitizePublicText } from './privacy-guard.mjs';
 
 const OFFICIAL_FICHE = 'https://observatoire-photo.paris/map#/fiche/';
 const USER_AGENT = 'Reprise/1.0 (+https://github.com/Youplala/reprise) snapshot quotidien';
@@ -62,7 +62,7 @@ function categoryIdsOf(element) {
 }
 
 function firstString(...values) {
-  return values.find((v) => typeof v === 'string' && v.trim().length > 0)?.trim();
+  return values.map(sanitizePublicText).find((value) => value !== undefined);
 }
 
 function firstListedString(value) {
