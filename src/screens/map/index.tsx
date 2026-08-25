@@ -30,6 +30,7 @@ import { useUserLocation } from '@/hooks/use-user-location';
 import { useFeaturedMission, useStations } from '@/providers/stations-provider';
 import type { StationSummary } from '@/types/station';
 import { distanceInMeters, formatDistance } from '@/utils/distance';
+import { retainExplicitMapSelection } from '@/utils/map-selection';
 import {
   mappingStatus,
   stationMatchesFilter,
@@ -462,8 +463,13 @@ export function MapScreen() {
       }))
       .sort((left, right) => left.distance - right.distance)
       .map(({ station }) => station);
-    return ranked.slice(0, 80);
-  }, [browseOrigin, filteredStations, focusedCell, statusFilteredStations]);
+    return retainExplicitMapSelection(
+      ranked,
+      focusedCell ? undefined : selected?.id,
+      statusFilteredStations,
+      80,
+    );
+  }, [browseOrigin, filteredStations, focusedCell, selected?.id, statusFilteredStations]);
 
   // La sélection initiale suit la mission mise en avant, le temps que le relevé actif se charge.
   const currentSelection = selected ?? featuredMission;
