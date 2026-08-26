@@ -88,7 +88,7 @@ Les navigations non autorisées et les fenêtres secondaires sont bloquées dans
 Reprise vous guide vers les photographies historiques de Paris pour reprendre aujourd’hui les
 mêmes points de vue.
 
-• Explorez les 1 171 secteurs du concours photographique de 1970.
+• Explorez le quadrillage historique du concours photographique de 1970.
 • Repérez les vues encore à retrouver autour de vous.
 • Comparez les archives et les reprises déjà publiées.
 • Superposez la photographie de référence à la caméra pour retrouver le cadrage.

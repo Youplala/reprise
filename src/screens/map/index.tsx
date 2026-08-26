@@ -376,8 +376,8 @@ export function MapScreen() {
 
 
 
-  // La vraie grille du concours compte 1 171 mailles de 250 m. Les dessiner toutes, y compris
-  // hors écran, sature le rendu de la carte : on ne garde que celles qui recoupent la vue,
+  // Dessiner toutes les mailles importées, y compris hors écran, sature le rendu de la carte :
+  // on ne garde que celles qui recoupent la vue,
   // avec une marge d'une demi-vue pour absorber les déplacements courts.
   const visibleGrid = useMemo(() => {
     const marginLatitude = region.latitudeDelta * 0.5;

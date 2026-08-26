@@ -15,7 +15,7 @@ parisiens](https://observatoire-photo.paris/), animée par le CAUE de Paris.
 | | | | |
 |:-:|:-:|:-:|:-:|
 | <img src="docs/screenshots/01-accueil.png" width="200" alt="Écran d'accueil : la mission et le pouls du collectif"> | <img src="docs/screenshots/02-carte-grille.png" width="200" alt="Carte : la grille du concours de 1970 sur tout Paris"> | <img src="docs/screenshots/03-carte-reprises.png" width="200" alt="Carte : les reprises publiées, place des Vosges"> | <img src="docs/screenshots/04-collectif.png" width="200" alt="Collectif : contributeurs et comparaisons avant/après"> |
-| Les points de vue autour de vous | Les 1 171 carrés de 250 m | Les reprises déjà publiées | Le collectif et ses comparaisons |
+| Les points de vue autour de vous | Les 1 755 carrés historiques | Les reprises déjà publiées | Le collectif et ses comparaisons |
 
 ## Développement
 
