@@ -58,9 +58,9 @@ publicité et ne dépose jamais une contribution à votre place.
 
 CONTRIBUEZ À L’OBSERVATOIRE
 
-Lorsque vous le souhaitez, Reprise prépare les informations utiles et ouvre le formulaire officiel
-de l’Observatoire. Vous choisissez les photos, vérifiez chaque champ et déclenchez vous-même
-l’envoi.
+Lorsque vous le souhaitez, Reprise prépare les informations utiles et les deux photos dans le
+formulaire officiel de l’Observatoire. Vous gardez la main sur chaque champ, l’identité, les
+consentements et l’envoi final.
 
 Reprise est une application indépendante et open source qui accompagne la campagne de
 l’Observatoire photo participatif des paysages parisiens, animée par le CAUE de Paris.
@@ -73,8 +73,9 @@ enregistrées en accès ajout uniquement.
 
 L’écran « Dépôt officiel » contient une WebView vers
 `https://observatoire-photo.paris/elements/add`. Reprise préremplit seulement certains champs
-vides ; elle ne coche aucune case, ne choisit aucun fichier et ne soumet jamais le formulaire.
-Si le serveur tiers est indisponible, l’écran l’explique et permet d’ouvrir le lien dans Safari.
+publics vides et prépare deux fichiers, archive puis photo actuelle. Le commentaire reste vide.
+Reprise ne renseigne jamais l’identité, ne coche aucune case et ne soumet jamais le formulaire.
+Les navigations non autorisées et les fenêtres secondaires sont bloquées dans l’application.
 
 ## Google Play — français
 
