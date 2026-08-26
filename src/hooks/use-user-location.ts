@@ -1,13 +1,19 @@
 import * as Location from 'expo-location';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { PARIS_CENTER } from '@/data/archive';
+import { shouldAutoLocate } from '@/services/location-preference';
 import type { Coordinate } from '@/types/station';
 
-export function useUserLocation() {
+type UseUserLocationOptions = {
+  autoLocate?: boolean;
+};
+
+export function useUserLocation({ autoLocate = false }: UseUserLocationOptions = {}) {
+  const autoLocateStarted = useRef(false);
   const [coordinate, setCoordinate] = useState<Coordinate>(PARIS_CENTER);
   const [isPrecise, setIsPrecise] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(autoLocate);
   const [error, setError] = useState<string>();
 
   const locate = useCallback(async () => {
@@ -37,6 +43,18 @@ export function useUserLocation() {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!autoLocate || autoLocateStarted.current) return;
+    autoLocateStarted.current = true;
+    void shouldAutoLocate()
+      .then((enabled) => {
+        if (enabled) return locate();
+        setLoading(false);
+        return undefined;
+      })
+      .catch(() => void locate());
+  }, [autoLocate, locate]);
 
   return { coordinate, isPrecise, loading, error, locate };
 }

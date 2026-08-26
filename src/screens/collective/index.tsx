@@ -4,6 +4,7 @@ import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -48,8 +49,13 @@ function LiveComparisonCard({
         <Text style={styles.activityKicker}>PHOTO REFAITE · OBSERVATOIRE</Text>
         <Text style={styles.activityTitle}>{detail.name}</Text>
         <Text style={styles.activityMeta}>
-          {detail.currentAuthor ? `${detail.currentAuthor} · ` : ''}
-          {detail.arrondissement ?? 'Paris'}
+          {[
+            detail.currentAuthor,
+            detail.recaptureDate ? formatSnapshotDate(detail.recaptureDate) : undefined,
+            detail.arrondissement ?? 'Paris',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </Text>
         <View style={styles.activityActions}>
           <Pressable onPress={onOpen} style={styles.detailButton}>
@@ -64,7 +70,15 @@ function LiveComparisonCard({
 
 export function CollectiveScreen() {
   const router = useRouter();
-  const { stations, snapshotVersion, coverage, stats, publishedSubmissions } = useStations();
+  const {
+    stations,
+    snapshotVersion,
+    coverage,
+    stats,
+    publishedSubmissions,
+    refresh,
+    refreshing,
+  } = useStations();
   // Les reprises publiées sont dans l'instantané : plus de requêtes en cascade pour les trouver.
   const feed = publishedSubmissions;
   const feedStatus: 'loading' | 'ready' | 'error' = feed.length ? 'ready' : 'error';
@@ -80,6 +94,13 @@ export function CollectiveScreen() {
     <View style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refresh()}
+            tintColor={Palette.parisBlue}
+          />
+        }
         contentContainerStyle={styles.content}>
         <SafeAreaView edges={['top']} style={styles.header}>
           <View style={styles.brandRow}>

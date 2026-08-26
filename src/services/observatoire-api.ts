@@ -129,15 +129,17 @@ export function buildOpenMissions(snapshot: Snapshot): StationDetail[] {
 
 /** Reprises publiées à mettre en avant dans le fil, celles qui ont bien les deux vues. */
 export function buildPublishedSubmissions(snapshot: Snapshot, limit = 3): StationDetail[] {
-  const published: StationDetail[] = [];
-
-  for (const station of snapshot.stations) {
-    if (published.length >= limit) break;
-    if (!station.hasRecapture || !station.referenceImage || !station.recaptureImage) continue;
-    published.push(detailFromStation(station));
-  }
-
-  return published;
+  return snapshot.stations
+    .filter(
+      (station) => station.hasRecapture && station.referenceImage && station.recaptureImage,
+    )
+    .sort(
+      (left, right) =>
+        (right.recaptureDate ?? '').localeCompare(left.recaptureDate ?? '') ||
+        left.id.localeCompare(right.id),
+    )
+    .slice(0, limit)
+    .map(detailFromStation);
 }
 
 export function buildContributorSubmissions(

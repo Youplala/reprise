@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -39,7 +40,10 @@ export function HomeScreen() {
   const router = useRouter();
   const { stations, snapshotVersion, coverage, stats, refresh, refreshing, syncError } =
     useStations();
-  const { coordinate, isPrecise, loading: locating, locate } = useUserLocation();
+  const { coordinate, isPrecise, loading: locating, locate } = useUserLocation({
+    autoLocate: true,
+  });
+  const awaitingFirstLocation = locating && !isPrecise;
 
   // Mission mise en avant : le point de vue de 2022 le plus proche, encore à reconduire.
   const featured = useFeaturedMission(isPrecise ? coordinate : undefined);
@@ -80,7 +84,7 @@ export function HomeScreen() {
   };
 
   const openFeatured = () => {
-    if (!featured) return;
+    if (!featured || awaitingFirstLocation) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
     router.push({ pathname: '/station/[id]', params: { id: featured.id } });
   };
@@ -106,8 +110,14 @@ export function HomeScreen() {
             <Pressable
               accessibilityLabel="Utiliser ma position"
               accessibilityRole="button"
+              accessibilityState={{ busy: locating, disabled: locating }}
+              disabled={locating}
               onPress={handleLocate}
-              style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
+              style={({ pressed }) => [
+                styles.locationButton,
+                locating && styles.locationButtonDisabled,
+                pressed && styles.pressed,
+              ]}>
               <SymbolView
                 name={isPrecise ? 'location.fill' : 'location'}
                 size={21}
@@ -118,7 +128,11 @@ export function HomeScreen() {
 
           <View>
             <Text style={styles.eyebrow}>
-              {isPrecise ? 'AUTOUR DE VOUS' : 'PARIS · 30 087 PHOTOS DE 1970'}
+              {awaitingFirstLocation
+                ? 'RECHERCHE AUTOUR DE VOUS'
+                : isPrecise
+                  ? 'AUTOUR DE VOUS'
+                  : 'PARIS · 30 087 PHOTOS DE 1970'}
             </Text>
             <Text style={styles.heroTitle}>Retrouvez Paris, photo après photo.</Text>
             <Text style={styles.heroCopy}>
@@ -167,40 +181,52 @@ export function HomeScreen() {
         <Animated.View entering={FadeInDown.delay(140).duration(420)}>
           <Pressable
             accessibilityRole="button"
+            accessibilityState={{ busy: awaitingFirstLocation, disabled: awaitingFirstLocation }}
+            disabled={awaitingFirstLocation}
             onPress={openFeatured}
             style={({ pressed }) => [styles.featured, pressed && styles.featuredPressed]}>
             <Image
-              source={featured?.previewImage}
+              source={awaitingFirstLocation ? undefined : featured?.previewImage}
               style={StyleSheet.absoluteFill}
               contentFit="cover"
               transition={250}
             />
             <View style={styles.featuredShade} />
-            <View style={styles.featuredTop}>
-              <SourcePill label="Photo à refaire" inverse />
-            </View>
-            <View style={styles.featuredBottom}>
-              <Text style={styles.featuredKicker}>
-                {featured?.author ? `${featured.author.toLocaleUpperCase('fr-FR')} · ` : ''}
-                {featured?.year ?? 2022}
-              </Text>
-              <Text style={styles.featuredTitle} numberOfLines={2}>
-                {featured?.name ?? 'Une photo à refaire'}
-              </Text>
-              <View style={styles.featuredMeta}>
-                <View style={styles.featuredMetaItem}>
-                  <SymbolView name="camera.viewfinder" size={15} tintColor={Palette.blueMist} />
-                  <Text style={styles.featuredMetaText}>Refaire cette photo</Text>
-                </View>
-                <Text style={styles.featuredDistance}>
-                  {isPrecise
-                    ? formatDistance(featuredDistance)
-                    : featured?.arrondissement
-                      ? `Paris ${Number(featured.arrondissement.slice(3))}e`
-                      : 'Paris'}
-                </Text>
+            {awaitingFirstLocation ? (
+              <View style={styles.featuredLoading}>
+                <ActivityIndicator color={Palette.white} size="small" />
+                <Text style={styles.featuredLoadingTitle}>Recherche d’une photo près de vous…</Text>
+                <Text style={styles.featuredLoadingCopy}>La mission la plus proche va apparaître ici.</Text>
               </View>
-            </View>
+            ) : (
+              <>
+                <View style={styles.featuredTop}>
+                  <SourcePill label="Photo à refaire" inverse />
+                </View>
+                <View style={styles.featuredBottom}>
+                  <Text style={styles.featuredKicker}>
+                    {featured?.author ? `${featured.author.toLocaleUpperCase('fr-FR')} · ` : ''}
+                    {featured?.year ?? 2022}
+                  </Text>
+                  <Text style={styles.featuredTitle} numberOfLines={2}>
+                    {featured?.name ?? 'Une photo à refaire'}
+                  </Text>
+                  <View style={styles.featuredMeta}>
+                    <View style={styles.featuredMetaItem}>
+                      <SymbolView name="camera.viewfinder" size={15} tintColor={Palette.blueMist} />
+                      <Text style={styles.featuredMetaText}>Refaire cette photo</Text>
+                    </View>
+                    <Text style={styles.featuredDistance}>
+                      {isPrecise
+                        ? formatDistance(featuredDistance)
+                        : featured?.arrondissement
+                          ? `Paris ${Number(featured.arrondissement.slice(3))}e`
+                          : 'Paris'}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
           </Pressable>
         </Animated.View>
 
@@ -319,6 +345,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Shadow.card,
   },
+  locationButtonDisabled: {
+    opacity: 0.58,
+  },
   pressed: {
     transform: [{ scale: 0.94 }],
   },
@@ -430,6 +459,27 @@ const styles = StyleSheet.create({
     position: 'absolute',
     inset: 0,
     backgroundColor: 'rgba(8, 17, 22, 0.2)',
+  },
+  featuredLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
+  },
+  featuredLoadingTitle: {
+    marginTop: Spacing.three,
+    color: Palette.white,
+    fontFamily: Fonts.display,
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  featuredLoadingCopy: {
+    marginTop: Spacing.two,
+    color: Palette.blueMist,
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    textAlign: 'center',
   },
   featuredTop: {
     padding: Spacing.three,
