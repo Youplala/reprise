@@ -1,6 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
@@ -39,7 +39,10 @@ export function OfficialContributionGuide({
       visible={visible}>
       <View style={styles.backdrop}>
         <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-          <View style={styles.sheet}>
+          <ScrollView
+            contentContainerStyle={styles.sheetContent}
+            showsVerticalScrollIndicator={false}
+            style={styles.sheet}>
             <View style={styles.topRow}>
               <Text style={styles.step}>{slide.eyebrow}</Text>
               <Pressable
@@ -87,7 +90,7 @@ export function OfficialContributionGuide({
                 <SymbolView name="arrow.right" size={14} tintColor={Palette.white} />
               </Pressable>
             </View>
-          </View>
+          </ScrollView>
         </SafeAreaView>
       </View>
     </Modal>
@@ -100,14 +103,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(7, 24, 35, 0.58)',
     justifyContent: 'flex-end',
   },
-  safeArea: { justifyContent: 'flex-end' },
+  safeArea: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
+    maxHeight: '100%',
     marginHorizontal: Spacing.two,
-    padding: Spacing.four,
     borderRadius: Radius.large,
     backgroundColor: Palette.white,
     ...Shadow.card,
   },
+  sheetContent: { padding: Spacing.four },
   topRow: {
     minHeight: 32,
     flexDirection: 'row',

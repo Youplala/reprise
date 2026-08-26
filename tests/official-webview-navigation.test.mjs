@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
+import { isAllowedOfficialNavigation } from '../src/services/official-navigation.ts';
+
 const screenSource = fs.readFileSync(
   new URL('../src/screens/official-submission/index.tsx', import.meta.url),
   'utf8',
@@ -15,7 +17,15 @@ test('une navigation refusée reste bloquée dans la WebView sans ouvrir Safari'
 
   const navigationGuard = screenSource.slice(start, end);
   assert.doesNotMatch(navigationGuard, /Linking\.openURL/);
-  assert.match(navigationGuard, /isAllowedOfficialNavigation\(request\.url\)/);
+  assert.match(
+    navigationGuard,
+    /isAllowedOfficialNavigation\(request\.url, OFFICIAL_SUBMISSION_FIXTURE_ENABLED\)/,
+  );
+});
+
+test('about:blank est réservé au fixture local et interdit en production', () => {
+  assert.equal(isAllowedOfficialNavigation('about:blank'), false);
+  assert.equal(isAllowedOfficialNavigation('about:blank', true), true);
 });
 
 test('les nouvelles fenêtres sont interceptées sans aucune externalisation', () => {

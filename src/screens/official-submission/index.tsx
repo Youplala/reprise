@@ -377,7 +377,7 @@ export function OfficialSubmissionScreen() {
   }, [id, isSimulated, prepareImages, referenceUri, uri]);
 
   const allowNavigation = (request: { url: string }) => {
-    return isAllowedOfficialNavigation(request.url);
+    return isAllowedOfficialNavigation(request.url, OFFICIAL_SUBMISSION_FIXTURE_ENABLED);
   };
 
   const preparedCount =
