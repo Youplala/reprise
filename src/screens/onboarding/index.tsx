@@ -25,8 +25,12 @@ import { AnimatedNumber } from '@/components/charts/animated-number';
 import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useUserLocation } from '@/hooks/use-user-location';
 import { useStations } from '@/providers/stations-provider';
-import { setLocationPreference } from '@/services/location-preference';
-import { completeOnboarding } from '@/services/onboarding';
+import { trySetLocationPreference } from '@/services/location-preference';
+import {
+  completeOnboarding,
+  HISTORIC_GRID_COUNT,
+  LOCATION_PRIVACY_COPY,
+} from '@/services/onboarding';
 import type { StationDetail } from '@/types/station';
 import type { CoverageCell } from '@/utils/mapping-coverage';
 
@@ -165,7 +169,10 @@ function PhotoCredit({ pair }: { pair: StationDetail }) {
         {pair.name}
       </Text>
       <Text style={styles.photoCredit} numberOfLines={1}>
-        ARCHIVE {pair.year} · {archiveAuthor} / REPRISE 2026 · {pair.currentAuthor ?? 'contribution'}
+        ARCHIVE {pair.year} · {archiveAuthor} · VILLE DE PARIS / BHVP
+      </Text>
+      <Text style={styles.photoCredit} numberOfLines={1}>
+        REPRISE 2026 · {pair.currentAuthor ?? 'contribution'} · OBSERVATOIRE / CAUE DE PARIS
       </Text>
     </View>
   );
@@ -350,7 +357,7 @@ function ArchiveGridMap({ cells }: { cells: CoverageCell[] }) {
         <Image source={{ uri: illustration }} style={styles.archiveGridImage} contentFit="contain" />
       ) : null}
       <View style={styles.archiveMapTitle}>
-        <Text style={styles.archiveMapTitleText}>PARIS · 1 169 CARRÉS</Text>
+        <Text style={styles.archiveMapTitleText}>PARIS · {HISTORIC_GRID_COUNT.toLocaleString('fr-FR')} CARRÉS</Text>
       </View>
       <View style={styles.archiveScale}>
         <Text style={styles.archiveScaleNumber}>250 M</Text>
@@ -437,15 +444,15 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   const findFirstPhoto = async () => {
     if (finishing || locating) return;
-    await setLocationPreference('nearby');
+    await trySetLocationPreference('nearby');
     const coordinate = await locate();
-    if (!coordinate) await setLocationPreference('manual');
+    if (!coordinate) await trySetLocationPreference('manual');
     await finish();
   };
 
   const exploreWithoutLocation = async () => {
     if (finishing) return;
-    await setLocationPreference('manual');
+    await trySetLocationPreference('manual');
     await finish();
   };
 
@@ -658,7 +665,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           <View style={styles.privacyCopy}>
             <Text style={styles.privacyTitle}>VOTRE POSITION RESTE PRIVÉE</Text>
             <Text style={styles.privacyText}>
-              Elle sert uniquement à calculer les photos proches. Elle n’est ni enregistrée, ni publiée.
+              {LOCATION_PRIVACY_COPY}
             </Text>
           </View>
         </View>

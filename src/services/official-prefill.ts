@@ -5,7 +5,6 @@ export type OfficialPrefill = {
   device?: string;
   latitude?: number;
   longitude?: number;
-  note?: string;
   postalCode?: string;
 };
 
@@ -215,7 +214,6 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
         if (fillExactByLabel(['ville'], payload.city)) fields.add('city');
         if (fillCaptureDate(payload.captureDate)) fields.add('captureDate');
         if (selectDevice()) fields.add('device');
-        if (fillByLabel(['observations commentaires', 'commentaire', 'legende', 'observation', 'elements de reperage'], payload.note)) fields.add('note');
         if (fillCoordinate('latitude', payload.latitude)) fields.add('latitude');
         if (fillCoordinate('longitude', payload.longitude)) fields.add('longitude');
         const allFields = Array.from(fields);
@@ -236,7 +234,7 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
           send({
             type: 'contract-error',
             fields: missing,
-            message: 'Le formulaire officiel a changé. Vérifiez les champs dans Safari avant de continuer.',
+            message: 'Le formulaire officiel a changé. Réessayez plus tard ou signalez le problème à Reprise.',
           });
         }
       };

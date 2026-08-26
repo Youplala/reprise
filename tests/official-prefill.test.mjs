@@ -16,7 +16,6 @@ const payload = {
   device: 'iPhone 17 Pro',
   latitude: 48.856614,
   longitude: 2.352222,
-  note: 'Reprise de la vue de 1970',
   postalCode: '75004',
 };
 
@@ -68,7 +67,7 @@ test('préremplit le contrat live représentatif sans toucher aux données perso
   assert.equal(document.querySelector('[name="element[name]"]').value, payload.address);
   assert.equal(document.querySelector('[name="data[fixture_arrondissement]"]').value, '75004');
   assert.equal(document.querySelector('[name="data[fixture_ville]"]').value, 'Paris');
-  assert.equal(document.querySelector('[name="data[fixture_observations]"]').value, payload.note);
+  assert.equal(document.querySelector('[name="data[fixture_observations]"]').value, '');
   assert.equal(document.querySelector('[name="data[fixture_1970_date]"]').value, '');
   assert.equal(document.querySelector('[name="data[fixture_2026_date]"]').value, '2026-08-11');
   assert.equal(document.querySelector('#fixture-2026-date-display').value, '11 août 2026');
@@ -105,10 +104,9 @@ test('préremplit le contrat live représentatif sans toucher aux données perso
     'device',
     'latitude',
     'longitude',
-    'note',
     'title',
   ]);
-  assert.equal(prefill.count, 9);
+  assert.equal(prefill.count, 8);
 });
 
 test('ne remplace ni un contrôle renseigné ni un choix radio existant', () => {

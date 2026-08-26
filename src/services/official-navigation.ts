@@ -25,8 +25,9 @@ export function officialPageKind(value: string): OfficialPageKind {
   return 'untrusted';
 }
 
-export function isAllowedOfficialNavigation(value: string) {
-  return officialPageKind(value) !== 'untrusted';
+export function isAllowedOfficialNavigation(value: string, fixtureEnabled = false) {
+  const kind = officialPageKind(value);
+  return kind === 'form' || kind === 'success' || (fixtureEnabled && kind === 'blank');
 }
 
 export function shouldInjectOfficialScripts(value: string, fixtureEnabled = false) {

@@ -1,6 +1,6 @@
 # Politique de confidentialité de Reprise
 
-Dernière mise à jour : 7 août 2026
+Dernière mise à jour : 26 août 2026
 
 Reprise est une application mobile gratuite et open source éditée par Élie Brosset. Elle aide à
 retrouver et à rephotographier des points de vue historiques de Paris. Reprise n’exige aucun
@@ -44,8 +44,10 @@ ne reçoit pas ces journaux et ne les utilise pas pour suivre ses utilisateurs. 
 L’écran « Dépôt officiel » affiche dans une vue web le formulaire du site
 [observatoire-photo.paris](https://observatoire-photo.paris/), animé par le CAUE de Paris.
 Reprise peut y préparer la date, le lieu, les coordonnées du point de vue, le modèle d’appareil et
-une note. Vous choisissez vous-même les photos, vérifiez le formulaire et déclenchez l’envoi.
-Aucun dépôt n’est automatique.
+les deux pièces jointes attendues : la photographie d’archive puis la photographie actuelle. Le
+commentaire public reste vide. Vous pouvez modifier ou remplacer les éléments préparés. Vous
+renseignez vous-même votre identité et les consentements, vérifiez le formulaire puis déclenchez
+l’envoi. Aucun dépôt n’est automatique.
 
 Lorsque vous validez ce formulaire, les informations et photos choisies sont transmises directement
 au site de l’Observatoire, et non à l’éditeur de Reprise. Leur traitement, leur modération, leur

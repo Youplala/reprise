@@ -13,6 +13,7 @@ import { StackedShare } from '@/components/charts/stacked-share';
 import { SourcePill } from '@/components/source-pill';
 import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useStations } from '@/providers/stations-provider';
+import { HISTORIC_GRID_COUNT } from '@/services/onboarding';
 import { formatContributorName } from '@/utils/community-stats';
 
 const BUCKET_COLORS: Record<string, string> = {
@@ -120,8 +121,8 @@ export function CoverageScreen() {
 
         <Section
           kicker="LA GRILLE DE 1970"
-          title="1 171 secteurs de 250 m"
-          copy="Paris avait été découpé en secteurs pour le concours de 1970. Voici où en est chacun d’eux."
+          title={`${HISTORIC_GRID_COUNT.toLocaleString('fr-FR')} secteurs historiques`}
+          copy={`${grid.length.toLocaleString('fr-FR')} secteurs de 250 m sont actuellement référencés dans Reprise. Voici où en est chacun d’eux.`}
           delay={60}>
           <StackedShare data={shares} />
         </Section>

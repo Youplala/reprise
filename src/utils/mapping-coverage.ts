@@ -127,7 +127,7 @@ export function buildCoverageGrid(snapshot: Snapshot, stations: StationSummary[]
   });
 }
 
-/** Cellules recoupant la zone visible, pour ne pas dessiner 1 171 polygones hors écran. */
+/** Cellules recoupant la zone visible, pour ne pas dessiner toute la grille hors écran. */
 export function cellsWithinViewport(cells: CoverageCell[], viewport: SquareBounds): CoverageCell[] {
   const [west, south, east, north] = viewport;
   return cells.filter(
