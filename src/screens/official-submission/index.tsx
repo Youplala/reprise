@@ -5,7 +5,6 @@ import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -18,11 +17,16 @@ import WebView, {
 } from 'react-native-webview';
 
 import { PrimaryButton } from '@/components/primary-button';
+import { OfficialContributionGuide } from '@/components/official-contribution-guide';
 import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { useUserLocation } from '@/hooks/use-user-location';
 import { isOfficialCaptureAuthorized } from '@/services/official-capture-authority';
+import {
+  markOfficialContributionGuideSeen,
+  shouldShowOfficialContributionGuide,
+} from '@/services/official-contribution-guide-storage';
 import {
   buildOfficialFormUsabilityScript,
   officialChromeIsExpanded,
@@ -154,17 +158,25 @@ export function OfficialSubmissionScreen() {
   const [attachedFileCount, setAttachedFileCount] = useState(0);
   const [imageError, setImageError] = useState<string>();
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [guideVisible, setGuideVisible] = useState(false);
 
   useEffect(() => {
     if (!isSimulated) void locate();
   }, [isSimulated, locate]);
 
+  useEffect(() => {
+    let active = true;
+    void shouldShowOfficialContributionGuide().then((shouldShow) => {
+      if (active && shouldShow) setGuideVisible(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const prefill = useMemo(() => {
     const exactStationCoordinate = detail && !detail.approximate ? detail.coordinate : undefined;
     const submissionCoordinate = isPrecise ? coordinate : exactStationCoordinate;
-    const referenceUrl = isArchiveSector
-      ? detail?.archiveLinks[frameIndex]
-      : detail?.officialUrl;
     return {
       address: detail && !detail.approximate ? detail.address : undefined,
       captureDate: localIsoDate(),
@@ -172,12 +184,9 @@ export function OfficialSubmissionScreen() {
       device: Device.modelName ?? Device.deviceName ?? 'Smartphone',
       latitude: submissionCoordinate?.latitude,
       longitude: submissionCoordinate?.longitude,
-      note: referenceUrl
-        ? `Reprise de la vue de ${detail?.year ?? 1970} — référence : ${referenceUrl}`
-        : `Reprise de la vue de ${detail?.year ?? 1970}`,
       postalCode: postalCodeFrom(detail?.address, detail?.arrondissement),
     };
-  }, [coordinate, detail, frameIndex, isArchiveSector, isPrecise]);
+  }, [coordinate, detail, isPrecise]);
   const buildInjectedScript = useCallback(
     (currentDocumentGeneration: number) => {
       const { current, reference } = imagePreparation.files;
@@ -214,12 +223,10 @@ export function OfficialSubmissionScreen() {
     }
   }, [injectedScript, loading]);
 
-  const openSafari = useCallback(async () => {
-    try {
-      await Linking.openURL(OBSERVATOIRE_CONTRIBUTION_URL);
-    } catch {
-      setFormError('Safari ne peut pas ouvrir le formulaire pour le moment.');
-    }
+  const blockPopup = useCallback(() => undefined, []);
+  const completeGuide = useCallback(() => {
+    setGuideVisible(false);
+    void markOfficialContributionGuideSeen();
   }, []);
 
   const retry = () => {
@@ -370,9 +377,7 @@ export function OfficialSubmissionScreen() {
   }, [id, isSimulated, prepareImages, referenceUri, uri]);
 
   const allowNavigation = (request: { url: string }) => {
-    if (isAllowedOfficialNavigation(request.url)) return true;
-    if (/^https?:\/\//i.test(request.url)) void Linking.openURL(request.url);
-    return false;
+    return isAllowedOfficialNavigation(request.url);
   };
 
   const preparedCount =
@@ -404,10 +409,11 @@ export function OfficialSubmissionScreen() {
             </Text>
           </View>
           <Pressable
-            accessibilityLabel="Ouvrir dans Safari"
-            onPress={openSafari}
+            accessibilityLabel="Comprendre le dépôt"
+            accessibilityRole="button"
+            onPress={() => setGuideVisible(true)}
             style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}>
-            <SymbolView name="safari" size={18} tintColor={Palette.parisBlue} />
+            <SymbolView name="questionmark.circle.fill" size={19} tintColor={Palette.parisBlue} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -557,13 +563,6 @@ export function OfficialSubmissionScreen() {
             <Text style={styles.errorTitle}>Le formulaire répond mal</Text>
             <Text style={styles.errorText}>{formError}</Text>
             <PrimaryButton label="Réessayer" icon="arrow.clockwise" onPress={retry} />
-            <PrimaryButton
-              label="Continuer dans Safari"
-              icon="safari"
-              variant="outline"
-              onPress={openSafari}
-              style={styles.safariButton}
-            />
           </View>
         ) : (
           <>
@@ -604,6 +603,7 @@ export function OfficialSubmissionScreen() {
               }}
               onMessage={onMessage}
               onNavigationStateChange={onNavigationChange}
+              onOpenWindow={blockPopup}
               onShouldStartLoadWithRequest={allowNavigation}
               onError={() => {
                 setLoading(false);
@@ -643,6 +643,7 @@ export function OfficialSubmissionScreen() {
           </Text>
         </SafeAreaView>
       ) : null}
+      <OfficialContributionGuide onComplete={completeGuide} visible={guideVisible} />
     </View>
   );
 }
@@ -869,7 +870,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     textAlign: 'center',
   },
-  safariButton: { marginTop: Spacing.two, alignSelf: 'stretch' },
+
   successState: {
     flex: 1,
     paddingHorizontal: Spacing.five,
