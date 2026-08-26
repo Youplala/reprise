@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -17,6 +17,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedNumber } from '@/components/charts/animated-number';
+import { FirstLaunchOnboarding } from '@/components/first-launch-onboarding';
 import { GlassSurface } from '@/components/glass-surface';
 import { SourcePill } from '@/components/source-pill';
 import { StationCard } from '@/components/station-card';
@@ -25,6 +26,10 @@ import { Fonts, Palette, Radius, Shadow, Spacing, TabBarClearance } from '@/cons
 
 import { useUserLocation } from '@/hooks/use-user-location';
 import { useFeaturedMission, useStations } from '@/providers/stations-provider';
+import {
+  markFirstLaunchOnboardingSeen,
+  shouldShowFirstLaunchOnboarding,
+} from '@/services/first-launch-onboarding-storage';
 
 
 import { distanceInMeters, formatDistance } from '@/utils/distance';
@@ -37,9 +42,34 @@ const STEPS = [
 
 export function HomeScreen() {
   const router = useRouter();
-  const { stations, snapshotVersion, coverage, stats, refresh, refreshing, syncError } =
-    useStations();
+  const {
+    stations,
+    snapshotVersion,
+    coverage,
+    stats,
+    publishedSubmissions,
+    refresh,
+    refreshing,
+    syncError,
+  } = useStations();
   const { coordinate, isPrecise, loading: locating, locate } = useUserLocation();
+  const [onboardingVisible, setOnboardingVisible] = useState(false);
+  const onboardingExamples = publishedSubmissions.slice(0, 2);
+
+  useEffect(() => {
+    let active = true;
+    void shouldShowFirstLaunchOnboarding().then((shouldShow) => {
+      if (active && shouldShow) setOnboardingVisible(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const completeOnboarding = () => {
+    setOnboardingVisible(false);
+    void markFirstLaunchOnboardingSeen();
+  };
 
   // Mission mise en avant : le point de vue de 2022 le plus proche, encore à reconduire.
   const featured = useFeaturedMission(isPrecise ? coordinate : undefined);
@@ -103,17 +133,26 @@ export function HomeScreen() {
               <Text style={styles.brand}>REPRISE</Text>
               <Text style={styles.brandSub}>Observatoire mobile de Paris</Text>
             </View>
-            <Pressable
-              accessibilityLabel="Utiliser ma position"
-              accessibilityRole="button"
-              onPress={handleLocate}
-              style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
-              <SymbolView
-                name={isPrecise ? 'location.fill' : 'location'}
-                size={21}
-                tintColor={Palette.parisBlue}
-              />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                accessibilityLabel="Découvrir la mission Reprise"
+                accessibilityRole="button"
+                onPress={() => setOnboardingVisible(true)}
+                style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
+                <SymbolView name="info.circle.fill" size={21} tintColor={Palette.parisBlue} />
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Utiliser ma position"
+                accessibilityRole="button"
+                onPress={handleLocate}
+                style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
+                <SymbolView
+                  name={isPrecise ? 'location.fill' : 'location'}
+                  size={21}
+                  tintColor={Palette.parisBlue}
+                />
+              </Pressable>
+            </View>
           </View>
 
           <View>
@@ -274,6 +313,11 @@ export function HomeScreen() {
           <Text style={styles.locatingText}>Recherche de votre position…</Text>
         </Animated.View>
       ) : null}
+      <FirstLaunchOnboarding
+        examples={onboardingExamples}
+        onComplete={completeOnboarding}
+        visible={onboardingVisible}
+      />
     </View>
   );
 }
@@ -297,6 +341,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
+  headerActions: { flexDirection: 'row', gap: Spacing.two },
   brand: {
     color: Palette.parisBlue,
     fontFamily: Fonts.display,
