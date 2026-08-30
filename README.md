@@ -95,8 +95,9 @@ certaine de chaque vue.
 
 ## Publication
 
-La [politique de confidentialité](docs/CONFIDENTIALITE.md) doit être publiée avec le dépôt et son
-URL renseignée dans App Store Connect et Play Console.
+Le [site public](https://youplala.github.io/reprise/) réunit la politique de confidentialité,
+l’assistance, les conditions d’utilisation et les sources. Ces URLs sont utilisées par App Store
+Connect et Play Console.
 
 La clé Google Maps Android ne doit jamais être commitée. Pour un build distant, créer la variable
 `GOOGLE_MAPS_API_KEY` dans l’environnement EAS `production`; le build Android de production est
