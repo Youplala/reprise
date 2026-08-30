@@ -122,6 +122,11 @@ export function StationScreen() {
     referenceYear === 1970
       ? `${BHVP_NAME} · ${PARIS_1970_FUND}`
       : 'Observatoire photo participatif des paysages parisiens · CAUE de Paris';
+  // Une station de 2022 n'a aucune métadonnée d'archive : son auteur est le contributeur de
+  // l'Observatoire. Créditer sa photo comme une vue de 1970 conservée par la BHVP serait une
+  // misattribution, et la notice doit suivre le millésime réel de l'image affichée.
+  const referenceCreditShort =
+    referenceYear === 1970 ? 'ARCHIVES BHVP' : 'OBSERVATOIRE · CAUE DE PARIS';
   const currentCredit = `Photo 2026 · ${currentAuthor ?? 'Contributeur·rice non renseigné·e'}`;
   const selectedViewNumber = String(selectedIndex + 1).padStart(2, '0');
   const coordinate = detail?.coordinate ?? summary?.coordinate ?? PARIS_CENTER;
@@ -484,9 +489,9 @@ export function StationScreen() {
                 <View style={[styles.storyCard, styles.storyCardArchive]}>
                   <View style={styles.storyCardHeader}>
                     <View style={styles.storyYearBadge}>
-                      <Text style={styles.storyYearText}>1970</Text>
+                      <Text style={styles.storyYearText}>{referenceYear}</Text>
                     </View>
-                    <Text style={styles.storyCardSource}>ARCHIVES BHVP</Text>
+                    <Text style={styles.storyCardSource}>{referenceCreditShort}</Text>
                   </View>
                   <Text style={styles.storyAuthor}>
                     {referenceAuthor ?? 'Photographe non identifié'}

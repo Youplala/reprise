@@ -5,7 +5,7 @@ const ONBOARDING_KEY = 'reprise:onboarding:v1';
 export const HISTORIC_GRID_COUNT = 1755;
 
 export const LOCATION_PRIVACY_COPY =
-  'Elle sert à trouver les photos proches. Lors d’une prise de vue, les coordonnées peuvent être conservées dans votre carnet et préparées dans le formulaire officiel. Rien n’est envoyé sans votre validation.';
+  'Elle sert à trouver les photos proches. Vos coordonnées peuvent être enregistrées dans votre carnet et préremplies dans le formulaire officiel, jamais envoyées sans votre validation.';
 
 export async function hasCompletedOnboarding(): Promise<boolean> {
   return (await AsyncStorage.getItem(ONBOARDING_KEY)) === 'completed';
