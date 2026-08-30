@@ -40,9 +40,9 @@
           "cadrage"
         ],
         "promoText": "Retrouvez les points de vue du Paris de 1970, alignez votre cadrage et préparez une nouvelle photographie pour l’Observatoire.",
-        "marketingUrl": "https://github.com/Youplala/reprise",
-        "supportUrl": "https://github.com/Youplala/reprise/issues",
-        "privacyPolicyUrl": "https://github.com/Youplala/reprise/blob/main/docs/CONFIDENTIALITE.md"
+        "marketingUrl": "https://youplala.github.io/reprise/",
+        "supportUrl": "https://youplala.github.io/reprise/support/",
+        "privacyPolicyUrl": "https://youplala.github.io/reprise/confidentialite/"
       }
     },
     "release": {

@@ -14,9 +14,10 @@ ou les flux réseau changent.
 - Catégorie principale suggérée : Photo et vidéo
 - Catégorie secondaire suggérée : Voyages
 - Politique de confidentialité :
-  `https://github.com/Youplala/reprise/blob/main/docs/CONFIDENTIALITE.md`
-- Assistance : `https://github.com/Youplala/reprise/issues`
-- Marketing / projet : `https://github.com/Youplala/reprise`
+  `https://youplala.github.io/reprise/confidentialite/`
+- Assistance : `https://youplala.github.io/reprise/support/`
+- Marketing / projet : `https://youplala.github.io/reprise/`
+- Conditions d’utilisation : `https://youplala.github.io/reprise/conditions/`
 
 ## App Store — français
 
