@@ -54,6 +54,13 @@ test('la confidentialité décrit le traitement local et le dépôt tiers manuel
   assert.match(privacy, /transmises directement à l’Observatoire/);
   assert.match(privacy, /OpenStreetMap/);
   assert.match(privacy, /Automattic/);
+  assert.match(privacy, /mailto:eliebrosset@gmail\.com/);
+});
+
+test('propose un canal d’assistance privé', () => {
+  const support = read('site/support/index.html');
+  assert.match(support, /mailto:eliebrosset@gmail\.com/);
+  assert.match(support, /Assistance privée/);
 });
 
 test('les métadonnées Apple pointent vers les pages GitHub Pages', () => {
