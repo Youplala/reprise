@@ -53,6 +53,7 @@
         "expo-camera",
         {
           "cameraPermission": "Autoriser Reprise à utiliser l’appareil photo pour reconduire une vue historique.",
+          "microphonePermission": false,
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false
         }

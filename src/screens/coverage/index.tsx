@@ -204,8 +204,8 @@ export function CoverageScreen() {
 
         <Text style={styles.footnote}>
           Données publiques de l’Observatoire photo participatif des paysages parisiens, animé par
-          le CAUE de Paris, sous licence ODbL. Photos de 1970 conservées par la Bibliothèque
-          historique de la Ville de Paris.
+          le CAUE de Paris. Photos de 1970 conservées par la Bibliothèque historique de la Ville
+          de Paris.
         </Text>
       </ScrollView>
     </View>
