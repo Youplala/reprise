@@ -52,6 +52,8 @@ test('la confidentialité décrit le traitement local et le dépôt tiers manuel
   assert.match(privacy, /Le commentaire public reste vide/);
   assert.match(privacy, /Aucun dépôt n’est automatique/);
   assert.match(privacy, /transmises directement à l’Observatoire/);
+  assert.match(privacy, /OpenStreetMap/);
+  assert.match(privacy, /Automattic/);
 });
 
 test('les métadonnées Apple pointent vers les pages GitHub Pages', () => {
