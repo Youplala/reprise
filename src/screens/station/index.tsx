@@ -39,6 +39,7 @@ import { PROJECT_LABEL, PROJECT_URL } from '@/constants/legal';
 import { PARIS_CENTER } from '@/data/archive';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
+import { buildPhotoReportDraft, launchPhotoReport } from '@/utils/photo-report';
 
 const BHVP_NAME = 'Bibliothèque historique de la Ville de Paris';
 const PARIS_1970_FUND = 'Fonds « C’était Paris en 1970 »';
@@ -217,18 +218,11 @@ export function StationScreen() {
   };
 
   const reportRecapture = () => {
-    const subject = `Signalement d’une photo refaite · ${title}`;
-    const body = [
-      'Bonjour,',
-      '',
-      `Je souhaite signaler un problème sur la photo actuelle associée à « ${title} » (identifiant ${id ?? 'inconnu'}).`,
-      detail?.officialUrl ? `Fiche : ${detail.officialUrl}` : '',
-      '',
-      'Problème constaté : ',
-    ]
-      .filter(Boolean)
-      .join('\n');
-    const mailto = `mailto:observatoire-photo@caue75.fr?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const draft = buildPhotoReportDraft({
+      title,
+      stationId: id,
+      officialUrl: detail?.officialUrl,
+    });
 
     Alert.alert(
       'Signaler cette photo',
@@ -238,7 +232,29 @@ export function StationScreen() {
         {
           text: 'Préparer l’email',
           onPress: () => {
-            void Linking.openURL(mailto);
+            void (async () => {
+              const result = await launchPhotoReport(draft.mailto, Linking);
+              if (result === 'opened') return;
+
+              Alert.alert(
+                'Email indisponible',
+                draft.fallbackMessage,
+                [
+                  { text: 'Fermer', style: 'cancel' },
+                  {
+                    text: 'Partager les informations',
+                    onPress: () => {
+                      void Share.share({
+                        title: draft.subject,
+                        message: draft.fallbackMessage,
+                      }).catch(() => {
+                        Alert.alert('Partage indisponible', draft.fallbackMessage);
+                      });
+                    },
+                  },
+                ],
+              );
+            })();
           },
         },
       ],
