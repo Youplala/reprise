@@ -39,6 +39,7 @@ import { PROJECT_LABEL, PROJECT_URL } from '@/constants/legal';
 import { PARIS_CENTER } from '@/data/archive';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
+import { historicalReferenceForFrame } from '@/services/camera-reference';
 
 const BHVP_NAME = 'Bibliothèque historique de la Ville de Paris';
 const PARIS_1970_FUND = 'Fonds « C’était Paris en 1970 »';
@@ -199,9 +200,15 @@ export function StationScreen() {
 
   const openAlignment = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const historicalReference = historicalReferenceForFrame({
+      images,
+      recaptureImage: detail?.recaptureImage,
+      referenceImage: detail?.referenceImage,
+      requestedFrame: selectedIndex,
+    });
     router.push({
       pathname: '/align/[id]',
-      params: { id: id ?? '', frame: String(selectedIndex) },
+      params: { id: id ?? '', frame: String(historicalReference.frameIndex) },
     });
   };
 

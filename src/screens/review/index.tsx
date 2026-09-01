@@ -19,14 +19,20 @@ import { SIMULATED_CAMERA_IMAGE } from '@/constants/demo';
 import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
+import {
+  historicalReferenceForFrame,
+  referenceUriOf,
+  validatedHistoricalReferenceUri,
+} from '@/services/camera-reference';
 import { saveCapture } from '@/services/fieldbook';
 import { getReviewStatusRows, type CaptureLocation } from '@/services/review-status';
 
 export function ReviewScreen() {
   const router = useRouter();
-  const { id, frame, uri, simulated, roll, pitch, latitude, longitude, locationPrecision } = useLocalSearchParams<{
+  const { id, frame, referenceUri, uri, simulated, roll, pitch, latitude, longitude, locationPrecision } = useLocalSearchParams<{
     id: string;
     frame?: string;
+    referenceUri?: string;
     uri?: string;
     simulated?: string;
     roll?: string;
@@ -50,11 +56,23 @@ export function ReviewScreen() {
   const stationImages = archiveImages.length > 0 ? archiveImages : detail?.images ?? [];
 
   const requestedFrame = Number.parseInt(frame ?? '0', 10);
-  const frameIndex = Number.isFinite(requestedFrame)
-    ? Math.max(0, Math.min(Math.max(0, stationImages.length - 1), requestedFrame))
-    : 0;
+  const historicalReference = historicalReferenceForFrame({
+    images: stationImages,
+    recaptureImage: detail?.recaptureImage,
+    referenceImage: detail?.referenceImage,
+    requestedFrame,
+  });
+  const frameIndex = historicalReference.frameIndex;
+  const transportedReferenceUri = validatedHistoricalReferenceUri({
+    candidateUri: referenceUri,
+    images: stationImages,
+    recaptureImage: detail?.recaptureImage,
+    referenceImage: detail?.referenceImage,
+  });
   const referenceImage =
-    stationImages[frameIndex] ?? detail?.referenceImage;
+    transportedReferenceUri
+      ? { uri: transportedReferenceUri }
+      : historicalReference.image;
   const currentImage: ImageSource | undefined = uri
     ? { uri }
     : isSimulated
@@ -114,6 +132,7 @@ export function ReviewScreen() {
       params: {
         id,
         frame: String(frameIndex),
+        referenceUri: referenceUriOf(referenceImage) ?? '',
         uri: captureUri,
         simulated: isSimulated ? '1' : '0',
         currentSaved: saved && inLibrary ? '1' : '0',

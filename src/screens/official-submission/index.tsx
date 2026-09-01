@@ -22,6 +22,11 @@ import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { useUserLocation } from '@/hooks/use-user-location';
+import {
+  historicalReferenceForFrame,
+  referenceUriOf,
+  validatedHistoricalReferenceUri,
+} from '@/services/camera-reference';
 import { isOfficialCaptureAuthorized } from '@/services/official-capture-authority';
 import {
   markOfficialContributionGuideSeen,
@@ -114,9 +119,10 @@ export function OfficialSubmissionScreen() {
   const currentPageUrl = useRef(
     OFFICIAL_SUBMISSION_FIXTURE_ENABLED ? 'about:blank' : OBSERVATOIRE_CONTRIBUTION_URL,
   );
-  const { id, frame, uri, simulated } = useLocalSearchParams<{
+  const { id, frame, referenceUri, uri, simulated } = useLocalSearchParams<{
     id: string;
     frame?: string;
+    referenceUri?: string;
     uri?: string;
     simulated?: string;
   }>();
@@ -129,13 +135,21 @@ export function OfficialSubmissionScreen() {
     isArchiveSector ? detail?.archiveLinks : undefined,
   );
   const requestedFrame = Number.parseInt(frame ?? '0', 10);
-  const frameIndex = Number.isFinite(requestedFrame)
-    ? Math.max(0, Math.min(Math.max(0, archiveImages.length - 1), requestedFrame))
-    : 0;
-  const referenceSource =
-    archiveImages[frameIndex] ?? detail?.images[frameIndex] ?? detail?.referenceImage;
-  const referenceUri =
-    typeof referenceSource === 'object' && referenceSource ? referenceSource.uri : undefined;
+  const stationImages = archiveImages.length > 0 ? archiveImages : detail?.images ?? [];
+  const historicalReference = historicalReferenceForFrame({
+    images: stationImages,
+    recaptureImage: detail?.recaptureImage,
+    referenceImage: detail?.referenceImage,
+    requestedFrame,
+  });
+  const resolvedReferenceUri = referenceUriOf(historicalReference.image);
+  const trustedReferenceUri =
+    validatedHistoricalReferenceUri({
+      candidateUri: referenceUri,
+      images: stationImages,
+      recaptureImage: detail?.recaptureImage,
+      referenceImage: detail?.referenceImage,
+    }) ?? resolvedReferenceUri;
   const isSimulated = simulated !== '0';
   const { coordinate, isPrecise, loading: locating, error: locationError, locate } =
     useUserLocation();
@@ -305,7 +319,7 @@ export function OfficialSubmissionScreen() {
     if (!explicitRequest && latestPreparationInFlight.current !== undefined) return;
     const request = explicitRequest ?? {
       generation: ++preparationGeneration.current,
-      key: `${id}|${uri}|${referenceUri}`,
+      key: `${id}|${uri}|${trustedReferenceUri}`,
     };
     if (!explicitRequest) latestPreparationRequest.current = request;
     latestPreparationInFlight.current = request.generation;
@@ -323,7 +337,7 @@ export function OfficialSubmissionScreen() {
         currentUri: uri,
         preparationId: String(request.generation),
         previous,
-        referenceUri,
+        referenceUri: trustedReferenceUri,
         stationId: id,
       });
       if (!isCurrentOfficialPreparation(request, latestPreparationRequest.current)) return;
@@ -344,10 +358,10 @@ export function OfficialSubmissionScreen() {
       }
       setPreparingImages(latestPreparationInFlight.current !== undefined);
     }
-  }, [authorizedCurrentUri, id, imagePreparation, isSimulated, referenceUri, uri]);
+  }, [authorizedCurrentUri, id, imagePreparation, isSimulated, trustedReferenceUri, uri]);
 
   useEffect(() => {
-    const key = `${id}|${isSimulated ? 'simulated' : 'live'}|${uri ?? ''}|${referenceUri ?? ''}`;
+    const key = `${id}|${isSimulated ? 'simulated' : 'live'}|${uri ?? ''}|${trustedReferenceUri ?? ''}`;
     if (automaticPreparationKey.current === key) return;
     automaticPreparationKey.current = key;
     preparationGeneration.current += 1;
@@ -372,9 +386,9 @@ export function OfficialSubmissionScreen() {
         buildObservatoireFileCleanupScript(String(request.generation)),
       );
     }
-    if (isSimulated || !uri || !referenceUri) return;
+    if (isSimulated || !uri || !trustedReferenceUri) return;
     void prepareImages(request);
-  }, [id, isSimulated, prepareImages, referenceUri, uri]);
+  }, [id, isSimulated, prepareImages, trustedReferenceUri, uri]);
 
   const allowNavigation = (request: { url: string }) => {
     return isAllowedOfficialNavigation(request.url, OFFICIAL_SUBMISSION_FIXTURE_ENABLED);
