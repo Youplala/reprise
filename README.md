@@ -27,6 +27,23 @@ npx expo run:ios --device
 Un development build est nécessaire : l'app utilise `react-native-maps`, `expo-camera`,
 `expo-media-library` et `expo-glass-effect`, qui ne sont pas disponibles dans Expo Go.
 
+### Vérifications locales
+
+La CI des pull requests exécute les mêmes commandes, avec une installation strictement issue du
+lockfile et sans build natif :
+
+```bash
+npm ci
+npx tsc --noEmit
+npm run lint
+npm test -- --runInBand
+npx expo export --platform ios --no-bytecode --output-dir /tmp/reprise-ios-export
+```
+
+Les tests Jest couvrent en priorité la persistance du carnet, le bridge du formulaire officiel,
+la validation du snapshot et les utilitaires purs. L'export vérifie le bundle JavaScript iOS ; il
+ne remplace pas une validation sur iPhone ni un build EAS.
+
 Sur Android, Google Maps requiert une clé native. La vraie valeur reste dans `.env.local` en local
 et dans les variables d’environnement EAS pour les builds distants :
 
