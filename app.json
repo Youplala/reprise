@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Reprise",
+    "name": "Paris GO",
     "slug": "reprise",
     "description": "Retrouver et reconduire les points de vue historiques de Paris.",
     "version": "1.0.0",
@@ -52,7 +52,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Autoriser Reprise à utiliser l’appareil photo pour reconduire une vue historique.",
+          "cameraPermission": "Autoriser Paris GO à utiliser l’appareil photo pour reconduire une vue historique.",
           "microphonePermission": false,
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false
@@ -61,7 +61,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Autoriser Reprise à afficher les points de vue historiques autour de vous.",
+          "locationWhenInUsePermission": "Autoriser Paris GO à afficher les points de vue historiques autour de vous.",
           "locationAlwaysAndWhenInUsePermission": false,
           "locationAlwaysPermission": false,
           "isIosBackgroundLocationEnabled": false,
@@ -73,13 +73,13 @@
       [
         "expo-sensors",
         {
-          "motionPermission": "Autoriser Reprise à utiliser l’orientation de l’iPhone pour aligner les prises de vue."
+          "motionPermission": "Autoriser Paris GO à utiliser l’orientation de l’iPhone pour aligner les prises de vue."
         }
       ],
       [
         "expo-media-library",
         {
-          "savePhotosPermission": "Autoriser Reprise à enregistrer vos reprises dans vos photos, pour les retrouver au moment de les déposer sur l’Observatoire.",
+          "savePhotosPermission": "Autoriser Paris GO à enregistrer vos reprises dans vos photos, pour les retrouver au moment de les déposer sur l’Observatoire.",
           "photosPermission": false,
           "isAccessMediaLocationEnabled": false,
           "granularPermissions": []

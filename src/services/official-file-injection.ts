@@ -85,7 +85,7 @@ export function buildObservatoireFileCleanupScript(preparationId: string) {
 
 /**
  * Construit deux vrais objets File dans la page officielle à partir des images déjà validées par
- * Reprise. Le script ne s'exécute que sur le contrat multipart GoGoCarto exact et ne touche jamais
+ * Paris GO. Le script ne s'exécute que sur le contrat multipart GoGoCarto exact et ne touche jamais
  * aux champs personnels, aux consentements ni au bouton d'envoi.
  */
 export function buildObservatoireFileInjectionScript(
@@ -171,7 +171,7 @@ export function buildObservatoireFileInjectionScript(
         });
         window.__repriseFileSignature = undefined;
         window.__repriseFilesReadySignature = undefined;
-        fail('Des photos ont déjà été choisies manuellement. Reprise ne les remplacera pas.');
+        fail('Des photos ont déjà été choisies manuellement. Paris GO ne les remplacera pas.');
         return;
       }
       if (window.__repriseFileSignature === signature && owned.length === 2 &&
@@ -182,7 +182,7 @@ export function buildObservatoireFileInjectionScript(
       const foreignSelected = Array.from(list.querySelectorAll('input[type="file"]'))
         .some((input) => !input.closest('[data-reprise-upload="1"]') && input.files?.length);
       if (foreignSelected) {
-        fail('Des photos ont déjà été choisies manuellement. Reprise ne les remplacera pas.');
+        fail('Des photos ont déjà été choisies manuellement. Paris GO ne les remplacera pas.');
         return;
       }
       owned.forEach((node) => node.remove());

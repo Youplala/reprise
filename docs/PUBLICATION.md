@@ -6,7 +6,7 @@ ou les flux réseau changent.
 
 ## Identité
 
-- Nom : `Reprise`
+- Nom : `Paris GO`
 - Identifiant iOS : `fr.youplala.repriseparis`
 - Identifiant Android : `fr.youplala.repriseparis`
 - Version initiale : `1.0.0`
@@ -35,10 +35,10 @@ ou les flux réseau changent.
 
 ### Description
 
-Reprise transforme Paris en terrain d’enquête photographique.
+Paris GO transforme Paris en terrain d’enquête photographique.
 
 En 1970, un grand concours amateur a produit des milliers de photographies de la capitale,
-aujourd’hui conservées par la Bibliothèque historique de la Ville de Paris. Reprise vous aide à
+aujourd’hui conservées par la Bibliothèque historique de la Ville de Paris. Paris GO vous aide à
 retrouver ces lieux et à reprendre les mêmes points de vue aujourd’hui.
 
 EXPLOREZ LA CARTE
@@ -54,16 +54,16 @@ visages ou d’images n’est effectuée.
 
 GARDEZ LE CONTRÔLE
 
-Vos prises de vue restent sur votre téléphone. Reprise ne crée aucun compte, n’affiche aucune
+Vos prises de vue restent sur votre téléphone. Paris GO ne crée aucun compte, n’affiche aucune
 publicité et ne dépose jamais une contribution à votre place.
 
 CONTRIBUEZ À L’OBSERVATOIRE
 
-Lorsque vous le souhaitez, Reprise prépare les informations utiles et les deux photos dans le
+Lorsque vous le souhaitez, Paris GO prépare les informations utiles et les deux photos dans le
 formulaire officiel de l’Observatoire. Vous gardez la main sur chaque champ, l’identité, les
 consentements et l’envoi final.
 
-Reprise est une application indépendante et open source qui accompagne la campagne de
+Paris GO est une application indépendante et open source qui accompagne la campagne de
 l’Observatoire photo participatif des paysages parisiens, animée par le CAUE de Paris.
 
 ### Notes pour l’équipe de review
@@ -76,9 +76,9 @@ uniquement au moment où l’utilisateur déclenche les fonctions correspondante
 enregistrées en accès ajout uniquement.
 
 L’écran « Dépôt officiel » contient une WebView vers
-`https://observatoire-photo.paris/elements/add`. Reprise préremplit seulement certains champs
+`https://observatoire-photo.paris/elements/add`. Paris GO préremplit seulement certains champs
 publics vides et prépare deux fichiers, archive puis photo actuelle. Le commentaire reste vide.
-Reprise ne renseigne jamais l’identité, ne coche aucune case et ne soumet jamais le formulaire.
+Paris GO ne renseigne jamais l’identité, ne coche aucune case et ne soumet jamais le formulaire.
 Les navigations non autorisées et les fenêtres secondaires sont bloquées dans l’application.
 
 ## Google Play — français
@@ -89,7 +89,7 @@ Les navigations non autorisées et les fenêtres secondaires sont bloquées dans
 
 ### Description complète
 
-Reprise vous guide vers les photographies historiques de Paris pour reprendre aujourd’hui les
+Paris GO vous guide vers les photographies historiques de Paris pour reprendre aujourd’hui les
 mêmes points de vue.
 
 • Explorez le quadrillage historique du concours photographique de 1970.
@@ -99,7 +99,7 @@ mêmes points de vue.
 • Enregistrez vos reprises dans votre galerie sans donner accès à toutes vos photos.
 • Préparez le formulaire officiel, puis vérifiez et envoyez vous-même votre contribution.
 
-Vos prises de vue et votre carnet restent sur votre téléphone. Reprise ne demande aucun compte,
+Vos prises de vue et votre carnet restent sur votre téléphone. Paris GO ne demande aucun compte,
 n’affiche aucune publicité et n’envoie aucune contribution automatiquement.
 
 Les photographies de 1970 sont conservées par la Bibliothèque historique de la Ville de Paris.

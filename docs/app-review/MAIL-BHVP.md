@@ -1,11 +1,11 @@
 # Mail à la Bibliothèque historique de la Ville de Paris
 
 À : bhvp@paris.fr
-Objet : Affichage des photographies « C'était Paris en 1970 » dans l'application Reprise — demande de confirmation
+Objet : Affichage des photographies « C'était Paris en 1970 » dans l'application Paris GO — demande de confirmation
 
 Madame, Monsieur,
 
-Je m'appelle Élie Brosset. Je développe bénévolement Reprise, une application iPhone gratuite,
+Je m'appelle Élie Brosset. Je développe bénévolement Paris GO, une application iPhone gratuite,
 sans publicité et open source, qui accompagne la campagne 2026 de l'Observatoire photo participatif
 des paysages parisiens animée par le CAUE de Paris. Elle aide le public à retrouver les points de
 vue du concours « C'était Paris en 1970 » et à reprendre les mêmes vues aujourd'hui.
@@ -15,7 +15,7 @@ de documenter l'utilisation de contenus tiers. Je vous écris donc pour vous dé
 l'usage fait des images du fonds conservé par la BHVP et vous demander une confirmation écrite
 (une réponse à ce mail suffit) que cet usage vous convient.
 
-Ce que fait Reprise :
+Ce que fait Paris GO :
 
 - Elle **n'embarque aucune copie** des photographies : ni dans l'application, ni dans son dépôt de
   code. Les images sont chargées à la demande **depuis la visionneuse du portail
@@ -31,7 +31,7 @@ Ce que fait Reprise :
   l'application ne propose ni téléchargement ni partage des images.
 - Un point appelle votre autorisation explicite : le mode d'emploi de l'Observatoire demande au
   contributeur de joindre, avec sa photo actuelle, une copie de la photographie d'archive reprise.
-  Lorsque l'utilisateur choisit de contribuer, Reprise prépare cette copie (redimensionnée, avec
+  Lorsque l'utilisateur choisit de contribuer, Paris GO prépare cette copie (redimensionnée, avec
   attribution) dans le formulaire officiel du CAUE, que l'utilisateur vérifie et envoie lui-même.
   Cette reproduction ne fait aujourd'hui l'objet d'aucune autorisation écrite de votre part ; je
   préfère vous la demander formellement.

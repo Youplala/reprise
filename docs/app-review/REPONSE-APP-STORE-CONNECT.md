@@ -12,7 +12,7 @@ de réponse (voir [MAIL-CAUE.md](MAIL-CAUE.md) et [MAIL-BHVP.md](MAIL-BHVP.md)).
 
 Hello,
 
-Thank you for your review. Please find below the requested information for Reprise. We have also uploaded a new build, 1.0.0 (11), which fixes an issue found while preparing the recording: on a device where camera access had not been granted yet, the viewfinder showed a still image instead of asking for camera permission. The viewfinder now asks for camera access up front and shows the live camera only. Please review build 11.
+Thank you for your review. Please find below the requested information for Paris GO. We have also uploaded a new build, 1.0.0 (11), which fixes an issue found while preparing the recording: on a device where camera access had not been granted yet, the viewfinder showed a still image instead of asking for camera permission. The viewfinder now asks for camera access up front and shows the live camera only. Please review build 11.
 
 **1. Screen recording**
 
@@ -28,11 +28,11 @@ The app has no account registration, login or account deletion (no accounts at a
 
 **3. What the app does, for whom**
 
-Reprise is a free, ad-free, open-source (MIT) utility for rephotography in Paris.
+Paris GO is a free, ad-free, open-source (MIT) utility for rephotography in Paris.
 
 In 1970 the FNAC and the City of Paris organised an amateur photo contest: Paris was divided into 1,755 squares of 250 m and about 2,800 photographers produced tens of thousands of photographs, now held by the Bibliothèque historique de la Ville de Paris (BHVP). In 2026 the CAUE de Paris (a public-interest architecture and landscape council) runs a public participatory campaign, the "Observatoire photo participatif des paysages parisiens" (observatoire-photo.paris), inviting anyone to retake those views.
 
-Problem solved: finding the exact viewpoint of a 1970 photograph and reproducing its framing is hard to do with a phone browser and a printed picture. Reprise (a) shows the historic photographs around the user on a map, (b) overlays the archive photograph on the live camera with adjustable opacity and tilt guides so the user can match the framing, (c) saves the resulting photo to the user's Photos library, and (d) pre-fills the public, official contribution form of the Observatoire so the user can submit their photo themselves.
+Problem solved: finding the exact viewpoint of a 1970 photograph and reproducing its framing is hard to do with a phone browser and a printed picture. Paris GO (a) shows the historic photographs around the user on a map, (b) overlays the archive photograph on the live camera with adjustable opacity and tilt guides so the user can match the framing, (c) saves the resulting photo to the user's Photos library, and (d) pre-fills the public, official contribution form of the Observatoire so the user can submit their photo themselves.
 
 Target audience: adults and teenagers interested in Paris, photography, urban history and heritage; participants of the Observatoire campaign. Age rating 4+. No user accounts, no advertising, no analytics SDK, no in-app purchases.
 
@@ -73,7 +73,7 @@ The app does not operate in a regulated industry. Third-party material is used a
 - Descriptive metadata (authors, places) for some 1970 records: from the open-source project paris-1970 (framagit.org/dohseven/paris-1970), which normalises the BHVP catalogue records.
 - OpenStreetMap data: ODbL, attributed.
 
-Reprise is an independent project and is presented as such in the app and on its website (https://youplala.github.io/reprise/sources/). [We have asked the CAUE de Paris and the BHVP for written confirmation of these uses and can forward their replies on request.]
+Paris GO is an independent project and is presented as such in the app and on its website (https://youplala.github.io/reprise/sources/). [We have asked the CAUE de Paris and the BHVP for written confirmation of these uses and can forward their replies on request.]
 
 Support: https://youplala.github.io/reprise/support/ — Privacy policy: https://youplala.github.io/reprise/confidentialite/ — Source code: https://github.com/Youplala/reprise
 

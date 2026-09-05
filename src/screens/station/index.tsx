@@ -281,7 +281,7 @@ export function StationScreen() {
       if (!available) {
         await Share.share({
           title: `Avant/après · ${title}`,
-          message: `Découvrez « ${title} » avant et aujourd’hui dans Reprise.\n${referenceCreditTitle} · ${referenceCreditSource}\n${currentCredit}\n${shareUrl}`,
+          message: `Découvrez « ${title} » avant et aujourd’hui dans Paris GO.\n${referenceCreditTitle} · ${referenceCreditSource}\n${currentCredit}\n${shareUrl}`,
         });
         return;
       }
@@ -307,7 +307,7 @@ export function StationScreen() {
   };
 
   const shareRepriseLink = async () => {
-    const message = `Découvrez « ${title} » en ${referenceYear} et aujourd’hui avec Reprise.\n${referenceCreditTitle} · ${referenceCreditSource}\n${currentCredit}`;
+    const message = `Découvrez « ${title} » en ${referenceYear} et aujourd’hui avec Paris GO.\n${referenceCreditTitle} · ${referenceCreditSource}\n${currentCredit}`;
     void Haptics.selectionAsync();
     try {
       await Share.share(
@@ -316,7 +316,7 @@ export function StationScreen() {
           : { title: `Avant/après · ${title}`, message: `${message}\n${shareUrl}` },
       );
     } catch {
-      Alert.alert('Partage indisponible', 'Le lien Reprise n’a pas pu être partagé.');
+      Alert.alert('Partage indisponible', 'Le lien Paris GO n’a pas pu être partagé.');
     }
   };
 
@@ -883,8 +883,8 @@ export function StationScreen() {
                 </Pressable>
 
                 <Pressable
-                  accessibilityHint="Partage un lien qui ouvre cette photo dans Reprise"
-                  accessibilityLabel="Partager le lien Reprise"
+                  accessibilityHint="Partage un lien qui ouvre cette photo dans Paris GO"
+                  accessibilityLabel="Partager le lien Paris GO"
                   accessibilityRole="button"
                   onPress={() => {
                     setShareMenuVisible(false);
@@ -898,7 +898,7 @@ export function StationScreen() {
                     <SymbolView name="link" size={18} tintColor={Palette.parisBlue} />
                   </View>
                   <View style={styles.shareOptionCopy}>
-                    <Text style={styles.shareOptionTitle}>Le lien Reprise</Text>
+                    <Text style={styles.shareOptionTitle}>Le lien Paris GO</Text>
                     <Text style={styles.shareOptionText}>
                       Pour ouvrir directement cette photo dans l’app.
                     </Text>

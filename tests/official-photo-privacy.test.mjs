@@ -49,8 +49,8 @@ test('la destination finale après redirection reste sur une source d’archive 
 });
 
 test('la copie utilisateur dans Photos reste distincte de la pièce jointe automatique', () => {
-  assert.doesNotMatch(officialService, /album Reprise|album dédié|Photos \(Récents\)/);
-  assert.doesNotMatch(reviewScreen, /album Reprise/);
+  assert.doesNotMatch(officialService, /album Paris GO|album dédié|Photos \(Récents\)/);
+  assert.doesNotMatch(reviewScreen, /album Paris GO/);
   assert.match(reviewScreen, /Photos \(Récents\)/);
   assert.match(officialScreen, /Les deux photos sont ajoutées automatiquement/);
   assert.doesNotMatch(officialScreen, /Écriture dans Photos impossible/);

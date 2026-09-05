@@ -122,7 +122,7 @@ export function CoverageScreen() {
         <Section
           kicker="LA GRILLE DE 1970"
           title={`${HISTORIC_GRID_COUNT.toLocaleString('fr-FR')} secteurs historiques`}
-          copy={`${grid.length.toLocaleString('fr-FR')} secteurs de 250 m sont actuellement référencés dans Reprise. Voici où en est chacun d’eux.`}
+          copy={`${grid.length.toLocaleString('fr-FR')} secteurs de 250 m sont actuellement référencés dans Paris GO. Voici où en est chacun d’eux.`}
           delay={60}>
           <StackedShare data={shares} />
         </Section>

@@ -1,4 +1,4 @@
-# Reprise
+# Paris GO
 
 Application mobile gratuite pour retrouver les points de vue photographiques de Paris et les
 reconduire aujourd'hui.
@@ -6,7 +6,7 @@ reconduire aujourd'hui.
 En 1970, la FNAC et la Ville de Paris organisent un concours amateur d'une ampleur inédite :
 Paris est découpé en carrés de 250 m, et 2 800 photographes en rapportent des dizaines de
 milliers d'images, aujourd'hui conservées par la Bibliothèque historique de la Ville de Paris.
-Reprise vous aide à retrouver ces points de vue, à caler le cadrage avec la caméra du téléphone,
+Paris GO vous aide à retrouver ces points de vue, à caler le cadrage avec la caméra du téléphone,
 et à comparer les deux époques.
 
 Le projet accompagne la campagne de l'[Observatoire photo participatif des paysages
@@ -114,7 +114,7 @@ npm run data:import-paris1970 -- /chemin/vers/paris-1970
 participatif des paysages parisiens, animé par le CAUE de Paris. Le règlement de participation ne
 place ces contributions sous aucune licence publique : ses articles 10.1 et 10.2 prévoient une
 autorisation gratuite et non commerciale au bénéfice du seul CAUE de Paris et de la Ville de
-Paris, nommés limitativement. Reprise n'en est pas bénéficiaire et ne revendique aucun droit de
+Paris, nommés limitativement. Paris GO n'en est pas bénéficiaire et ne revendique aucun droit de
 rediffusion. Les prénoms et noms sont affichés au titre de l'attribution, conformément à
 l'article 10.3 du règlement. Aucune autre donnée personnelle n'est reprise.
 

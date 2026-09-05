@@ -70,7 +70,7 @@ import {
 function preparationErrorLabel(error: PreparedImages['current']['error']) {
   switch (error) {
     case 'permission-denied':
-      return 'Accès Photos refusé — autorisez Reprise dans Réglages.';
+      return 'Accès Photos refusé — autorisez Paris GO dans Réglages.';
     case 'missing-uri':
       return 'Fichier absent — choisissez cette image manuellement dans le formulaire.';
     case 'download-failed':
@@ -84,7 +84,7 @@ function preparationErrorLabel(error: PreparedImages['current']['error']) {
     case 'unsupported-format':
       return 'Format non pris en charge — choisissez cette image manuellement.';
     case 'untrusted-uri':
-      return 'Source de photo non reconnue — reprenez la photo depuis Reprise.';
+      return 'Source de photo non reconnue — reprenez la photo depuis Paris GO.';
     case 'save-failed':
       return 'Préparation du fichier impossible — réessayez ou choisissez-le manuellement.';
     default:
@@ -447,7 +447,7 @@ export function OfficialSubmissionScreen() {
               <Text style={styles.trustText}>
                 {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
                   ? 'Aucune donnée ni photo ne quitte cet appareil.'
-                  : 'Reprise ne reçoit ni votre identité ni vos photos. Elles partent du formulaire officiel.'}
+                  : 'Paris GO ne reçoit ni votre identité ni vos photos. Elles partent du formulaire officiel.'}
               </Text>
             </View>
             <View style={styles.prefillBadge}>
@@ -622,7 +622,7 @@ export function OfficialSubmissionScreen() {
               onError={() => {
                 setLoading(false);
                 setFormError(
-                  'Le serveur officiel de l’Observatoire ne répond pas. Ce problème est extérieur à vos photos et à Reprise.',
+                  'Le serveur officiel de l’Observatoire ne répond pas. Ce problème est extérieur à vos photos et à Paris GO.',
                 );
               }}
               onHttpError={(event) => {

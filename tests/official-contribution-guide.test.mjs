@@ -32,7 +32,7 @@ test('explique le dépôt officiel en trois étapes courtes et honnêtes', () =>
   }
 });
 
-test('ne promet jamais que Reprise remplit ou envoie les données personnelles', () => {
+test('ne promet jamais que Paris GO remplit ou envoie les données personnelles', () => {
   const copy = JSON.stringify(OFFICIAL_CONTRIBUTION_GUIDE).toLocaleLowerCase('fr');
   assert.doesNotMatch(copy, /identité (préremplie|automatique)/);
   assert.doesNotMatch(copy, /envoi automatique/);

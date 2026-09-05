@@ -184,7 +184,7 @@ test('remplace des fichiers de même nom et même taille lorsque leurs octets ch
   assert.equal(session.messages.some((message) => message.type === 'files-error'), false);
 });
 
-test('retire immédiatement les fichiers encore détenus par Reprise quand la source change', () => {
+test('retire immédiatement les fichiers encore détenus par Paris GO quand la source change', () => {
   const session = injectionSession();
   session.execute(files);
 

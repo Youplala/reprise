@@ -8,7 +8,7 @@ de l'app** et montre le parcours type, **y compris chaque demande d'autorisation
 
 1. **Mettre l'iPhone 13 Pro à jour** : Réglages → Général → Mise à jour logicielle. Il est en
    26.4.2 ; Apple demande la dernière version disponible. Noter la version installée pour la réponse.
-2. **Installer le build exact en review** : TestFlight → Reprise → build **1.0.0 (11)**. Pas de
+2. **Installer le build exact en review** : TestFlight → Paris GO → build **1.0.0 (11)**. Pas de
    development build.
 3. **Repartir de zéro** pour que toutes les demandes d'autorisation réapparaissent : supprimer
    l'app, puis réinstaller depuis TestFlight. Ne pas l'ouvrir avant d'enregistrer.
@@ -26,7 +26,7 @@ de l'app** et montre le parcours type, **y compris chaque demande d'autorisation
 
 Chaque étape : laisser l'écran se poser 2 secondes avant d'agir.
 
-1. **Écran d'accueil iOS** → lancer Reprise depuis l'icône (le lancement doit être visible).
+1. **Écran d'accueil iOS** → lancer Paris GO depuis l'icône (le lancement doit être visible).
 2. **Onboarding** : faire défiler les pages jusqu'à la dernière. Toucher **« Utiliser ma
    position »** → la demande de **localisation** apparaît → « Autoriser lorsque l'app est active ».
 3. **Accueil** : laisser la liste « Autour de vous » se charger. Faire défiler une fois.
@@ -40,7 +40,7 @@ Chaque étape : laisser l'écran se poser 2 secondes avant d'agir.
    (c'est le mécanisme de signalement de contenu tiers ; sans app Mail, un repli affiche l'adresse
    et le sujet à copier). Le brouillon affiche votre adresse
    d'expéditeur : si vous ne voulez pas la montrer, annulez dès son ouverture. **Annuler** sans
-   envoyer, revenir dans Reprise.
+   envoyer, revenir dans Paris GO.
 7. **Viseur** : depuis une fiche station, toucher **« Refaire cette photo »**. Demande **caméra** →
    Autoriser. Si une demande **« Mouvement et forme physique »** apparaît (elle n'est pas
    systématique sur iOS), l'autoriser aussi. Montrer la superposition de
@@ -54,8 +54,8 @@ Chaque étape : laisser l'écran se poser 2 secondes avant d'agir.
    le formulaire une fois, puis **« Fermer le formulaire »**.
    - Si le site est en panne : montrer l'écran d'erreur, revenir en arrière, montrer que l'app
      fonctionne toujours.
-10. Optionnel mais utile : Réglages iOS → Reprise, montrer les autorisations (Position, Appareil
-    photo, Mouvement, Photos « Ajouter uniquement »). Revenir sur Reprise.
+10. Optionnel mais utile : Réglages iOS → Paris GO, montrer les autorisations (Position, Appareil
+    photo, Mouvement, Photos « Ajouter uniquement »). Revenir sur Paris GO.
 11. Arrêter l'enregistrement.
 
 ## Après

@@ -512,7 +512,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           <EditorialHeading
             eyebrow="BIENVENUE DANS REPRISE"
             title={'Refaites les photos\ndu Paris de 1970.'}
-            copy="En 1970, un grand concours a fait photographier tout Paris par des amateurs. Reprise vous emmène sur les lieux de ces photos et vous aide à reprendre la même vue aujourd’hui."
+            copy="En 1970, un grand concours a fait photographier tout Paris par des amateurs. Paris GO vous emmène sur les lieux de ces photos et vous aide à reprendre la même vue aujourd’hui."
           />
           <QuickFacts />
           <Comparison
@@ -582,7 +582,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           <EditorialHeading
             eyebrow="À QUOI SERT REPRISE"
             title={'Trouver, cadrer,\npuis participer.'}
-            copy="Reprise affiche l’archive en transparence par-dessus votre caméra : vous voyez les deux images en même temps et retrouvez l’angle exact sans tâtonner."
+            copy="Paris GO affiche l’archive en transparence par-dessus votre caméra : vous voyez les deux images en même temps et retrouvez l’angle exact sans tâtonner."
           />
           <TransparencyViewfinder
             pair={publishedSubmissions[1] ?? publishedSubmissions[0]}
@@ -661,7 +661,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         <EditorialHeading
           eyebrow="AUTOUR DE VOUS"
           title={'Commencez par\nla photo la plus proche.'}
-          copy="Autorisez la localisation : Reprise vous montre aussitôt le point de vue le plus proche."
+          copy="Autorisez la localisation : Paris GO vous montre aussitôt le point de vue le plus proche."
         />
         <LocationIllustration pair={publishedSubmissions[0]} />
         <View style={styles.privacyCard}>

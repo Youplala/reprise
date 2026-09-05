@@ -234,7 +234,7 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
           send({
             type: 'contract-error',
             fields: missing,
-            message: 'Le formulaire officiel a changé. Réessayez plus tard ou signalez le problème à Reprise.',
+            message: 'Le formulaire officiel a changé. Réessayez plus tard ou signalez le problème à Paris GO.',
           });
         }
       };

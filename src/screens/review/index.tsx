@@ -142,7 +142,7 @@ export function ReviewScreen() {
 
   const share = () =>
     Share.share({
-      message: `J’ai retrouvé un point de vue de ${detail?.year ?? 1970} à Paris avec Reprise.`,
+      message: `J’ai retrouvé un point de vue de ${detail?.year ?? 1970} à Paris avec Paris GO.`,
       url: uri,
     });
 
@@ -217,7 +217,7 @@ export function ReviewScreen() {
             <Text style={styles.publishText}>
               {saved && inLibrary
                 ? 'Votre photo est enregistrée dans Photos (Récents). Le formulaire officiel peut maintenant être préparé sans ressaisir la date ni la position.'
-                : 'Reprise prépare le formulaire officiel, les deux images et les informations du point de vue. Vous gardez la main sur le règlement et l’envoi final.'}
+                : 'Paris GO prépare le formulaire officiel, les deux images et les informations du point de vue. Vous gardez la main sur le règlement et l’envoi final.'}
             </Text>
           </View>
         </View>

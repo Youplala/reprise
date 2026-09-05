@@ -36,7 +36,7 @@ function describeLens(id: string): CameraLens | undefined {
  *
  * La prop `zoom` d'expo-camera ne fait que du zoom sur l'objectif courant : elle ne descend
  * jamais sous 1×. Le grand angle à 0,5× n'est donc atteignable qu'en changeant d'objectif, ce
- * qui compte pour Reprise : beaucoup de vues de 1970 ont été prises au grand angle, et dans une
+ * qui compte pour Paris GO : beaucoup de vues de 1970 ont été prises au grand angle, et dans une
  * rue étroite on ne peut pas toujours reculer assez pour retrouver le cadrage.
  */
 export function useCameraLenses(cameraRef: RefObject<CameraView | null>, ready: boolean) {

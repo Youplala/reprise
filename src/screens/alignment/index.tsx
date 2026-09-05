@@ -407,10 +407,10 @@ export function AlignmentScreen() {
           </Text>
           <Text style={styles.permissionCopy}>
             {permissionLoading
-              ? 'Reprise vérifie l’autorisation avant d’ouvrir le viseur.'
+              ? 'Paris GO vérifie l’autorisation avant d’ouvrir le viseur.'
               : canAskAgain
-                ? 'Autorisez Reprise à utiliser la caméra pour afficher le vrai viseur et prendre votre photo.'
-                : 'L’accès à la caméra est refusé. Ouvrez les Réglages iOS et autorisez la caméra pour Reprise.'}
+                ? 'Autorisez Paris GO à utiliser la caméra pour afficher le vrai viseur et prendre votre photo.'
+                : 'L’accès à la caméra est refusé. Ouvrez les Réglages iOS et autorisez la caméra pour Paris GO.'}
           </Text>
           {!permissionLoading ? (
             <Pressable

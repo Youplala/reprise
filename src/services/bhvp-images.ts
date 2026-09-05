@@ -11,7 +11,7 @@ type PictureRecord = {
 const requestCache = new Map<string, Promise<ImageSource[]>>();
 
 /**
- * Les images restent servies par la visionneuse de la BHVP : Reprise ne duplique pas le fonds.
+ * Les images restent servies par la visionneuse de la BHVP : Paris GO ne duplique pas le fonds.
  * L'affichage peut être coupé à distance dans un build si la source change temporairement.
  */
 export const BHVP_PREVIEWS_ENABLED =

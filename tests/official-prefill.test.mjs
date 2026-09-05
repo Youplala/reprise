@@ -159,7 +159,7 @@ test('échoue fermé si le libellé Ville dérive sans écrire dans Commune de r
   );
 });
 
-test('une réinjection précise actualise seulement les coordonnées encore détenues par Reprise', () => {
+test('une réinjection précise actualise seulement les coordonnées encore détenues par Paris GO', () => {
   const approximate = { ...payload, latitude: 48.85, longitude: 2.35 };
   const { document, window } = runBridge(OFFICIAL_SUBMISSION_FIXTURE_HTML, approximate);
   const latitude = document.querySelector('[name="element[geo][latitude]"]');
