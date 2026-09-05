@@ -161,7 +161,7 @@ function toStation(element, coordinate, categoryIds, archiveCatalog) {
     arrondissement: normalizeArrondissement(element.arrondissement),
     address: firstString(element.address?.customFormatedAddress),
     description: firstString(element.Observation, element.textarea_1771430005812),
-    // Prénom + nom : signature d'auteur publique, et obligation d'attribution ODbL.
+    // Prénom + nom : signature d'auteur publique, affichée au titre de l'attribution (art. 10.3 du règlement).
     author: firstString(element.prenom_nom, archiveMetadata?.author),
     recaptureAuthor: firstString(element['2026_prenom_nom']),
     recaptureDevice: firstListedString(element['2026_appareil']),
@@ -478,7 +478,7 @@ async function main() {
       url: SOURCE_URL,
       name: 'Observatoire photo participatif des paysages parisiens',
       operator: 'CAUE de Paris',
-      database: 'ODbL 1.0 — © les contributeurs de l’Observatoire photo participatif',
+      database: '© les contributeurs de l’Observatoire photo participatif — données publiques du site, sans licence publique ; attribution art. 10.3 du règlement',
       archiveRights:
         'Fonds « C’était Paris en 1970 » — Bibliothèque historique de la Ville de Paris. ' +
         'Images chargées depuis la visionneuse BHVP par permalien ARK ; attribution dans l’application.',

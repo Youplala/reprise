@@ -24,7 +24,7 @@ describe('official-submission bridge', () => {
     const script = buildObservatoirePrefillScript({
       captureDate: '2026-08-11',
       city: 'Paris\u2028<script>alert(1)</script>',
-      note: 'Repère\u2029visuel',
+      address: 'Repère\u2029visuel',
     });
 
     expect(script).toContain('Paris\\u2028<script>alert(1)</script>');

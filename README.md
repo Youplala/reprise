@@ -63,6 +63,21 @@ EXPO_PUBLIC_OFFICIAL_SUBMISSION_FIXTURE=1 npx expo start --dev-client --clear
 La fixture affiche explicitement « TEST LOCAL », ne fait aucune requête et ne peut pas être activée
 dans un build de production.
 
+### Captures App Store
+
+L’éditeur des captures marketing iPhone vit dans un projet séparé afin de ne pas mélanger ses
+dépendances Next.js avec l’application Expo :
+
+```bash
+cd store-screenshots
+pnpm install
+pnpm dev
+```
+
+Ouvrir ensuite `http://localhost:3000`. La composition et les textes sont enregistrés dans
+`store-screenshots/app-store-screenshots.json`; le bouton **Export bundle** génère les PNG pour
+les tailles iPhone prises en charge.
+
 ## Les données
 
 L'app n'interroge jamais l'API de l'Observatoire à l'exécution. Un script produit un relevé

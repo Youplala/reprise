@@ -68,6 +68,9 @@ l’Observatoire photo participatif des paysages parisiens, animée par le CAUE 
 
 ### Notes pour l’équipe de review
 
+Le dossier complet de réponse à App Review (vidéo, questions 2 à 7, mails d’autorisation) est dans
+[`docs/app-review/`](app-review/README.md).
+
 L’application ne nécessite aucun compte. La position, la caméra et l’orientation sont demandées
 uniquement au moment où l’utilisateur déclenche les fonctions correspondantes. Les photos sont
 enregistrées en accès ajout uniquement.
