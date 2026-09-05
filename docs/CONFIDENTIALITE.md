@@ -1,6 +1,6 @@
 # Politique de confidentialité de Reprise
 
-Dernière mise à jour : 26 août 2026
+Dernière mise à jour : 30 août 2026
 
 Reprise est une application mobile gratuite et open source éditée par Élie Brosset. Elle aide à
 retrouver et à rephotographier des points de vue historiques de Paris. Reprise n’exige aucun
@@ -12,7 +12,10 @@ améliorer son service.
 
 Avec votre autorisation, l’application utilise :
 
-- votre position précise, seulement pour afficher les points de vue proches et vous guider ;
+- votre position précise, pour afficher les points de vue proches et vous guider, et pour
+  préremplir les coordonnées du point de vue dans le formulaire de dépôt décrit plus bas. Pour les
+  secteurs dont la localisation n’est qu’approximative, ces coordonnées préremplies sont
+  exclusivement les vôtres ; vous pouvez les modifier avant tout envoi ;
 - la caméra, pour prendre une photographie ;
 - l’orientation du téléphone, pour faciliter le cadrage ;
 - la photothèque en ajout uniquement, pour enregistrer les photographies que vous créez.
@@ -27,10 +30,18 @@ votre contrôle et peuvent être supprimées depuis l’application Photos ou Ga
 
 ## Connexions nécessaires au fonctionnement
 
-L’application peut contacter GitHub pour actualiser son instantané de données publiques et la
-Bibliothèque historique de la Ville de Paris pour afficher certaines images d’archives. Ces
-services peuvent recevoir les informations techniques ordinaires d’une requête réseau, notamment
-l’adresse IP, selon leurs propres politiques de confidentialité.
+L’application peut contacter :
+
+- **GitHub**, pour actualiser son instantané de données publiques ;
+- la **Bibliothèque historique de la Ville de Paris**
+  (`bibliotheques-specialisees.paris.fr`), pour afficher les images d’archives ;
+- **`i0.wp.com`**, un service de distribution d’images opéré par Automattic, par lequel transitent
+  les photographies publiées par l’Observatoire ;
+- **`tile.openstreetmap.org`**, pour les tuiles de la carte ;
+- **`observatoire-photo.paris`**, uniquement lorsque vous ouvrez l’écran de dépôt.
+
+Ces services peuvent recevoir les informations techniques ordinaires d’une requête réseau,
+notamment l’adresse IP, selon leurs propres politiques de confidentialité.
 
 Sur Android, la carte repose sur Google Maps SDK. Google indique que ce SDK collecte des
 métadonnées de requête et d’appareil, l’adresse IP, les événements d’interaction avec la carte,

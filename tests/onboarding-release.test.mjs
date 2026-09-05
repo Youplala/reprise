@@ -24,9 +24,9 @@ test('ne présente plus l’ancien sous-ensemble importé comme la grille histor
 });
 
 test('décrit honnêtement le traitement local et volontaire des coordonnées', () => {
-  assert.match(LOCATION_PRIVACY_COPY, /conservées dans votre carnet/);
+  assert.match(LOCATION_PRIVACY_COPY, /enregistrées dans votre carnet/);
   assert.match(LOCATION_PRIVACY_COPY, /formulaire officiel/);
-  assert.match(LOCATION_PRIVACY_COPY, /Rien n’est envoyé sans votre validation/);
+  assert.match(LOCATION_PRIVACY_COPY, /jamais envoyées sans votre validation/);
   assert.doesNotMatch(LOCATION_PRIVACY_COPY, /ni enregistrée, ni publiée/);
 });
 

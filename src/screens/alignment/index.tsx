@@ -306,7 +306,9 @@ export function AlignmentScreen() {
         ? readGrantedCaptureLocation()
         : Promise.resolve(undefined);
       const result = liveCamera
-        ? await cameraRef.current?.takePictureAsync({ quality: 1, exif: true })
+        // Pas d'EXIF : le recadrage ré-encode et le supprime, mais le repli sur le JPEG brut
+        // enverrait les coordonnées GPS au formulaire de l'Observatoire. Rien ne lit ces données.
+        ? await cameraRef.current?.takePictureAsync({ quality: 1, exif: false })
         : undefined;
       const croppedResult = result
         ? await cropToAspectRatio(

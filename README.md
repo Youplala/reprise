@@ -96,19 +96,30 @@ npm run data:import-paris1970 -- /chemin/vers/paris-1970
 ## Sources et licences
 
 **Données de l'Observatoire** : © les contributrices et contributeurs de l'Observatoire photo
-participatif des paysages parisiens, animé par le CAUE de Paris, sous licence
-[ODbL 1.0](https://opendatacommons.org/licenses/odbl/). Les prénoms et noms sont affichés au
-titre de l'attribution, conformément à l'article 10.3 du règlement de participation. Aucune
-autre donnée personnelle n'est reprise.
+participatif des paysages parisiens, animé par le CAUE de Paris. Le règlement de participation ne
+place ces contributions sous aucune licence publique : ses articles 10.1 et 10.2 prévoient une
+autorisation gratuite et non commerciale au bénéfice du seul CAUE de Paris et de la Ville de
+Paris, nommés limitativement. Reprise n'en est pas bénéficiaire et ne revendique aucun droit de
+rediffusion. Les prénoms et noms sont affichés au titre de l'attribution, conformément à
+l'article 10.3 du règlement. Aucune autre donnée personnelle n'est reprise.
+
+La seule mention ODbL de la plateforme concerne le fond de carte OpenStreetMap, pas les
+photographies ni la base de l'Observatoire.
 
 **Grille de 1970** : découpage officiel du concours, exporté en WGS84 par le CAUE de Paris.
 
 **Photographies de 1970** : fonds « C'était Paris en 1970 », conservé par la Bibliothèque
-historique de la Ville de Paris. Elles ne sont pas incluses dans l'application : Reprise les
-charge depuis la visionneuse de la BHVP à partir de leurs permaliens ARK et affiche le nom du
-photographe, la BHVP et le nom du fonds. Les lieux visibles dans l'app sont les lieux indexés par
-la BHVP à partir des légendes des dossiers ; ils ne sont pas présentés comme une identification
-certaine de chaque vue.
+historique de la Ville de Paris. Elles restent sous le droit d'auteur de leurs auteurs : la clause
+d'abandon des droits a été retirée du règlement du concours, et aucune cession à la Ville de Paris
+n'est documentée. Elles ne sont pas embarquées dans l'application, qui les charge depuis la
+visionneuse de la BHVP à partir de leurs permaliens ARK et affiche le nom du photographe, la BHVP
+et le nom du fonds. Les lieux visibles dans l'app sont les lieux indexés par la BHVP à partir des
+légendes des dossiers ; ils ne sont pas présentés comme une identification certaine de chaque vue.
+
+**Reproduction lors d'un dépôt** : au moment de contribuer, l'application téléverse une copie de
+la photographie d'archive dans le formulaire officiel, comme l'exige le mode d'emploi de
+l'Observatoire. Cette reproduction ne fait à ce jour l'objet d'aucune autorisation écrite de la
+BHVP ni du CAUE.
 
 ## Publication
 

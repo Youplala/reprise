@@ -510,9 +510,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           contentContainerStyle={styles.page}
           showsVerticalScrollIndicator={false}>
           <EditorialHeading
-            eyebrow="CAMPAGNE PARTICIPATIVE · PARIS"
-            title={'Une photo.\nDeux époques.'}
-            copy="Ce n’est pas une compétition : chaque photo enrichit une archive collective des transformations de Paris."
+            eyebrow="BIENVENUE DANS REPRISE"
+            title={'Refaites les photos\ndu Paris de 1970.'}
+            copy="En 1970, un grand concours a fait photographier tout Paris par des amateurs. Reprise vous emmène sur les lieux de ces photos et vous aide à reprendre la même vue aujourd’hui."
           />
           <QuickFacts />
           <Comparison
@@ -540,7 +540,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           <EditorialHeading
             eyebrow="LE CONCOURS HISTORIQUE · 1970"
             title={'Paris, cadré\n250 m par 250 m.'}
-            copy="La Fnac et la Ville de Paris confient chaque carré de la capitale à des photographes amateurs. Leurs images deviennent une archive collective."
+            copy="La Fnac et la Ville de Paris confient chaque carré de la capitale à des photographes amateurs. À votre tour : vos images deviendront une archive collective."
           />
           {isActive ? (
             <ArchiveGridMap cells={grid} />
@@ -582,13 +582,19 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           <EditorialHeading
             eyebrow="À QUOI SERT REPRISE"
             title={'Trouver, cadrer,\npuis participer.'}
-            copy="L’app trouve une archive, vous aide à refaire le cadrage et prépare votre photo. Le dépôt final se fait sur le site officiel de l’Observatoire."
+            copy="Reprise affiche l’archive en transparence par-dessus votre caméra : vous voyez les deux images en même temps et retrouvez l’angle exact sans tâtonner."
           />
           <TransparencyViewfinder
             pair={publishedSubmissions[1] ?? publishedSubmissions[0]}
             height={comparisonHeight}
             onInteractionChange={(active) => setPagerScrollEnabled(!active)}
           />
+          <View style={styles.swipeNote}>
+            <View style={styles.swipeLine} />
+            <SymbolView name="arrow.left.and.right" size={15} tintColor={ORANGE} />
+            <Text style={styles.swipeText}>GLISSEZ LE CURSEUR POUR DOSER</Text>
+            <View style={styles.swipeLine} />
+          </View>
           <View style={styles.processRow}>
             <ProcessStep number="01" title="TROUVER" copy="près de vous" />
             <ProcessStep number="02" title="REPRENDRE" copy="avec le guide" />
@@ -608,7 +614,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           <EditorialHeading
             eyebrow="CAMPAGNE 2026 · GRATUITE"
             title={'Ouverte à toutes\net à tous.'}
-            copy="Sans classement ni prix : chaque contribution rejoint l’Observatoire photo participatif."
+            copy="Merci d’y prendre part : chaque photo que vous déposez rejoint l’Observatoire et restera consultable bien après la campagne."
           />
           <View style={styles.compactDeadline}>
             <View>
@@ -655,7 +661,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         <EditorialHeading
           eyebrow="AUTOUR DE VOUS"
           title={'Commencez par\nla photo la plus proche.'}
-          copy="Autorisez la localisation pour que Reprise vous propose immédiatement un point de vue accessible autour de vous."
+          copy="Autorisez la localisation : Reprise vous montre aussitôt le point de vue le plus proche."
         />
         <LocationIllustration pair={publishedSubmissions[0]} />
         <View style={styles.privacyCard}>
