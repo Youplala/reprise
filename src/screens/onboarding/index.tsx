@@ -510,7 +510,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           contentContainerStyle={styles.page}
           showsVerticalScrollIndicator={false}>
           <EditorialHeading
-            eyebrow="BIENVENUE DANS REPRISE"
+            eyebrow="BIENVENUE DANS PARIS GO"
             title={'Refaites les photos\ndu Paris de 1970.'}
             copy="En 1970, un grand concours a fait photographier tout Paris par des amateurs. Paris GO vous emmène sur les lieux de ces photos et vous aide à reprendre la même vue aujourd’hui."
           />
@@ -580,7 +580,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           contentContainerStyle={styles.page}
           showsVerticalScrollIndicator={false}>
           <EditorialHeading
-            eyebrow="À QUOI SERT REPRISE"
+            eyebrow="À QUOI SERT PARIS GO"
             title={'Trouver, cadrer,\npuis participer.'}
             copy="Paris GO affiche l’archive en transparence par-dessus votre caméra : vous voyez les deux images en même temps et retrouvez l’angle exact sans tâtonner."
           />
@@ -693,7 +693,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
       <StatusBar style="dark" animated />
       <View style={styles.header}>
-        <Text style={styles.brand}>REPRISE</Text>
+        <Text style={styles.brand}>PARIS GO</Text>
         <View style={styles.headerRight}>
           <Text style={styles.pageCount}>
             0{pageIndex + 1} / 0{PAGES.length}

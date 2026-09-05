@@ -85,7 +85,7 @@ export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
           <Image source={appIcon} style={styles.markImage} contentFit="cover" />
         </Animated.View>
         <Animated.View style={[styles.wordmark, wordStyle]}>
-          <Text style={styles.brand}>REPRISE</Text>
+          <Text style={styles.brand}>PARIS GO</Text>
           <Text style={styles.tagline}>PARIS · 1970 → AUJOURD’HUI</Text>
         </Animated.View>
       </View>

@@ -104,7 +104,7 @@ export function HomeScreen() {
         <SafeAreaView edges={['top']} style={styles.safeHeader}>
           <View style={styles.brandRow}>
             <View>
-              <Text style={styles.brand}>REPRISE</Text>
+              <Text style={styles.brand}>PARIS GO</Text>
               <Text style={styles.brandSub}>Observatoire mobile de Paris</Text>
             </View>
             <Pressable

@@ -628,7 +628,7 @@ export function StationScreen() {
                     </View>
                   </View>
                   <View style={styles.repriseMark}>
-                    <Text style={styles.repriseMarkName}>REPRISE</Text>
+                    <Text style={styles.repriseMarkName}>PARIS GO</Text>
                     <Text style={styles.repriseMarkUrl}>{PROJECT_LABEL}</Text>
                   </View>
                 </View>
@@ -814,7 +814,7 @@ export function StationScreen() {
                 </Text>
               </View>
               <View style={styles.repriseMark}>
-                <Text style={styles.repriseMarkName}>REPRISE</Text>
+                <Text style={styles.repriseMarkName}>PARIS GO</Text>
                 <Text style={styles.repriseMarkUrl}>{PROJECT_LABEL}</Text>
               </View>
             </View>
