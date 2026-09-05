@@ -1,4 +1,4 @@
-# Réponse à App Review — Guideline 2.1 (Information Needed), build 1.0.0 (11)
+# Réponse à App Review — Guideline 2.1 (Information Needed), build 1.0.0 (12)
 
 Texte à coller dans App Store Connect → Messages App Review (« Répondre »), en joignant la vidéo
 (`.mp4`) produite avec [SCRIPT-ENREGISTREMENT.md](SCRIPT-ENREGISTREMENT.md). La partie 1 est
@@ -22,7 +22,7 @@ The app has no account registration, login or account deletion (no accounts at a
 
 **2. Devices and operating systems tested**
 
-- iPhone 13 Pro (iPhone14,2), iOS [26.x.x] — physical device, App Store build 1.0.0 (11) installed through TestFlight; also used for the recording.
+- iPhone 13 Pro (iPhone14,2), iOS [26.x.x] — physical device, App Store build 1.0.0 (12) installed through TestFlight; also used for the recording.
 - [Add any other physical devices / iOS versions you or your TestFlight testers actually used, e.g. "iPhone 15, iOS 26.5" — remove this line otherwise.]
 - Build environment: macOS 26.6.2, Xcode 26.6 (17F113), Expo SDK 57 / React Native 0.86, built with EAS Build.
 

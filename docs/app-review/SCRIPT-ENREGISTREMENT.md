@@ -8,7 +8,7 @@ de l'app** et montre le parcours type, **y compris chaque demande d'autorisation
 
 1. **Mettre l'iPhone 13 Pro à jour** : Réglages → Général → Mise à jour logicielle. Il est en
    26.4.2 ; Apple demande la dernière version disponible. Noter la version installée pour la réponse.
-2. **Installer le build exact en review** : TestFlight → Paris GO → build **1.0.0 (11)**. Pas de
+2. **Installer le build exact en review** : TestFlight → Paris GO → build **1.0.0 (12)**. Pas de
    development build.
 3. **Repartir de zéro** pour que toutes les demandes d'autorisation réapparaissent : supprimer
    l'app, puis réinstaller depuis TestFlight. Ne pas l'ouvrir avant d'enregistrer.
