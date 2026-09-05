@@ -27,15 +27,14 @@ de l'app** et montre le parcours type, **y compris chaque demande d'autorisation
 Chaque étape : laisser l'écran se poser 2 secondes avant d'agir.
 
 1. **Écran d'accueil iOS** → lancer Paris GO depuis l'icône (le lancement doit être visible).
-2. **Onboarding** : faire défiler les pages jusqu'à la dernière. Toucher **« Utiliser ma
-   position »** → la demande de **localisation** apparaît → « Autoriser lorsque l'app est active ».
+2. **Onboarding** : faire défiler les pages jusqu'à la dernière. Toucher **« Voir autour de moi   position »** → la demande de **localisation** apparaît → « Autoriser lorsque l'app est active ».
 3. **Accueil** : laisser la liste « Autour de vous » se charger. Faire défiler une fois.
 4. **Fiche station** : toucher une carte. Attendre la photo de 1970 (chargée depuis la BHVP),
    montrer l'auteur et le crédit BHVP. Si une reprise 2026 existe, faire glisser le comparateur
    avant/après. Revenir.
 5. **Carte** : onglet Carte. Montrer la grille de 1970, zoomer, toucher un marqueur, ouvrir la
    fiche. Si un écran « Couverture » est accessible, l'ouvrir 3 secondes. Revenir.
-6. **Collectif** : onglet Collectif. Faire défiler les comparaisons et les contributeurs. Ouvrir une
+6. **Communauté** : onglet Communauté. Faire défiler les comparaisons et les contributeurs. Ouvrir une
    comparaison publiée, toucher **« Signaler cette photo »**, confirmer : le brouillon Mail s'ouvre
    (c'est le mécanisme de signalement de contenu tiers ; sans app Mail, un repli affiche l'adresse
    et le sujet à copier). Le brouillon affiche votre adresse
