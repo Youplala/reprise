@@ -3,181 +3,350 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0D2A3C">
-  <meta name="description" content="Reprise aide à retrouver et rephotographier les points de vue historiques de Paris.">
-  <meta property="og:title" content="Reprise — Rephotographier Paris">
-  <meta property="og:description" content="Retrouvez le Paris de 1970, alignez le cadrage et contribuez à l’Observatoire photo participatif.">
+  <meta name="theme-color" content="#0F233A">
+  <meta name="description" content="Reprise, application iPhone gratuite et open source : retrouvez les points de vue du concours photo « C’était Paris en 1970 », superposez l’archive à la caméra et refaites la photo aujourd’hui pour l’Observatoire photo participatif des paysages parisiens.">
+  <meta property="og:title" content="Reprise — Refaire la photo de Paris, 56 ans plus tard">
+  <meta property="og:description" content="1 755 carrés, des dizaines de milliers de photographies de 1970. Retrouvez le point de vue, alignez le cadrage, contribuez à l’Observatoire.">
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="fr_FR">
   <meta property="og:url" content="https://youplala.github.io/reprise/">
   <meta property="og:image" content="https://youplala.github.io/reprise/assets/screenshots/01-accueil.png">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="canonical" href="https://youplala.github.io/reprise/">
   <link rel="icon" href="assets/app-icon.png">
   <link rel="apple-touch-icon" href="assets/app-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&family=IBM+Plex+Mono:wght@500&display=swap">
   <link rel="stylesheet" href="assets/styles.css">
-  <title>Reprise — Rephotographier Paris</title>
+  <title>Reprise — Refaire la photo de Paris, 56 ans plus tard</title>
 </head>
 <body>
   <a class="skip-link" href="#contenu">Aller au contenu</a>
+
   <nav class="site-nav" aria-label="Navigation principale">
-    <div class="nav-inner">
+    <div class="container nav-inner">
       <a class="brand" href="./">
-        <img src="assets/app-icon.png" alt="" width="34" height="34">
+        <img src="assets/app-icon.png" alt="" width="36" height="36">
         <span>Reprise</span>
       </a>
       <div class="nav-links">
-        <a href="#mission">La mission</a>
+        <a href="#histoire">L’histoire</a>
         <a href="#application">L’application</a>
+        <a href="#comment">Comment ça marche</a>
         <a href="support/">Assistance</a>
         <a href="confidentialite/">Confidentialité</a>
       </div>
       <details class="mobile-nav">
-        <summary aria-label="Ouvrir le menu">Menu</summary>
+        <summary>Menu</summary>
         <div class="mobile-nav-panel">
-          <a href="#mission">La mission</a>
+          <a href="#histoire">L’histoire</a>
           <a href="#application">L’application</a>
+          <a href="#comment">Comment ça marche</a>
           <a href="support/">Assistance</a>
           <a href="confidentialite/">Confidentialité</a>
+          <a href="conditions/">Conditions d’utilisation</a>
+          <a href="sources/">Sources et crédits</a>
         </div>
       </details>
     </div>
   </nav>
 
   <main id="contenu">
-    <section class="hero">
+
+    <!-- Héros -->
+    <header class="hero grid-bg on-panel">
       <div class="container hero-grid">
-        <div>
-          <p class="eyebrow">Paris · 1970 → aujourd’hui</p>
-          <h1>Reprendre<br>le même point de vue.</h1>
-          <p class="lead">Reprise transforme Paris en terrain d’enquête photographique. Retrouvez une archive, rejoignez le lieu et alignez votre cadrage.</p>
+        <div class="reveal">
+          <p class="eyebrow">Paris · 1970 → 2026</p>
+          <h1>Refaire la photo,<br><em>cinquante-six ans</em> plus tard.</h1>
+          <p class="lead">En 1970, des milliers de Parisiennes et de Parisiens ont photographié leur ville carré par carré. Reprise vous emmène au même endroit, superpose l’archive à votre caméra et vous aide à refaire la photo aujourd’hui.</p>
           <div class="hero-actions">
-            <span class="button" aria-label="Reprise arrive bientôt sur l’App Store">Bientôt sur l’App Store</span>
-            <a class="button secondary" href="https://github.com/Youplala/reprise">Voir le code source</a>
+            <!-- TODO: lien App Store — remplacer href="#disponibilite" par l’URL App Store une fois l’app publiée -->
+            <a class="store-badge" href="#disponibilite" aria-describedby="store-note">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M16.37 12.7c.03 2.98 2.62 3.97 2.65 3.98-.02.07-.41 1.42-1.36 2.8-.82 1.2-1.68 2.39-3.03 2.41-1.32.03-1.75-.78-3.26-.78s-1.98.76-3.23.81c-1.3.05-2.29-1.29-3.12-2.48-1.7-2.45-3-6.91-1.25-9.93.87-1.5 2.42-2.44 4.1-2.47 1.28-.02 2.49.86 3.27.86.78 0 2.25-1.06 3.79-.91.65.03 2.46.26 3.63 1.97-.09.06-2.17 1.27-2.19 3.74zM13.9 5.34c.7-.84 1.16-2.01 1.03-3.18-1 .04-2.21.67-2.93 1.5-.64.74-1.2 1.93-1.05 3.07 1.12.09 2.26-.57 2.95-1.39z"/></svg>
+              <span><small>Télécharger dans</small><b>l’App Store</b></span>
+            </a>
+            <a class="button ghost" href="https://github.com/Youplala/reprise">Voir le code source</a>
           </div>
+          <p class="store-note" id="store-note">Gratuit · Sans compte · Sans publicité · Open source (MIT)</p>
         </div>
-        <div class="phone-stage" aria-label="Aperçu de l’application Reprise">
-          <div class="phone">
-            <img src="assets/screenshots/01-accueil.png" alt="Écran d’accueil de Reprise présentant une mission photographique à Paris" width="414" height="900">
+
+        <div class="hero-stage" aria-label="Deux écrans de l’application Reprise">
+          <div class="phone back">
+            <img src="assets/screenshots/02-carte-grille.png" alt="Carte de Paris couverte par la grille des 1 755 carrés du concours de 1970, colorée selon la progression des reprises" width="414" height="900" loading="eager">
+            <span class="side l1"></span><span class="side l2"></span><span class="side l3"></span><span class="side r1"></span>
           </div>
+          <div class="phone front">
+            <img src="assets/screenshots/01-accueil.png" alt="Écran d’accueil de Reprise : « Paris, photographié rue par rue en 1970 », le pouls du collectif et un point de vue à reconduire place de l’Opéra" width="414" height="900" loading="eager">
+            <span class="side l1"></span><span class="side l2"></span><span class="side l3"></span><span class="side r1"></span>
+          </div>
+          <p class="caption">Captures iPhone · version 1.0</p>
         </div>
       </div>
-    </section>
 
-    <section class="section white" id="mission">
-      <div class="container">
-        <div class="section-header">
-          <div>
-            <p class="eyebrow">Une mémoire collective</p>
-            <h2>Paris avait été photographié rue par rue.</h2>
-          </div>
-          <p>En 1970, un concours amateur a produit des dizaines de milliers d’images, aujourd’hui conservées par la Bibliothèque historique de la Ville de Paris. La campagne de l’Observatoire invite à reprendre ces vues pour documenter l’évolution des paysages parisiens.</p>
-        </div>
-        <div class="steps">
-          <article class="step">
-            <span class="step-number">01 / EXPLORER</span>
-            <h3>Choisissez une archive</h3>
-            <p>Parcourez la grille historique et repérez les photographies encore à retrouver autour de vous.</p>
-          </article>
-          <article class="step">
-            <span class="step-number">02 / RETROUVER</span>
-            <h3>Rejoignez le point de vue</h3>
-            <p>Utilisez la carte, les indices de lieu et l’image de référence pour retrouver le cadrage d’origine.</p>
-          </article>
-          <article class="step">
-            <span class="step-number">03 / REPRENDRE</span>
-            <h3>Photographiez aujourd’hui</h3>
-            <p>Superposez l’archive à la caméra, conservez votre photo et contribuez volontairement à l’Observatoire.</p>
-          </article>
+      <div class="facts" aria-label="Le concours de 1970 en chiffres">
+        <div class="container">
+          <div class="fact"><strong>1 755</strong><span>carrés de 250 m de côté</span></div>
+          <div class="fact"><strong>≈ 2 800</strong><span>photographes amateurs</span></div>
+          <div class="fact"><strong>Des dizaines de milliers</strong><span>d’images conservées à la BHVP</span></div>
+          <div class="fact"><strong>30 nov. 2026</strong><span>fin de la campagne 2026</span></div>
         </div>
       </div>
-    </section>
+    </header>
 
-    <section class="section dark" id="application">
+    <!-- Histoire -->
+    <section class="section grid-bg-light" id="histoire" aria-labelledby="histoire-titre">
       <div class="container">
-        <div class="section-header">
-          <div>
-            <p class="eyebrow">Dans l’application</p>
-            <h2>La carte, l’archive et le terrain.</h2>
-          </div>
-          <p>Reprise rassemble les données publiques utiles sans compte, sans publicité et sans dépôt automatique. Vous gardez la main sur la photo et sur chaque contribution.</p>
+        <div class="section-head">
+          <p class="eyebrow">Deux campagnes, une ville</p>
+          <h2 id="histoire-titre">Paris a déjà été photographié rue par rue. C’est le moment de recommencer.</h2>
         </div>
-        <div class="gallery">
-          <figure>
-            <img src="assets/screenshots/01-accueil.png" alt="Accueil de Reprise avec une mission locale" width="414" height="900">
-            <figcaption>Une mission près de vous</figcaption>
-          </figure>
-          <figure>
-            <img src="assets/screenshots/02-carte-grille.png" alt="Carte de Paris et grille du concours de 1970" width="414" height="900">
-            <figcaption>La grille historique</figcaption>
-          </figure>
-          <figure>
-            <img src="assets/screenshots/03-carte-reprises.png" alt="Carte des photographies déjà reprises" width="414" height="900">
-            <figcaption>Les reprises publiées</figcaption>
-          </figure>
-          <figure>
-            <img src="assets/screenshots/04-collectif.png" alt="Écran collectif avec des comparaisons avant et après" width="414" height="900">
-            <figcaption>Le travail du collectif</figcaption>
-          </figure>
-        </div>
-      </div>
-    </section>
-
-    <section class="section white">
-      <div class="container">
-        <div class="section-header">
-          <div>
-            <p class="eyebrow">Sous votre contrôle</p>
-            <h2>Une application discrète sur vos données.</h2>
-          </div>
-          <p>La caméra, la position et l’ajout à la photothèque ne sont utilisés qu’avec votre autorisation. Reprise n’exige aucun compte et ne possède aucun serveur de stockage utilisateur.</p>
-        </div>
-        <div class="principles">
-          <article class="principle">
-            <h3>Local par défaut</h3>
-            <p>Vos prises de vue et votre carnet restent sur votre appareil. Vous pouvez retirer les autorisations depuis les réglages du téléphone.</p>
+        <div class="epochs">
+          <article class="epoch">
+            <span class="year">1970<sup>Le concours</sup></span>
+            <h3>«&nbsp;C’était Paris en 1970&nbsp;»</h3>
+            <p>La FNAC et la Ville de Paris lancent un concours photographique d’une ampleur inédite. La capitale est découpée en <strong>1 755 carrés de 250 mètres</strong>&nbsp;; chaque participant se voit attribuer le sien et doit en rapporter des vues&nbsp;: façades, cours, commerces, chantiers, passants.</p>
+            <p>Environ <strong>2 800 photographes amateurs</strong> répondent à l’appel. Les dizaines de milliers d’images qu’ils déposent forment aujourd’hui le fonds «&nbsp;C’était Paris en 1970&nbsp;», conservé par la Bibliothèque historique de la Ville de Paris (BHVP) et consultable en ligne.</p>
+            <ul class="tiles" aria-hidden="true">
+              <li></li><li></li><li class="a"></li><li></li><li></li><li class="d"></li><li></li><li></li><li class="a"></li><li></li><li></li><li></li>
+              <li class="a"></li><li></li><li></li><li class="b"></li><li></li><li></li><li class="a"></li><li></li><li></li><li></li><li class="c"></li><li></li>
+              <li></li><li class="c"></li><li></li><li></li><li class="a"></li><li></li><li></li><li class="d"></li><li></li><li class="a"></li><li></li><li></li>
+              <li></li><li></li><li class="d"></li><li></li><li></li><li class="a"></li><li></li><li></li><li class="b"></li><li></li><li></li><li class="a"></li>
+            </ul>
           </article>
-          <article class="principle">
-            <h3>Contribution volontaire</h3>
-            <p>Le formulaire officiel reste sous votre contrôle. Identité, consentements, vérification et envoi final sont toujours manuels.</p>
-          </article>
-          <article class="principle">
-            <h3>Pas de publicité</h3>
-            <p>Aucun compte, aucun profil publicitaire et aucun suivi entre applications ne sont nécessaires pour utiliser Reprise.</p>
-          </article>
-          <article class="principle">
-            <h3>Code ouvert</h3>
-            <p>Le code de l’application est publié sous licence MIT et peut être consulté sur GitHub.</p>
+          <article class="epoch">
+            <span class="year">2026<sup>La reprise</sup></span>
+            <h3>L’Observatoire photo participatif des paysages parisiens</h3>
+            <p>Animé par le <strong>CAUE de Paris</strong>, l’Observatoire invite chacune et chacun à retrouver les points de vue de 1970 et à les rephotographier au même endroit, dans le même cadrage. Placées côte à côte, les deux images racontent un demi-siècle de transformations&nbsp;: ce qui a disparu, ce qui tient, ce qui a poussé.</p>
+            <p>La campagne est ouverte à tous, sans matériel particulier. Elle se termine le <strong>30&nbsp;novembre 2026</strong>. Reprise est l’outil de terrain qui manquait pour y participer depuis un iPhone.</p>
+            <span class="deadline">Campagne ouverte jusqu’au 30 novembre 2026</span>
           </article>
         </div>
       </div>
     </section>
 
-    <section class="source-band">
+    <!-- Application -->
+    <section class="section panel grid-bg" id="application" aria-labelledby="application-titre">
       <div class="container">
-        <div>
-          <p class="eyebrow">Projet indépendant</p>
-          <h2>Au service d’une campagne publique.</h2>
+        <div class="section-head">
+          <p class="eyebrow">L’application</p>
+          <h2 id="application-titre">La carte, l’archive et la caméra, dans la poche.</h2>
+          <p class="lead">Reprise réunit les données publiques de l’Observatoire et les archives de la BHVP en un seul compagnon de terrain. Vous choisissez un point de vue, vous y allez, vous cadrez, vous photographiez.</p>
         </div>
-        <div>
-          <p>Reprise est une application indépendante éditée par Élie Brosset. Elle accompagne l’Observatoire photo participatif des paysages parisiens, animé par le CAUE de Paris, sans s’y substituer.</p>
-          <p><a href="sources/">Consulter les sources, crédits et licences</a></p>
+
+        <div class="features">
+          <article class="feature">
+            <div class="feature-visual">
+              <div class="phone">
+                <img src="assets/screenshots/02-carte-grille.png" alt="Carte de la grille de 1970 : les carrés déjà repris apparaissent en bleu, ceux encore à faire en terre cuite, avec un indicateur de progression globale" width="414" height="900" loading="lazy">
+                <span class="side l1"></span><span class="side l2"></span><span class="side l3"></span><span class="side r1"></span>
+              </div>
+            </div>
+            <div class="feature-text">
+              <span class="index">01 — La carte</span>
+              <h3>La grille de 1970 sur le Paris d’aujourd’hui</h3>
+              <p>Les 1 755 carrés du concours sont posés sur la carte, colorés selon leur taux de reprise. Touchez un quartier pour voir ce qui reste à faire, filtrez les vues encore à reprendre ou celles déjà publiées, cherchez une rue ou un arrondissement.</p>
+            </div>
+          </article>
+
+          <article class="feature">
+            <div class="feature-visual">
+              <div class="phone">
+                <img src="assets/screenshots/01-accueil.png" alt="Écran Autour : le point de vue le plus proche à reconduire, ici 3 place de l’Opéra, avec la photographie d’archive et le bouton « Refaire cette photo »" width="414" height="900" loading="lazy">
+                <span class="side l1"></span><span class="side l2"></span><span class="side l3"></span><span class="side r1"></span>
+              </div>
+            </div>
+            <div class="feature-text">
+              <span class="index">02 — Autour de vous</span>
+              <h3>Les photos de 1970 prises là où vous êtes</h3>
+              <p>Depuis un trottoir, une terrasse ou une sortie de métro, Reprise vous montre les vues de 1970 les plus proches, chargées directement depuis la visionneuse de la BHVP, avec le nom du photographe et le lieu indexé par la bibliothèque.</p>
+            </div>
+          </article>
+
+          <article class="feature">
+            <div class="feature-visual">
+              <div class="overlay-demo" role="img" aria-label="Illustration : la photographie d’archive est superposée en transparence à l’image de la caméra, avec une grille de cadrage et un curseur d’opacité">
+                <div class="screen">
+                  <div class="archive"></div>
+                  <div class="grid"></div>
+                  <div class="frame"></div>
+                  <span class="label">Superposition · 1970</span>
+                  <div class="slider"></div>
+                  <div class="shutter"></div>
+                </div>
+              </div>
+            </div>
+            <div class="feature-text">
+              <span class="index">03 — La caméra</span>
+              <h3>L’archive en transparence sur votre viseur</h3>
+              <p>Ajustez l’opacité de la photographie de 1970 par-dessus l’image de la caméra, alignez les corniches, les fenêtres et les lignes de fuite, puis déclenchez. Des repères d’inclinaison vous aident à retrouver la hauteur et l’aplomb de l’époque. Aucune analyse d’image automatique&nbsp;: c’est votre œil qui décide.</p>
+              <ul>
+                <li>La photo est enregistrée dans Photos, en <strong>ajout seul</strong>&nbsp;: Reprise ne lit jamais votre photothèque.</li>
+                <li>Vos prises de vue et votre carnet restent sur le téléphone.</li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="feature">
+            <div class="feature-visual">
+              <div class="phone">
+                <img src="assets/screenshots/04-collectif.png" alt="Écran Collectif : les chiffres du mois, les contributrices et contributeurs les plus actifs et une comparaison avant-après avenue Ledru-Rollin, 1970 et 2026" width="414" height="900" loading="lazy">
+                <span class="side l1"></span><span class="side l2"></span><span class="side l3"></span><span class="side r1"></span>
+              </div>
+            </div>
+            <div class="feature-text">
+              <span class="index">04 — La contribution</span>
+              <h3>Le formulaire officiel, préparé mais jamais envoyé à votre place</h3>
+              <p>Quand vous êtes satisfait de votre reprise, Reprise ouvre le formulaire de l’Observatoire et y prépare ce qui est public&nbsp;: la date, le lieu, les coordonnées du point de vue, le modèle d’appareil et les deux photographies attendues. Vous renseignez vous-même votre identité et les consentements, vous vérifiez chaque champ, puis vous déclenchez l’envoi. Rien ne part sans vous.</p>
+              <p>L’écran Collectif suit ensuite l’avancement de la campagne et les comparaisons avant-après déjà publiées.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Comment ça marche -->
+    <section class="section" id="comment" aria-labelledby="comment-titre">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Comment ça marche</p>
+          <h2 id="comment-titre">Quatre gestes, une reprise.</h2>
+          <p class="lead">Une sortie de vingt minutes suffit. Pas de compte à créer, pas de matériel à acheter&nbsp;: l’iPhone que vous avez déjà.</p>
+        </div>
+        <ol class="steps">
+          <li class="step">
+            <span class="verb">Repérer</span>
+            <h3>Choisissez un point de vue</h3>
+            <p>Sur la carte ou autour de vous, ouvrez une photographie de 1970 encore à reprendre. Lisez sa légende, situez le carré, ajoutez-la à votre carnet.</p>
+          </li>
+          <li class="step">
+            <span class="verb">Rejoindre</span>
+            <h3>Rendez-vous sur place</h3>
+            <p>Reprise vous guide jusqu’au carré et affiche l’archive en grand pour reconnaître le bâtiment, l’angle de rue ou la perspective d’origine.</p>
+          </li>
+          <li class="step">
+            <span class="verb">Cadrer</span>
+            <h3>Alignez et déclenchez</h3>
+            <p>Superposez l’archive à la caméra, réglez sa transparence, ajustez votre position jusqu’à ce que les lignes coïncident, puis photographiez.</p>
+          </li>
+          <li class="step">
+            <span class="verb">Contribuer</span>
+            <h3>Vérifiez et envoyez vous-même</h3>
+            <p>Reprise prépare le formulaire de l’Observatoire avec les deux photos. Vous complétez votre identité, relisez, et envoyez quand vous le décidez.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Engagements -->
+    <section class="section panel" id="engagements" aria-labelledby="engagements-titre">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Nos engagements</p>
+          <h2 id="engagements-titre">Une application qui ne vous demande rien.</h2>
+        </div>
+        <ul class="pledges">
+          <li class="pledge">
+            <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="14"/><path d="M14 20h12M20 14v12"/></svg>
+            <div><h3>Gratuite, sans achat intégré</h3><p>Aucune option payante, aucune version «&nbsp;pro&nbsp;». Le projet est bénévole et le restera pendant toute la campagne.</p></div>
+          </li>
+          <li class="pledge">
+            <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="15" r="6"/><path d="M8 33c1.5-6 6-9 12-9s10.5 3 12 9"/><path d="M6 6l28 28"/></svg>
+            <div><h3>Sans compte</h3><p>Pas d’inscription, pas de mot de passe, pas de profil. L’application n’a aucun serveur d’utilisateurs.</p></div>
+          </li>
+          <li class="pledge">
+            <svg viewBox="0 0 40 40" aria-hidden="true"><rect x="7" y="9" width="26" height="22" rx="3"/><path d="M7 15h26M12 22h9"/><path d="M6 6l28 28"/></svg>
+            <div><h3>Sans publicité ni suivi</h3><p>Aucune régie, aucun profilage, aucun suivi entre applications. Les seules connexions servent à afficher les archives et les données publiques.</p></div>
+          </li>
+          <li class="pledge">
+            <svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="8" width="24" height="24" rx="4"/><path d="M14 20l4 4 8-8"/></svg>
+            <div><h3>Photos en ajout seul</h3><p>Reprise demande uniquement le droit d’enregistrer les photos qu’elle crée. Elle ne parcourt jamais votre bibliothèque.</p></div>
+          </li>
+          <li class="pledge">
+            <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 20l8 8M32 20l-8 8M8 20l8-8M32 20l-8-8"/><path d="M23 10l-6 20"/></svg>
+            <div><h3>Open source, licence MIT</h3><p>Le code est public sur <a href="https://github.com/Youplala/reprise">GitHub</a>. Chacun peut le lire, le vérifier, proposer une amélioration.</p></div>
+          </li>
+          <li class="pledge">
+            <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 30V12a2 2 0 012-2h20a2 2 0 012 2v18"/><path d="M4 30h32"/><path d="M14 17h12M14 22h8"/></svg>
+            <div><h3>Jamais d’envoi automatique</h3><p>Le formulaire officiel est préparé, pas soumis. Identité, consentements et bouton d’envoi restent entre vos mains.</p></div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Crédits -->
+    <section class="section grid-bg-light" id="credits" aria-labelledby="credits-titre">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Sur les épaules de qui</p>
+          <h2 id="credits-titre">Reprise s’appuie sur des institutions et des communs.</h2>
+        </div>
+        <ul class="credits">
+          <li class="credit">
+            <span class="who">Archives</span>
+            <h3>Bibliothèque historique de la Ville de Paris</h3>
+            <p>Conserve le fonds «&nbsp;C’était Paris en 1970&nbsp;». Les images sont chargées depuis sa <a href="https://bibliotheques-specialisees.paris.fr/">visionneuse</a> par permalien, jamais copiées dans l’application.</p>
+          </li>
+          <li class="credit">
+            <span class="who">Campagne 2026</span>
+            <h3>Observatoire photo participatif</h3>
+            <p>Animé par le <a href="https://www.caue75.fr/">CAUE de Paris</a>. Les reprises publiées et la progression par carré viennent d’<a href="https://observatoire-photo.paris/">observatoire-photo.paris</a>.</p>
+          </li>
+          <li class="credit">
+            <span class="who">Cartographie</span>
+            <h3>Apple Plans et OpenStreetMap</h3>
+            <p>La carte principale est celle de la plateforme&nbsp;; certaines vues de détail utilisent les tuiles © contributeurs OpenStreetMap, sous licence ODbL.</p>
+          </li>
+          <li class="credit">
+            <span class="who">Métadonnées</span>
+            <h3>Projet paris-1970</h3>
+            <p>Auteurs et lieux des dossiers de 1970, normalisés à partir des notices BHVP par un projet open source indépendant.</p>
+          </li>
+        </ul>
+        <div class="disclaimer">
+          <p><strong>Projet indépendant.</strong> Reprise est éditée par Élie Brosset. Elle n’est ni éditée ni approuvée par la Ville de Paris, la BHVP ou le CAUE de Paris&nbsp;; elle accompagne leur campagne publique sans s’y substituer.</p>
+          <a class="button ghost" href="sources/">Sources, crédits et licences</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Disponibilité -->
+    <section class="section panel grid-bg on-panel" id="disponibilite" aria-labelledby="dispo-titre">
+      <div class="container">
+        <div class="section-head reveal">
+          <p class="eyebrow">Disponibilité</p>
+          <h2 id="dispo-titre">Bientôt dans l’App&nbsp;Store.</h2>
+          <p class="lead">Reprise 1.0 est en cours de publication pour iPhone. En attendant, le code source est ouvert et l’assistance répond déjà aux questions.</p>
+          <div class="hero-actions">
+            <!-- TODO: lien App Store — remplacer href="#disponibilite" par l’URL App Store une fois l’app publiée -->
+            <a class="store-badge" href="#disponibilite">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M16.37 12.7c.03 2.98 2.62 3.97 2.65 3.98-.02.07-.41 1.42-1.36 2.8-.82 1.2-1.68 2.39-3.03 2.41-1.32.03-1.75-.78-3.26-.78s-1.98.76-3.23.81c-1.3.05-2.29-1.29-3.12-2.48-1.7-2.45-3-6.91-1.25-9.93.87-1.5 2.42-2.44 4.1-2.47 1.28-.02 2.49.86 3.27.86.78 0 2.25-1.06 3.79-.91.65.03 2.46.26 3.63 1.97-.09.06-2.17 1.27-2.19 3.74zM13.9 5.34c.7-.84 1.16-2.01 1.03-3.18-1 .04-2.21.67-2.93 1.5-.64.74-1.2 1.93-1.05 3.07 1.12.09 2.26-.57 2.95-1.39z"/></svg>
+              <span><small>Télécharger dans</small><b>l’App Store</b></span>
+            </a>
+            <a class="button ghost" href="support/">Une question&nbsp;? L’assistance</a>
+          </div>
         </div>
       </div>
     </section>
   </main>
 
   <footer class="site-footer">
-    <div class="container footer-grid">
-      <div>
-        <strong>Reprise</strong>
-        <small>Application gratuite et open source pour rephotographier Paris.</small>
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <a class="brand" href="./"><img src="assets/app-icon.png" alt="" width="36" height="36"><span>Reprise</span></a>
+          <small>Application iPhone gratuite et open source pour retrouver les points de vue du concours «&nbsp;C’était Paris en 1970&nbsp;» et les rephotographier aujourd’hui.</small>
+        </div>
+        <ul class="footer-links">
+          <li><a href="support/">Assistance</a></li>
+          <li><a href="confidentialite/">Confidentialité</a></li>
+          <li><a href="conditions/">Conditions d’utilisation</a></li>
+          <li><a href="sources/">Sources et crédits</a></li>
+          <li><a href="https://github.com/Youplala/reprise">GitHub</a></li>
+        </ul>
       </div>
-      <div class="footer-links">
-        <a href="support/">Assistance</a>
-        <a href="confidentialite/">Confidentialité</a>
-        <a href="conditions/">Conditions d’utilisation</a>
-        <a href="sources/">Sources</a>
-        <a href="https://github.com/Youplala/reprise">GitHub</a>
-      </div>
+      <p class="footer-meta">© 2026 Élie Brosset · Projet indépendant · Code sous licence MIT · Les contenus tiers conservent leurs droits</p>
     </div>
   </footer>
 </body>
