@@ -24,7 +24,22 @@ import { getReviewStatusRows, type CaptureLocation } from '@/services/review-sta
 
 export function ReviewScreen() {
   const router = useRouter();
-  const { id, frame, uri, simulated, roll, pitch, latitude, longitude, locationPrecision } = useLocalSearchParams<{
+  const {
+    id,
+    frame,
+    uri,
+    simulated,
+    roll,
+    pitch,
+    latitude,
+    longitude,
+    locationPrecision,
+    captureId,
+    resumed,
+    currentSaved,
+    currentPreparation,
+    referencePreparation,
+  } = useLocalSearchParams<{
     id: string;
     frame?: string;
     uri?: string;
@@ -34,13 +49,25 @@ export function ReviewScreen() {
     latitude?: string;
     longitude?: string;
     locationPrecision?: string;
+    captureId?: string;
+    resumed?: string;
+    currentSaved?: string;
+    currentPreparation?: string;
+    referencePreparation?: string;
   }>();
   const { detail } = useStationDetail(id);
-  const [saved, setSaved] = useState(false);
-  const [inLibrary, setInLibrary] = useState(false);
+  const [saved, setSaved] = useState(resumed === '1');
+  const [inLibrary, setInLibrary] = useState(currentSaved === '1');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>();
-  const [savedCaptureUri, setSavedCaptureUri] = useState<string>();
+  const [savedCaptureUri, setSavedCaptureUri] = useState<string | undefined>(
+    resumed === '1' ? uri : undefined,
+  );
+  const [savedCaptureId, setSavedCaptureId] = useState<string | undefined>(captureId);
+  const [savedCoordinate, setSavedCoordinate] = useState<{
+    latitude: number;
+    longitude: number;
+  }>();
   const [comparisonActive, setComparisonActive] = useState(false);
   const isSimulated = simulated !== '0';
   const isArchiveSector = detail?.kind === 'archive-1970';
@@ -87,6 +114,9 @@ export function ReviewScreen() {
     try {
       const { capture, savedToLibrary } = await saveCapture({
         stationId: id,
+        stationName: detail?.name,
+        stationAddress: detail?.address,
+        frameIndex,
         imageUri: uri || undefined,
         simulated: isSimulated,
         roll: hasTilt ? rollDegrees : undefined,
@@ -98,6 +128,8 @@ export function ReviewScreen() {
       });
       setInLibrary(savedToLibrary);
       setSavedCaptureUri(capture.imageUri);
+      setSavedCaptureId(capture.id);
+      setSavedCoordinate(capture.coordinate);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSaved(true);
     } catch {
@@ -113,10 +145,23 @@ export function ReviewScreen() {
       pathname: '/official-submit' as never,
       params: {
         id,
+        captureId: savedCaptureId ?? '',
         frame: String(frameIndex),
         uri: captureUri,
         simulated: isSimulated ? '1' : '0',
         currentSaved: saved && inLibrary ? '1' : '0',
+        currentPreparation: currentPreparation ?? '',
+        referencePreparation: referencePreparation ?? '',
+        latitude: savedCoordinate
+          ? String(savedCoordinate.latitude)
+          : captureLocation
+            ? String(captureLocation.latitude)
+            : '',
+        longitude: savedCoordinate
+          ? String(savedCoordinate.longitude)
+          : captureLocation
+            ? String(captureLocation.longitude)
+            : '',
       },
     });
   };
@@ -124,7 +169,7 @@ export function ReviewScreen() {
   const share = () =>
     Share.share({
       message: `J’ai retrouvé un point de vue de ${detail?.year ?? 1970} à Paris avec Reprise.`,
-      url: uri,
+      url: savedCaptureUri ?? uri,
     });
 
   return (
@@ -238,7 +283,7 @@ export function ReviewScreen() {
         </View>
 
         <PrimaryButton
-          label={saved ? (inLibrary ? 'Enregistrée dans vos photos' : 'Ajoutée au carnet') : 'Enregistrer ma photo'}
+          label={saved ? (inLibrary ? 'Conservée et enregistrée dans Photos' : 'Conservée dans le carnet') : 'Enregistrer ma photo'}
           icon={saved ? 'checkmark' : 'bookmark'}
           loading={saving}
           disabled={saved}
