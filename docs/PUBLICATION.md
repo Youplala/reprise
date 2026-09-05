@@ -23,7 +23,7 @@ ou les flux réseau changent.
 
 ### Sous-titre (30 caractères maximum)
 
-`Rephotographier Paris`
+`Explorez Paris, capturez 1970`
 
 ### Texte promotionnel (170 caractères maximum)
 
