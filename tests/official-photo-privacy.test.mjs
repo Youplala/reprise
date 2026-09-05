@@ -65,7 +65,9 @@ test('l’écran ignore les préparations obsolètes et limite le haptique aux n
   assert.match(officialScreen, /documentGenerationRef\.current/);
   assert.match(officialScreen, /images: emptyPreparedImages\(\)/);
   const invalidation = officialScreen.indexOf('automaticPreparationKey.current = key');
-  const incompleteReturn = officialScreen.indexOf('if (isSimulated || !uri || !referenceUri) return');
+  const incompleteReturn = officialScreen.indexOf(
+    'if (isSimulated || !uri || !trustedReferenceUri) return',
+  );
   const invalidationBlock = officialScreen.slice(invalidation, incompleteReturn);
   assert.ok(invalidation >= 0 && incompleteReturn > invalidation);
   assert.match(invalidationBlock, /setImageError\(undefined\)/);
