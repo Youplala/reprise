@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { Image, type ImageSource } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type AccessibilityActionEvent,
   StyleSheet,
@@ -11,13 +11,18 @@ import {
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  cancelAnimation,
   Extrapolation,
   interpolate,
   runOnJS,
   runOnUI,
+  type SharedValue,
   useAnimatedStyle,
   useDerivedValue,
+  useReducedMotion,
   useSharedValue,
+  withDelay,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -34,11 +39,55 @@ type BeforeAfterSliderProps = {
   borderRadius?: number;
   style?: ViewStyle;
   onInteractionChange?: (active: boolean) => void;
+  // Joue une démo du geste une seule fois à l'ouverture (onboarding), sans attendre le doigt.
+  playIntro?: boolean;
 };
 
 const MIN_RATIO = 0.08;
 const MAX_RATIO = 0.92;
 const SPRING = { damping: 18, stiffness: 220, mass: 0.6 };
+
+// Composant isolé à dessein : le React Compiler refuse qu'un même useEffect et les gestes
+// du slider mutent ratio/active tous les deux — chaque composant garde donc son propre
+// site de mutation, ratio/active n'étant ici reçus qu'en lecture via les props.
+function BeforeAfterSliderIntro({
+  ratio,
+  active,
+  play,
+  reducedMotion,
+}: {
+  ratio: SharedValue<number>;
+  active: SharedValue<number>;
+  play: boolean;
+  reducedMotion: boolean;
+}) {
+  const hasPlayed = useRef(false);
+
+  useEffect(() => {
+    if (!play || hasPlayed.current) return;
+    hasPlayed.current = true;
+    // Réduction des animations activée : le curseur reste sur sa position de repos.
+    if (reducedMotion) return;
+
+    runOnUI(() => {
+      'worklet';
+      ratio.value = withDelay(
+        400,
+        withSequence(
+          withTiming(0.78, { duration: 650 }),
+          withTiming(0.22, { duration: 850 }),
+          withTiming(0.5, { duration: 550 }),
+        ),
+      );
+      active.value = withDelay(
+        400,
+        withSequence(withTiming(1, { duration: 220 }), withDelay(1350, withTiming(0, { duration: 260 }))),
+      );
+    })();
+  }, [play, reducedMotion, ratio, active]);
+
+  return null;
+}
 
 export function BeforeAfterSlider({
   before,
@@ -49,6 +98,7 @@ export function BeforeAfterSlider({
   borderRadius = Radius.large,
   style,
   onInteractionChange,
+  playIntro,
 }: BeforeAfterSliderProps) {
   const [width, setWidth] = useState(0);
   const { aspectRatio } = useImageAspectRatio(before);
@@ -63,6 +113,7 @@ export function BeforeAfterSlider({
   const active = useSharedValue(0);
   // Mémorise le bord déjà atteint pour ne pas répéter le retour haptique à chaque frame.
   const edgeLatched = useSharedValue(0);
+  const reducedMotion = useReducedMotion();
 
   const notifyInteraction = useCallback(
     (value: boolean) => onInteractionChange?.(value),
@@ -82,6 +133,14 @@ export function BeforeAfterSlider({
     // devient impossible à faire défiler dès que le doigt démarre sur la comparaison.
     .activeOffsetX([-12, 12])
     .failOffsetY([-14, 14])
+    .onTouchesDown(() => {
+      'worklet';
+      // Coupe la démo au contact du doigt : attendre l'activation du pan (12px de
+      // mouvement) la ferait paraître figée un instant avant de répondre. `cancelAnimation`
+      // fige la valeur là où elle en était, la reprise au doigt ne saute donc pas.
+      cancelAnimation(ratio);
+      cancelAnimation(active);
+    })
     .onBegin(() => {
       'worklet';
       active.value = withSpring(1, SPRING);
@@ -109,15 +168,21 @@ export function BeforeAfterSlider({
       runOnJS(notifyInteraction)(false);
     });
 
-  const tap = Gesture.Tap().onEnd((event) => {
-    'worklet';
-    if (!containerWidth.value) return;
-    ratio.value = withSpring(
-      Math.min(MAX_RATIO, Math.max(MIN_RATIO, event.x / containerWidth.value)),
-      SPRING,
-    );
-    runOnJS(tapFeedback)();
-  });
+  const tap = Gesture.Tap()
+    .onTouchesDown(() => {
+      'worklet';
+      cancelAnimation(ratio);
+      cancelAnimation(active);
+    })
+    .onEnd((event) => {
+      'worklet';
+      if (!containerWidth.value) return;
+      ratio.value = withSpring(
+        Math.min(MAX_RATIO, Math.max(MIN_RATIO, event.x / containerWidth.value)),
+        SPRING,
+      );
+      runOnJS(tapFeedback)();
+    });
 
   const gesture = Gesture.Exclusive(pan, tap);
 
@@ -176,6 +241,12 @@ export function BeforeAfterSlider({
         onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
         style={[styles.container, { height: resolvedHeight, borderRadius }, style]}
         testID="before-after-slider">
+        <BeforeAfterSliderIntro
+          active={active}
+          play={playIntro === true && width > 0}
+          ratio={ratio}
+          reducedMotion={reducedMotion}
+        />
         <Image source={before} style={StyleSheet.absoluteFill} contentFit="cover" transition={180} />
 
         <Animated.View pointerEvents="none" style={[styles.afterClip, clipStyle]}>

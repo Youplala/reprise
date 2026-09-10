@@ -1,4 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { Stack } from 'expo-router/stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
@@ -30,6 +31,14 @@ export default function RootLayout() {
       border: theme.line,
     },
   };
+
+  // iOS n'accorde que l'intersection des orientations déclarées par l'app et de celles demandées
+  // à l'exécution : le viseur ne pouvait pas pivoter tant qu'`app.json` restait en « portrait ».
+  // L'app les autorise donc toutes, et c'est ici qu'on repose le portrait pour tous les écrans —
+  // le viseur reste seul à lever ce verrou, le temps de cadrer une archive au format paysage.
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let active = true;

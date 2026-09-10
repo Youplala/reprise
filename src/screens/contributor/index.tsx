@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AdaptivePhoto } from '@/components/adaptive-photo';
 import { SourcePill } from '@/components/source-pill';
-import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 import { useStations } from '@/providers/stations-provider';
 import type { StationDetail } from '@/types/station';
 import {
@@ -21,6 +21,7 @@ const dateFormat = new Intl.DateTimeFormat('fr-FR', {
   year: 'numeric',
 });
 
+/** Initiales lisibles pour l'avatar, calculées sur le nom déjà réduit par `formatContributorName`. */
 function initialsFor(name: string) {
   return name
     .split(' ')
@@ -71,7 +72,7 @@ function ContributorPhotoCard({
           </View>
         </View>
       </View>
-      <View style={styles.photoBody}>
+      <View style={styles.photoCaption}>
         <Text style={styles.photoTitle} numberOfLines={2}>
           {detail.name}
         </Text>
@@ -149,11 +150,9 @@ export function ContributorScreen() {
             <Text style={styles.name}>{displayName || 'Contributeur'}</Text>
           </View>
         </View>
-        <Text style={styles.intro}>
-          {photos.length
-            ? `${photos.length} ${photos.length > 1 ? 'photos refaites et publiées' : 'photo refaite et publiée'} sur la carte de Paris.`
-            : 'Aucune photo publiée ne correspond encore à ce profil.'}
-        </Text>
+        {photos.length === 0 ? (
+          <Text style={styles.intro}>Aucune photo publiée ne correspond encore à ce profil.</Text>
+        ) : null}
       </View>
 
       <View style={styles.metrics}>
@@ -176,10 +175,8 @@ export function ContributorScreen() {
       </View>
 
       {profileStats.favoriteArea || profileStats.latestDate ? (
-        <View style={styles.insightCard}>
-          <View style={styles.insightIcon}>
-            <SymbolView name="map.fill" size={20} tintColor={Palette.parisBlue} />
-          </View>
+        <View style={styles.insightRow}>
+          <SymbolView name="map.fill" size={18} tintColor={Palette.parisBlue} />
           <View style={styles.insightCopy}>
             {profileStats.favoriteArea ? (
               <Text style={styles.insightTitle}>
@@ -197,12 +194,12 @@ export function ContributorScreen() {
       ) : null}
 
       <View style={styles.galleryHeader}>
-        <Text style={styles.galleryKicker}>AVANT / AUJOURD’HUI</Text>
         <Text style={styles.galleryTitle}>Toutes ses photos</Text>
       </View>
     </View>
   );
 
+  // La galerie est un contact-sheet : les vignettes vont bord à bord, sans marge de page.
   return (
     <View style={styles.screen}>
       <FlatList
@@ -257,9 +254,9 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.four,
   },
   kicker: {
+    ...Typography.caption,
     color: Palette.copper,
     fontFamily: Fonts.mono,
-    fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.8,
   },
@@ -270,19 +267,18 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: Palette.parisBlue,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
+    ...Typography.title,
     color: Palette.white,
     fontFamily: Fonts.display,
-    fontSize: 34,
     fontWeight: '900',
-    letterSpacing: 1,
   },
   identityCopy: {
     flex: 1,
@@ -295,34 +291,26 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.brass,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: Spacing.one,
   },
   rankPillText: {
+    ...Typography.caption,
     color: Palette.blueDeep,
     fontFamily: Fonts.mono,
-    fontSize: 9,
     fontWeight: '900',
     letterSpacing: 0.4,
   },
   name: {
+    ...Typography.display,
     marginTop: Spacing.two,
-    marginHorizontal: -2,
-    paddingHorizontal: 2,
-    paddingTop: 3,
-    paddingBottom: 4,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 36,
-    lineHeight: 39,
-    fontWeight: '800',
-    letterSpacing: -0.7,
   },
   intro: {
+    ...Typography.body,
     marginTop: Spacing.three,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 15,
-    lineHeight: 22,
   },
   metrics: {
     marginTop: Spacing.four,
@@ -343,97 +331,67 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.22)',
   },
   metricValue: {
+    ...Typography.title,
     color: Palette.white,
     fontFamily: Fonts.display,
-    fontSize: 28,
     fontWeight: '900',
   },
   metricLabel: {
-    marginTop: 2,
+    ...Typography.caption,
+    marginTop: Spacing.half,
     color: Palette.blueMist,
     fontFamily: Fonts.mono,
-    fontSize: 7,
     fontWeight: '800',
     textAlign: 'center',
     letterSpacing: 0.35,
   },
-  insightCard: {
+  // Un factoid n'est pas un objet détaché : il vit sur le fond, sans carte autour.
+  insightRow: {
     marginTop: Spacing.three,
     marginHorizontal: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Radius.medium,
-    backgroundColor: Palette.white,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-  },
-  insightIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: Palette.blueMist,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: Spacing.two,
   },
   insightCopy: {
     flex: 1,
   },
   insightTitle: {
+    ...Typography.body,
     color: Palette.ink,
-    fontFamily: Fonts.sans,
-    fontSize: 14,
     fontWeight: '800',
   },
   insightText: {
-    marginTop: 3,
+    ...Typography.body,
+    marginTop: Spacing.half,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 12,
-    lineHeight: 17,
   },
   galleryHeader: {
     marginTop: Spacing.five,
     marginBottom: Spacing.three,
     paddingHorizontal: Spacing.three,
   },
-  galleryKicker: {
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.7,
-  },
   galleryTitle: {
-    marginTop: 4,
-    marginHorizontal: -2,
-    paddingHorizontal: 2,
-    paddingTop: 2,
-    paddingBottom: 4,
+    ...Typography.title,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 29,
-    lineHeight: 35,
-    fontWeight: '800',
   },
+  // Mosaïque bord à bord, comme un contact-sheet : pas de marge de page, un simple liseré entre
+  // les vignettes.
   photoRow: {
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.three,
+    gap: Spacing.half,
   },
   photoCard: {
     flex: 1,
-    maxWidth: '48%',
-    marginBottom: Spacing.three,
-    borderRadius: Radius.medium,
+    marginBottom: Spacing.half,
     overflow: 'hidden',
-    backgroundColor: Palette.white,
-    ...Shadow.card,
   },
   photoCardPressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.985 }],
+    opacity: 0.8,
   },
   photoPair: {
-    height: 128,
+    height: 150,
     flexDirection: 'row',
     backgroundColor: Palette.archive,
   },
@@ -443,65 +401,60 @@ const styles = StyleSheet.create({
   },
   yearBadgeLeft: {
     position: 'absolute',
-    left: 6,
-    bottom: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    left: Spacing.one,
+    bottom: Spacing.one,
+    paddingHorizontal: Spacing.one,
+    paddingVertical: Spacing.half,
     borderRadius: Radius.pill,
     backgroundColor: 'rgba(8,17,22,0.72)',
   },
   yearBadgeRight: {
     position: 'absolute',
-    right: 6,
-    bottom: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    right: Spacing.one,
+    bottom: Spacing.one,
+    paddingHorizontal: Spacing.one,
+    paddingVertical: Spacing.half,
     borderRadius: Radius.pill,
     backgroundColor: 'rgba(22,63,91,0.82)',
   },
   yearBadgeText: {
+    ...Typography.caption,
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 7,
     fontWeight: '900',
   },
-  photoBody: {
-    minHeight: 78,
-    padding: Spacing.twoHalf,
+  photoCaption: {
+    paddingTop: Spacing.two,
+    paddingHorizontal: Spacing.one,
   },
   photoTitle: {
+    ...Typography.title,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 17,
-    lineHeight: 20,
     fontWeight: '800',
   },
   photoMeta: {
-    marginTop: 5,
+    ...Typography.body,
+    marginTop: Spacing.one,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 10,
   },
   empty: {
     marginHorizontal: Spacing.three,
-    padding: Spacing.four,
-    borderRadius: Radius.large,
-    backgroundColor: Palette.white,
+    paddingVertical: Spacing.four,
     alignItems: 'center',
   },
   emptyTitle: {
+    ...Typography.title,
     marginTop: Spacing.two,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 22,
-    fontWeight: '800',
   },
   emptyText: {
-    marginTop: 5,
+    ...Typography.body,
+    marginTop: Spacing.one,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 12,
-    lineHeight: 18,
     textAlign: 'center',
   },
   pressed: {

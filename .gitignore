@@ -46,3 +46,7 @@ example
 .claude/
 CLAUDE.md
 AGENTS.md
+
+# captures de la revue UX (lourdes, régénérables depuis le simulateur)
+docs/ux-audit/screens/
+docs/ux-audit/apres/

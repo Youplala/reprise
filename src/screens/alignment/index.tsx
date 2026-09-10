@@ -6,6 +6,7 @@ import { Image } from 'expo-image';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useIsFocused } from 'expo-router/react-navigation';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -15,13 +16,15 @@ import {
   Linking,
   PanResponder,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Spacing, Typography } from '@/constants/theme';
 import { SIMULATED_CAMERA_IMAGE } from '@/constants/demo';
 
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
@@ -45,6 +48,9 @@ const LEVEL_TOLERANCE_DEGREES = 2;
 const PITCH_TOLERANCE_DEGREES = 8;
 
 const MAX_CAMERA_ZOOM = 1;
+// Largeur du panneau de contrôle quand le téléphone est à l'horizontale : le viseur garde le
+// reste de la largeur pour cadrer les archives au format paysage.
+const CONTROL_PANEL_LANDSCAPE_WIDTH = 296;
 
 async function cropToAspectRatio(
   uri: string,
@@ -134,6 +140,21 @@ export function AlignmentScreen() {
       subscription.remove();
     };
   }, [isFocused, refreshPermission]);
+
+  // Beaucoup d'archives de 1970 sont au format paysage : le viseur doit pouvoir pivoter pour les
+  // cadrer, alors que le reste de l'app n'est pas conçu pour et doit rester en portrait. Le
+  // verrou n'est donc levé que pendant que cet écran a le focus, et reposé dès qu'on le quitte.
+  useEffect(() => {
+    if (!isFocused) return;
+    // unlockAsync() rend la main aux capteurs (portrait et paysage) au lieu de figer un sens.
+    ScreenOrientation.unlockAsync().catch(() => {});
+    return () => {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+    };
+  }, [isFocused]);
+
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isLandscape = windowWidth > windowHeight;
 
   const isSimulator = !Device.isDevice;
   const liveCamera = Device.isDevice && permission?.granted;
@@ -389,7 +410,7 @@ export function AlignmentScreen() {
     const permissionLoading = permission === null;
     const canAskAgain = permission?.canAskAgain !== false;
     return (
-      <SafeAreaView edges={['top', 'bottom']} style={styles.permissionScreen}>
+      <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={styles.permissionScreen}>
         <Pressable
           accessibilityLabel="Fermer le viseur"
           onPress={() => router.back()}
@@ -445,7 +466,7 @@ export function AlignmentScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, isLandscape && styles.screenLandscape]}>
       <View
         style={styles.viewfinder}
         onLayout={(event) => {
@@ -629,7 +650,15 @@ export function AlignmentScreen() {
 
         <View
           pointerEvents="box-none"
-          style={[styles.topBar, { top: topBarOffset }]}>
+          style={[
+            styles.topBar,
+            {
+              top: topBarOffset,
+              // En paysage, le bord gauche du viseur peut être le vrai bord de l'écran (encoche
+              // ou île dynamique selon le sens de rotation) : on respecte alors la zone sûre.
+              left: isLandscape ? Math.max(Spacing.three, insets.left) : Spacing.three,
+            },
+          ]}>
           <Pressable
             accessibilityLabel="Fermer le viseur"
             onPress={() => router.back()}
@@ -639,7 +668,7 @@ export function AlignmentScreen() {
           <View style={styles.modePill}>
             <View style={[styles.modeDot, { backgroundColor: isSimulator ? Palette.brass : Palette.lichen }]} />
             <Text style={styles.modeText}>
-              {isSimulator ? 'DÉMO · CAMÉRA SIMULÉE' : liveCamera ? 'CAPTEURS ACTIFS' : 'AUTORISER LA CAMÉRA'}
+              {isSimulator ? 'MODE DÉMO' : liveCamera ? 'CAMÉRA ACTIVE' : 'AUTORISER LA CAMÉRA'}
             </Text>
           </View>
           <Pressable
@@ -651,7 +680,14 @@ export function AlignmentScreen() {
         </View>
 
         {warning ? (
-          <View style={styles.qualityCard}>
+          <View
+            style={[
+              styles.qualityCard,
+              {
+                left: isLandscape ? Math.max(Spacing.three, insets.left) : Spacing.three,
+                bottom: isLandscape ? Math.max(Spacing.three, insets.bottom) : Spacing.three,
+              },
+            ]}>
             <SymbolView name="exclamationmark.triangle.fill" size={22} tintColor={Palette.brass} />
             <View style={styles.qualityCopy}>
               <Text style={styles.qualityLabel}>
@@ -672,159 +708,162 @@ export function AlignmentScreen() {
 
       </View>
 
-      <SafeAreaView edges={['bottom']} style={styles.controlPanel}>
-        <View style={styles.controlHeader}>
-          <View>
-            <Text style={styles.controlKicker}>SUPERPOSITION HISTORIQUE</Text>
+      <SafeAreaView
+        edges={isLandscape ? ['top', 'bottom', 'right'] : ['bottom']}
+        style={[styles.controlPanel, isLandscape && styles.controlPanelLandscape]}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.controlPanelContent}>
+          <View style={styles.controlHeader}>
             <Text style={styles.controlTitle}>
               Photo {String(frameIndex + 1).padStart(2, '0')} · {detail?.year ?? 1970}
             </Text>
-          </View>
-          <Pressable
-            onPress={toggleEdgeMode}
-            style={[styles.edgeButton, edgeMode && styles.edgeButtonActive]}>
-            <SymbolView
-              name="square.on.square"
-              size={16}
-              tintColor={edgeMode ? Palette.blueDeep : Palette.white}
-            />
-            <Text style={[styles.edgeLabel, edgeMode && styles.edgeLabelActive]}>Contraste</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.sliderRow}>
-          <SymbolView name="photo" size={16} tintColor={Palette.blueMist} />
-          <Slider
-            key={opacityResetKey}
-            style={styles.slider}
-            value={0.52}
-            minimumValue={0.08}
-            maximumValue={0.92}
-            minimumTrackTintColor={Palette.brass}
-            maximumTrackTintColor={Palette.inkSoft}
-            thumbTintColor={Palette.white}
-            onValueChange={(value) => {
-              overlayOpacity.setValue(Math.min(0.92, value + (edgeMode ? 0.14 : 0)));
-            }}
-            onSlidingComplete={(value) => {
-              setOpacity(value);
-              setOpacityLabel(value);
-              void Haptics.selectionAsync();
-            }}
-          />
-          <Text style={styles.opacityValue}>{Math.round(opacityLabel * 100)}%</Text>
-        </View>
-
-        <View style={styles.zoomRow}>
-          {lenses.length > 1 ? (
-            <View style={styles.lensPicker}>
-              {lenses.map((lens) => {
-                const active = lens.id === selectedLens;
-                return (
-                  <Pressable
-                    key={lens.id}
-                    accessibilityLabel={`Objectif ${lens.label}`}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => {
-                      if (active) return;
-                      // Le zoom est relatif à l'objectif : le garder après une bascule donnerait
-                      // un cadrage différent de celui annoncé par la pastille.
-                      setCameraZoom(0);
-                      setSelectedLens(lens.id);
-                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
-                    }}
-                    style={[styles.lensChip, active && styles.lensChipActive]}>
-                    <Text style={[styles.lensChipText, active && styles.lensChipTextActive]}>
-                      {lens.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : (
             <Pressable
-              accessibilityLabel="Réinitialiser le zoom caméra"
-              accessibilityRole="button"
-              onPress={() => {
-                setCameraZoom(0);
-                void Haptics.selectionAsync();
-              }}
-              style={[styles.zoomReset, cameraZoom === 0 && styles.zoomResetActive]}>
-              <Text
-                style={[styles.zoomResetText, cameraZoom === 0 && styles.zoomResetTextActive]}>
-                1×
-              </Text>
+              onPress={toggleEdgeMode}
+              style={[styles.edgeButton, edgeMode && styles.edgeButtonActive]}>
+              <SymbolView
+                name="square.on.square"
+                size={16}
+                tintColor={edgeMode ? Palette.blueDeep : Palette.white}
+              />
+              <Text style={[styles.edgeLabel, edgeMode && styles.edgeLabelActive]}>Contraste</Text>
             </Pressable>
-          )}
-          <View style={styles.zoomControl}>
-            <View style={styles.zoomLabelRow}>
-              <Text style={styles.zoomLabel}>ZOOM CAMÉRA</Text>
-              <Text style={styles.zoomValue}>
-                {cameraZoom === 0 ? `OBJECTIF ${activeLabel}` : `${activeLabel} +${Math.round(cameraZoom * 100)}%`}
-              </Text>
-            </View>
+          </View>
+  
+          <View style={styles.sliderRow}>
+            <SymbolView name="photo" size={16} tintColor={Palette.blueMist} />
             <Slider
-              accessibilityLabel="Zoom de la caméra"
-              accessibilityValue={{
-                min: 0,
-                max: 100,
-                now: Math.round(cameraZoom * 100),
-              }}
-              style={styles.zoomSlider}
-              value={cameraZoom}
-              minimumValue={0}
-              maximumValue={MAX_CAMERA_ZOOM}
-              step={0.01}
+              key={opacityResetKey}
+              style={styles.slider}
+              value={0.52}
+              minimumValue={0.08}
+              maximumValue={0.92}
               minimumTrackTintColor={Palette.brass}
               maximumTrackTintColor={Palette.inkSoft}
               thumbTintColor={Palette.white}
-              onValueChange={setCameraZoom}
-              onSlidingComplete={() => void Haptics.selectionAsync()}
+              onValueChange={(value) => {
+                overlayOpacity.setValue(Math.min(0.92, value + (edgeMode ? 0.14 : 0)));
+              }}
+              onSlidingComplete={(value) => {
+                setOpacity(value);
+                setOpacityLabel(value);
+                void Haptics.selectionAsync();
+              }}
             />
+            <Text style={styles.opacityValue}>{Math.round(opacityLabel * 100)}%</Text>
           </View>
-        </View>
-
-        <View style={styles.captureRow}>
-          <Pressable
-            onPress={() => adjustScale(-0.02)}
-            style={styles.toolButton}>
-            <SymbolView name="minus.magnifyingglass" size={20} tintColor={Palette.white} />
-          </Pressable>
-          <Pressable
-            accessibilityLabel={liveCamera ? 'Prendre la photo' : 'Simuler la photo'}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: shutterDisabled }}
-            disabled={shutterDisabled}
-            onPress={capture}
-            style={({ pressed }) => [
-              styles.shutterOuter,
-              pressed && styles.shutterPressed,
-              capturing && styles.shutterDisabled,
-            ]}>
-            <View style={styles.shutterInner} />
-          </Pressable>
-          <Pressable
-            onPress={() => adjustScale(0.02)}
-            style={styles.toolButton}>
-            <SymbolView name="plus.magnifyingglass" size={20} tintColor={Palette.white} />
-          </Pressable>
-        </View>
-
-        <Text accessibilityLiveRegion="polite" style={styles.captureHint}>
-          {captureError ??
-            (archiveImagesLoading
-              ? 'Chargement de la photographie historique depuis la BHVP…'
-              : referenceImageFailed
-                ? 'L’aperçu BHVP est momentanément indisponible. Revenez en arrière pour réessayer.'
-                : !referenceImage
-                  ? 'Aucune photographie historique n’est disponible pour cette vue.'
-                  : isSimulator
-                    ? 'Le simulateur utilise une scène parisienne d’essai. Sur iPhone, le flux caméra la remplace automatiquement.'
-                    : liveCamera
-                      ? 'Restez sur le domaine public et surveillez la circulation.'
-                      : 'Touchez le déclencheur pour autoriser la caméra.')}
-        </Text>
+  
+          <View style={[styles.zoomRow, isLandscape && styles.zoomRowLandscape]}>
+            {lenses.length > 1 ? (
+              <View style={styles.lensPicker}>
+                {lenses.map((lens) => {
+                  const active = lens.id === selectedLens;
+                  return (
+                    <Pressable
+                      key={lens.id}
+                      accessibilityLabel={`Objectif ${lens.label}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => {
+                        if (active) return;
+                        // Le zoom est relatif à l'objectif : le garder après une bascule donnerait
+                        // un cadrage différent de celui annoncé par la pastille.
+                        setCameraZoom(0);
+                        setSelectedLens(lens.id);
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
+                      }}
+                      style={[styles.lensChip, active && styles.lensChipActive]}>
+                      <Text style={[styles.lensChipText, active && styles.lensChipTextActive]}>
+                        {lens.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <Pressable
+                accessibilityLabel="Réinitialiser le zoom caméra"
+                accessibilityRole="button"
+                onPress={() => {
+                  setCameraZoom(0);
+                  void Haptics.selectionAsync();
+                }}
+                style={[styles.zoomReset, cameraZoom === 0 && styles.zoomResetActive]}>
+                <Text
+                  style={[styles.zoomResetText, cameraZoom === 0 && styles.zoomResetTextActive]}>
+                  1×
+                </Text>
+              </Pressable>
+            )}
+            <View style={styles.zoomControl}>
+              <View style={styles.zoomLabelRow}>
+                <Text style={styles.zoomLabel}>ZOOM</Text>
+                <Text style={styles.zoomValue}>
+                  {cameraZoom === 0 ? activeLabel : `${activeLabel} +${Math.round(cameraZoom * 100)}%`}
+                </Text>
+              </View>
+              <Slider
+                accessibilityLabel="Zoom de la caméra"
+                accessibilityValue={{
+                  min: 0,
+                  max: 100,
+                  now: Math.round(cameraZoom * 100),
+                }}
+                style={styles.zoomSlider}
+                value={cameraZoom}
+                minimumValue={0}
+                maximumValue={MAX_CAMERA_ZOOM}
+                step={0.01}
+                minimumTrackTintColor={Palette.brass}
+                maximumTrackTintColor={Palette.inkSoft}
+                thumbTintColor={Palette.white}
+                onValueChange={setCameraZoom}
+                onSlidingComplete={() => void Haptics.selectionAsync()}
+              />
+            </View>
+          </View>
+  
+          <View style={styles.captureRow}>
+            <Pressable
+              onPress={() => adjustScale(-0.02)}
+              style={styles.toolButton}>
+              <SymbolView name="minus.magnifyingglass" size={20} tintColor={Palette.white} />
+            </Pressable>
+            <Pressable
+              accessibilityLabel={liveCamera ? 'Prendre la photo' : 'Simuler la photo'}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: shutterDisabled }}
+              disabled={shutterDisabled}
+              onPress={capture}
+              style={({ pressed }) => [
+                styles.shutterOuter,
+                pressed && styles.shutterPressed,
+                capturing && styles.shutterDisabled,
+              ]}>
+              <View style={styles.shutterInner} />
+            </Pressable>
+            <Pressable
+              onPress={() => adjustScale(0.02)}
+              style={styles.toolButton}>
+              <SymbolView name="plus.magnifyingglass" size={20} tintColor={Palette.white} />
+            </Pressable>
+          </View>
+  
+          <Text accessibilityLiveRegion="polite" style={styles.captureHint}>
+            {captureError ??
+              (archiveImagesLoading
+                ? 'Chargement de la photographie historique depuis la BHVP…'
+                : referenceImageFailed
+                  ? 'L’aperçu BHVP est momentanément indisponible. Revenez en arrière pour réessayer.'
+                  : !referenceImage
+                    ? 'Aucune photographie historique n’est disponible pour cette vue.'
+                    : isSimulator
+                      ? 'Le simulateur utilise une scène parisienne d’essai. Sur iPhone, le flux caméra la remplace automatiquement.'
+                      : liveCamera
+                        ? 'Restez sur le domaine public et surveillez la circulation.'
+                        : 'Touchez le déclencheur pour autoriser la caméra.')}
+          </Text>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -853,19 +892,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
   },
   permissionTitle: {
+    ...Typography.display,
     marginTop: Spacing.three,
     color: Palette.white,
     fontFamily: Fonts.display,
-    fontSize: 30,
-    fontWeight: '800',
     textAlign: 'center',
   },
   permissionCopy: {
+    ...Typography.body,
     marginTop: Spacing.two,
     color: Palette.blueMist,
     fontFamily: Fonts.sans,
-    fontSize: 14,
-    lineHeight: 21,
     textAlign: 'center',
   },
   permissionButton: {
@@ -878,21 +915,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   permissionButtonText: {
+    ...Typography.body,
     color: Palette.blueDeep,
     fontFamily: Fonts.sans,
-    fontSize: 14,
     fontWeight: '800',
   },
   permissionError: {
+    ...Typography.caption,
     marginTop: Spacing.two,
     color: Palette.brass,
     fontFamily: Fonts.sans,
-    fontSize: 12,
     textAlign: 'center',
   },
   screen: {
     flex: 1,
     backgroundColor: Palette.black,
+  },
+  screenLandscape: {
+    flexDirection: 'row',
   },
   viewfinder: {
     flex: 1,
@@ -925,11 +965,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8, 17, 22, 0.54)',
   },
   referenceStatusText: {
+    ...Typography.caption,
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 9,
     fontWeight: '900',
-    letterSpacing: 0.55,
+    letterSpacing: 0.4,
+    textAlign: 'center',
   },
   overlayGesture: {
     position: 'absolute',
@@ -989,19 +1030,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: Spacing.two,
     bottom: Spacing.two,
-    minHeight: 24,
-    paddingHorizontal: 8,
+    minHeight: 28,
+    paddingHorizontal: Spacing.two,
     borderRadius: Radius.pill,
     backgroundColor: 'rgba(8, 17, 22, 0.72)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   formatBadgeText: {
+    ...Typography.caption,
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 8,
     fontWeight: '900',
-    letterSpacing: 0.45,
+    letterSpacing: 0.4,
   },
   topBar: {
     position: 'absolute',
@@ -1020,13 +1061,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modePill: {
-    minHeight: 30,
+    minHeight: 34,
     paddingHorizontal: Spacing.twoHalf,
     borderRadius: Radius.pill,
     backgroundColor: 'rgba(8, 17, 22, 0.72)',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: Spacing.one,
   },
   modeDot: {
     width: 7,
@@ -1034,19 +1075,18 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   modeText: {
+    ...Typography.caption,
     color: Palette.white,
     fontFamily: Fonts.mono,
     fontWeight: '800',
-    fontSize: 9,
-    letterSpacing: 0.45,
+    letterSpacing: 0.4,
   },
   qualityCard: {
     position: 'absolute',
-    left: Spacing.three,
     right: Spacing.three,
-    bottom: Spacing.three,
-    minHeight: 72,
+    minHeight: 88,
     paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
     borderRadius: Radius.medium,
     backgroundColor: 'rgba(8, 17, 22, 0.78)',
     flexDirection: 'row',
@@ -1057,17 +1097,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
   },
   qualityLabel: {
+    ...Typography.caption,
     color: Palette.blueMist,
     fontFamily: Fonts.mono,
-    fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   qualityInstruction: {
-    marginTop: 3,
+    ...Typography.body,
+    marginTop: 2,
     color: Palette.white,
     fontFamily: Fonts.sans,
-    fontSize: 12,
     fontWeight: '700',
   },
   level: {
@@ -1103,28 +1143,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   controlPanel: {
+    backgroundColor: Palette.black,
+  },
+  controlPanelLandscape: {
+    width: CONTROL_PANEL_LANDSCAPE_WIDTH,
+  },
+  controlPanelContent: {
     paddingTop: Spacing.three,
     paddingHorizontal: Spacing.three,
-    backgroundColor: Palette.black,
+    paddingBottom: Spacing.three,
+    gap: Spacing.three,
   },
   controlHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  controlKicker: {
-    color: Palette.brass,
-    fontFamily: Fonts.mono,
-    fontWeight: '800',
-    fontSize: 9,
-    letterSpacing: 0.6,
-  },
   controlTitle: {
-    marginTop: 3,
+    ...Typography.title,
     color: Palette.white,
     fontFamily: Fonts.display,
-    fontWeight: '800',
-    fontSize: 21,
   },
   edgeButton: {
     minHeight: 36,
@@ -1141,16 +1179,16 @@ const styles = StyleSheet.create({
     borderColor: Palette.brass,
   },
   edgeLabel: {
+    ...Typography.caption,
     color: Palette.white,
     fontFamily: Fonts.sans,
-    fontSize: 11,
     fontWeight: '700',
   },
   edgeLabelActive: {
     color: Palette.blueDeep,
   },
   sliderRow: {
-    height: 44,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
@@ -1159,22 +1197,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   opacityValue: {
-    width: 36,
+    width: 42,
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 10,
+    fontSize: Typography.caption.fontSize,
     fontWeight: '700',
     textAlign: 'right',
   },
   zoomRow: {
     minHeight: 50,
     paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
     borderRadius: Radius.medium,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Palette.inkSoft,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
+  },
+  zoomRowLandscape: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   lensPicker: {
     flexDirection: 'row',
@@ -1198,15 +1241,15 @@ const styles = StyleSheet.create({
   lensChipText: {
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 12,
+    fontSize: Typography.caption.fontSize,
     fontWeight: '800',
   },
   lensChipTextActive: {
     color: Palette.blueDeep,
   },
   zoomReset: {
-    width: 38,
-    height: 32,
+    width: 42,
+    height: 36,
     borderRadius: Radius.pill,
     borderWidth: 1,
     borderColor: Palette.inkSoft,
@@ -1220,7 +1263,7 @@ const styles = StyleSheet.create({
   zoomResetText: {
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 10,
+    fontSize: Typography.caption.fontSize,
     fontWeight: '900',
   },
   zoomResetTextActive: {
@@ -1230,7 +1273,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   zoomLabelRow: {
-    marginTop: 5,
+    marginTop: 4,
     paddingHorizontal: 4,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1239,14 +1282,14 @@ const styles = StyleSheet.create({
   zoomLabel: {
     color: Palette.blueMist,
     fontFamily: Fonts.mono,
-    fontSize: 8,
+    fontSize: Typography.caption.fontSize,
     fontWeight: '900',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   zoomValue: {
     color: Palette.brass,
     fontFamily: Fonts.mono,
-    fontSize: 8,
+    fontSize: Typography.caption.fontSize,
     fontWeight: '900',
   },
   zoomSlider: {
@@ -1290,11 +1333,10 @@ const styles = StyleSheet.create({
     opacity: 0.48,
   },
   captureHint: {
-    minHeight: 30,
+    ...Typography.body,
+    minHeight: 44,
     color: Palette.blueMist,
     fontFamily: Fonts.sans,
-    fontSize: 10,
-    lineHeight: 14,
     textAlign: 'center',
   },
   pressed: {

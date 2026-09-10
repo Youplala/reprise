@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BeforeAfterSlider } from '@/components/before-after-slider';
 import { PrimaryButton } from '@/components/primary-button';
 import { SIMULATED_CAMERA_IMAGE } from '@/constants/demo';
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Spacing, Typography } from '@/constants/theme';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import {
@@ -168,113 +168,116 @@ export function ReviewScreen() {
         scrollEnabled={!comparisonActive}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}>
-        <View style={styles.scoreRow}>
-          <View>
-            <Text style={styles.kicker}>{isSimulated ? 'APERÇU SIMULATEUR' : 'PHOTO TERMINÉE'}</Text>
-            <Text style={styles.title}>Le même lieu,{'\n'}deux époques.</Text>
-          </View>
-          {hasTilt ? (
-            <View style={styles.score}>
-              <SymbolView
-                name={isUpright ? 'checkmark.circle.fill' : 'exclamationmark.triangle.fill'}
-                size={22}
-                tintColor={isUpright ? Palette.lichen : Palette.brass}
-              />
-              <Text style={styles.scoreLabel}>
-                {isUpright ? 'APPAREIL DROIT' : `${Math.abs(rollDegrees).toFixed(0)}° PENCHÉ`}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
+        {/* La comparaison est le sujet de l'écran : elle occupe toute la largeur, sans marge,
+            juste sous l'en-tête. Tout ce qui suit n'est que légende. */}
         {referenceImage && currentImage ? (
           <BeforeAfterSlider
             before={referenceImage}
             after={currentImage}
             beforeLabel={String(detail?.year ?? 1970)}
             afterLabel={isSimulated ? 'DÉMO' : '2026'}
+            borderRadius={0}
             onInteractionChange={setComparisonActive}
-            style={styles.comparison}
           />
         ) : null}
 
-        {isSimulated ? (
-          <View style={styles.simulatorNote}>
-            <SymbolView name="iphone.gen3" size={20} tintColor={Palette.parisBlue} />
-            <Text style={styles.simulatorText}>
+        <View style={styles.body}>
+          <Text style={styles.kicker}>{isSimulated ? 'APERÇU SIMULATEUR' : 'PHOTO TERMINÉE'}</Text>
+          <Text style={styles.title}>Le même lieu,{'\n'}deux époques.</Text>
+          {hasTilt ? (
+            <View style={styles.tiltRow}>
+              <SymbolView
+                name={isUpright ? 'checkmark.circle.fill' : 'exclamationmark.triangle.fill'}
+                size={15}
+                tintColor={isUpright ? Palette.lichen : Palette.brass}
+              />
+              <Text style={styles.tiltText}>
+                {isUpright
+                  ? 'Appareil droit à la prise de vue'
+                  : `Appareil penché de ${Math.abs(rollDegrees).toFixed(0)}°, un nouvel essai est conseillé`}
+              </Text>
+            </View>
+          ) : null}
+
+          {isSimulated ? (
+            <Text style={styles.noteText}>
               Cette comparaison utilise une scène parisienne de démonstration. Sur un iPhone, la
               moitié droite affichera la photo réellement prise.
             </Text>
-          </View>
-        ) : null}
+          ) : null}
 
-        <View style={styles.publishNote}>
-          <View style={styles.publishIcon}>
-            <SymbolView name="arrow.up.right.circle.fill" size={22} tintColor={Palette.parisBlue} />
-          </View>
-          <View style={styles.publishCopy}>
-            <Text style={styles.publishTitle}>Comment votre photo rejoint la carte</Text>
-            <Text style={styles.publishText}>
-              {saved && inLibrary
-                ? 'Votre photo est enregistrée dans Photos (Récents). Le formulaire officiel peut maintenant être préparé sans ressaisir la date ni la position.'
-                : 'Paris GO prépare le formulaire officiel, les deux images et les informations du point de vue. Vous gardez la main sur le règlement et l’envoi final.'}
-            </Text>
-          </View>
-        </View>
+          <Text style={styles.noteText}>
+            {saved && inLibrary
+              ? 'Votre photo est enregistrée dans Photos (Récents). Le formulaire officiel peut maintenant être préparé sans ressaisir la date ni la position.'
+              : 'Paris GO prépare le formulaire officiel, les deux images et les informations du point de vue. Vous gardez la main sur le règlement et l’envoi final.'}
+          </Text>
 
-        <View style={styles.checklist}>
-          <Text style={styles.checklistKicker}>CONTRÔLE AVANT DÉPÔT</Text>
-          {[
-            ...reviewStatusRows.map(({ icon, title, copy }) => [icon, title, copy] as const),
-            [
-              !hasTilt || isUpright ? 'checkmark.circle.fill' : 'exclamationmark.circle.fill',
-              'Tenue de l’appareil',
-              !hasTilt
-                ? 'Non mesurée'
-                : isUpright
-                  ? 'Appareil droit à la prise de vue'
-                  : 'L’appareil penchait, un nouvel essai est conseillé',
-            ],
-          ].map(([icon, title, copy]) => (
-            <View key={title} style={styles.checkRow}>
-              <SymbolView
-                name={icon as 'checkmark.circle.fill'}
-                size={21}
-                tintColor={
-                  icon.startsWith('check')
-                    ? Palette.lichen
-                    : icon.startsWith('info')
-                      ? Palette.parisBlue
-                      : Palette.copper
-                }
-              />
-              <View style={styles.checkCopy}>
-                <Text style={styles.checkTitle}>{title}</Text>
-                <Text style={styles.checkText}>{copy}</Text>
+          <View style={styles.checklist}>
+            <Text style={styles.checklistKicker}>CONTRÔLE AVANT DÉPÔT</Text>
+            {[
+              ...reviewStatusRows.map(({ icon, title, copy }) => [icon, title, copy] as const),
+              [
+                !hasTilt || isUpright ? 'checkmark.circle.fill' : 'exclamationmark.circle.fill',
+                'Tenue de l’appareil',
+                !hasTilt
+                  ? 'Non mesurée'
+                  : isUpright
+                    ? 'Appareil droit à la prise de vue'
+                    : 'L’appareil penchait, un nouvel essai est conseillé',
+              ],
+            ].map(([icon, title, copy]) => (
+              <View key={title} style={styles.checkRow}>
+                <SymbolView
+                  name={icon as 'checkmark.circle.fill'}
+                  size={21}
+                  tintColor={
+                    icon.startsWith('check')
+                      ? Palette.lichen
+                      : icon.startsWith('info')
+                        ? Palette.parisBlue
+                        : Palette.copper
+                  }
+                />
+                <View style={styles.checkCopy}>
+                  <Text style={styles.checkTitle}>{title}</Text>
+                  <Text style={styles.checkText}>{copy}</Text>
+                </View>
               </View>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
 
-        <PrimaryButton
-          label={saved ? (inLibrary ? 'Enregistrée dans vos photos' : 'Ajoutée au carnet') : 'Enregistrer ma photo'}
-          icon={saved ? 'checkmark' : 'bookmark'}
-          loading={saving}
-          disabled={saved}
-          onPress={save}
-        />
-        {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}
-        <PrimaryButton
-          label="Préparer le dépôt officiel"
-          icon="lock.shield"
-          variant="outline"
-          onPress={openObservatoire}
-          style={styles.secondaryButton}
-        />
-        <Pressable onPress={() => router.replace('/collective')} style={styles.collectiveLink}>
-          <Text style={styles.collectiveText}>Voir les photos de la communauté</Text>
-          <SymbolView name="person.2.fill" size={16} tintColor={Palette.parisBlue} />
-        </Pressable>
+          <PrimaryButton
+            label={saved ? (inLibrary ? 'Enregistrée dans vos photos' : 'Ajoutée au carnet') : 'Enregistrer ma photo'}
+            icon={saved ? 'checkmark' : 'bookmark'}
+            loading={saving}
+            disabled={saved}
+            onPress={save}
+          />
+          {/* Le bouton seul ne suffisait pas à faire comprendre que l'enregistrement avait eu lieu :
+              cette ligne confirme l'action à l'endroit même où l'utilisateur vient de taper. */}
+          {saved ? (
+            <View style={styles.saveConfirmation}>
+              <SymbolView name="checkmark.circle.fill" size={16} tintColor={Palette.lichen} />
+              <Text style={styles.saveConfirmationText}>
+                {inLibrary
+                  ? 'Photo enregistrée. Vous pouvez préparer le dépôt officiel.'
+                  : 'Photo ajoutée au carnet de cette session.'}
+              </Text>
+            </View>
+          ) : null}
+          {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}
+          <PrimaryButton
+            label="Préparer le dépôt officiel"
+            icon="lock.shield"
+            variant="outline"
+            onPress={openObservatoire}
+            style={styles.secondaryButton}
+          />
+          <Pressable onPress={() => router.replace('/collective')} style={styles.collectiveLink}>
+            <Text style={styles.collectiveText}>Voir les photos de la communauté</Text>
+            <SymbolView name="person.2.fill" size={16} tintColor={Palette.parisBlue} />
+          </Pressable>
+        </View>
       </ScrollView>
     </View>
   );
@@ -303,131 +306,66 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
+    ...Typography.caption,
     color: Palette.ink,
     fontFamily: Fonts.mono,
-    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   content: {
-    padding: Spacing.three,
     paddingBottom: Spacing.five,
   },
-  scoreRow: {
-    marginTop: Spacing.two,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+  // Tout ce qui suit la comparaison vit dans cette colonne : la photo, elle, va bord à bord.
+  body: {
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.four,
   },
   kicker: {
+    ...Typography.caption,
     color: Palette.copper,
     fontFamily: Fonts.mono,
     fontWeight: '900',
-    fontSize: 10,
-    letterSpacing: 0.7,
+    letterSpacing: 0.6,
   },
+  // Titre de l'écran : un seul niveau « display » par vue, jamais combiné à « title ».
   title: {
+    ...Typography.display,
     marginTop: Spacing.two,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 39,
-    lineHeight: 40,
-    fontWeight: '800',
-    letterSpacing: -0.7,
   },
-  score: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: Palette.brass,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scoreNumber: {
-    color: Palette.blueDeep,
-    fontFamily: Fonts.display,
-    fontSize: 30,
-    lineHeight: 31,
-    fontWeight: '900',
-  },
-  scoreLabel: {
-    color: Palette.blueDeep,
-    fontFamily: Fonts.mono,
-    fontSize: 7,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  comparison: {
-    marginTop: Spacing.four,
-  },
-  simulatorNote: {
-    marginTop: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Radius.medium,
-    backgroundColor: Palette.blueMist,
+  tiltRow: {
+    marginTop: Spacing.two,
     flexDirection: 'row',
-    gap: Spacing.three,
-  },
-  publishNote: {
-    marginTop: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Radius.medium,
-    backgroundColor: Palette.white,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Palette.line,
-    flexDirection: 'row',
-    gap: Spacing.twoHalf,
-  },
-  publishIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Palette.blueMist,
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: Spacing.one,
   },
-  publishCopy: {
-    flex: 1,
-  },
-  publishTitle: {
-    color: Palette.ink,
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  publishText: {
-    marginTop: 3,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  simulatorText: {
+  tiltText: {
+    ...Typography.caption,
     flex: 1,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 12,
-    lineHeight: 18,
+  },
+  noteText: {
+    ...Typography.body,
+    marginTop: Spacing.three,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
   },
   checklist: {
-    marginVertical: Spacing.four,
-    padding: Spacing.three,
-    borderRadius: Radius.large,
-    backgroundColor: Palette.white,
+    marginTop: Spacing.four,
+    marginBottom: Spacing.four,
+    gap: Spacing.twoHalf,
   },
   checklistKicker: {
+    ...Typography.caption,
     color: Palette.inkSoft,
     fontFamily: Fonts.mono,
     fontWeight: '800',
-    fontSize: 9,
-    letterSpacing: 0.6,
-    marginBottom: Spacing.two,
+    letterSpacing: 0.5,
   },
   checkRow: {
-    paddingVertical: Spacing.twoHalf,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Palette.line,
     flexDirection: 'row',
     gap: Spacing.three,
   },
@@ -435,46 +373,51 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   checkTitle: {
+    ...Typography.body,
     color: Palette.ink,
     fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   checkText: {
-    marginTop: 2,
+    ...Typography.body,
+    marginTop: Spacing.half,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 11,
   },
   secondaryButton: {
     marginTop: Spacing.two,
   },
-  saveError: {
+  saveConfirmation: {
     marginTop: Spacing.two,
-    color: Palette.copper,
-    fontFamily: Fonts.sans,
-    fontSize: 12,
-    lineHeight: 17,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
   },
-  publishError: {
+  saveConfirmationText: {
+    ...Typography.body,
+    color: Palette.lichen,
+    fontFamily: Fonts.sans,
+    fontWeight: '700',
+  },
+  saveError: {
+    ...Typography.body,
     marginTop: Spacing.two,
     color: Palette.copper,
     fontFamily: Fonts.sans,
-    fontSize: 12,
-    lineHeight: 17,
   },
   collectiveLink: {
     minHeight: 50,
-    marginTop: Spacing.two,
+    marginTop: Spacing.four,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.two,
   },
   collectiveText: {
+    ...Typography.body,
     color: Palette.parisBlue,
     fontFamily: Fonts.sans,
-    fontSize: 13,
     fontWeight: '700',
   },
   pressed: {

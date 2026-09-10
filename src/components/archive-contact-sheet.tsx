@@ -2,7 +2,7 @@ import type { ImageSource } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
 import { AdaptivePhoto } from '@/components/adaptive-photo';
-import { Palette } from '@/constants/theme';
+import { Palette, Spacing } from '@/constants/theme';
 
 type ArchiveContactSheetProps = {
   images: readonly ImageSource[];
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
   sheet: {
     flex: 1,
     flexDirection: 'row',
-    gap: 2,
+    gap: Spacing.half,
     backgroundColor: Palette.blueDeep,
   },
   lead: {
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   },
   column: {
     flex: 1,
-    gap: 2,
+    gap: Spacing.half,
   },
   secondary: {
     flex: 1,

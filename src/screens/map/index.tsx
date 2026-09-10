@@ -8,7 +8,6 @@ import {
   FlatList,
   Keyboard,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -21,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AdaptivePhoto } from '@/components/adaptive-photo';
 import { ArchiveContactSheet } from '@/components/archive-contact-sheet';
 import { GlassSurface } from '@/components/glass-surface';
-import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
@@ -31,6 +30,7 @@ import { useFeaturedMission, useStations } from '@/providers/stations-provider';
 import type { StationSummary } from '@/types/station';
 import { distanceInMeters, formatDistance } from '@/utils/distance';
 import { retainExplicitMapSelection } from '@/utils/map-selection';
+import { cellPlaceName, nearestArrondissement } from '@/utils/place-name';
 import {
   mappingStatus,
   stationMatchesFilter,
@@ -47,14 +47,20 @@ const INITIAL_REGION: Region = {
 };
 
 const POINT_ZOOM_THRESHOLD = 0.047;
+// Largeur de la zone de fondu, de part et d'autre du seuil : sous l'ancien seuil unique, la
+// carte basculait des carrés aux points d'un coup de zoom à l'autre. Dans cette bande, les deux
+// représentations se superposent avec une opacité proportionnelle à l'avancement du zoom.
+const GRID_FADE_BUFFER = 0.014;
 const FOCUSED_CELL_ZOOM_PADDING = 2.6;
 const MAP_BOTTOM_OVERLAY_OFFSET = 110;
-const MAP_TOP_CONTROLS_HEIGHT = 50 + 36 + 54 + Spacing.two * 2;
+// Barre de recherche + rangée de filtres. Le pourcentage global vit désormais dans la barre de
+// recherche : il n'ajoute plus de hauteur à réserver au-dessus de la carte.
+const MAP_TOP_CONTROLS_HEIGHT = 50 + 36 + Spacing.two;
+// Les photos de 2022 sont des points de vue qui restent à reprendre : elles rejoignent
+// « à retrouver » plutôt que d'occuper un filtre à part.
 const FILTERS: { value: MapFilter; label: string }[] = [
-  { value: 'all', label: 'Tout' },
   { value: 'to-reprise', label: 'À retrouver' },
   { value: 'published-reprise', label: 'Photos refaites' },
-  { value: 'collection-2022', label: 'Photos de 2022' },
 ];
 
 function pinColor(station: StationSummary) {
@@ -76,33 +82,24 @@ function pinLabel(station: StationSummary) {
   return 'PHOTO À REFAIRE';
 }
 
+// Une photo de 2022 est, comme une vue de 1970 non refaite, un point de vue qui reste à
+// reprendre : les deux comptent pour « à retrouver ».
+function cellRemainingCount(cell: CoverageCell) {
+  return cell.remaining1970 + cell.collection2022;
+}
+
 function cellHasFilter(cell: CoverageCell, filter: MapFilter) {
-  if (filter === 'to-reprise') return cell.remaining1970 > 0;
-  if (filter === 'published-reprise') return cell.published1970 > 0;
-  if (filter === 'collection-2022') return cell.collection2022 > 0;
-  return cell.total1970 + cell.collection2022 > 0;
+  if (filter === 'to-reprise') return cellRemainingCount(cell) > 0;
+  return cell.published1970 > 0;
 }
 
 function cellFill(cell: CoverageCell, filter: MapFilter) {
   if (!cellHasFilter(cell, filter)) return 'rgba(22, 63, 91, 0.025)';
 
   if (filter === 'to-reprise') {
-    return `rgba(185, 95, 62, ${Math.min(0.68, 0.2 + cell.remaining1970 * 0.025)})`;
+    return `rgba(185, 95, 62, ${Math.min(0.68, 0.2 + cellRemainingCount(cell) * 0.025)})`;
   }
-  if (filter === 'published-reprise') {
-    return `rgba(112, 137, 124, ${Math.min(0.78, 0.2 + cell.published1970 * 0.03)})`;
-  }
-  if (filter === 'collection-2022') {
-    return `rgba(22, 63, 91, ${Math.min(0.76, 0.2 + cell.collection2022 * 0.05)})`;
-  }
-
-  if (!cell.total1970) return 'rgba(22, 63, 91, 0.08)';
-  if (cell.percentage === 0) return 'rgba(185, 95, 62, 0.26)';
-  if (cell.percentage < 25) return 'rgba(185, 95, 62, 0.48)';
-  if (cell.percentage < 50) return 'rgba(240, 182, 66, 0.48)';
-  if (cell.percentage < 75) return 'rgba(112, 137, 124, 0.48)';
-  if (cell.percentage < 100) return 'rgba(112, 137, 124, 0.66)';
-  return 'rgba(22, 63, 91, 0.78)';
+  return `rgba(112, 137, 124, ${Math.min(0.78, 0.2 + cell.published1970 * 0.03)})`;
 }
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`) {
@@ -116,51 +113,24 @@ function remainingLabel(count: number) {
 }
 
 function selectionTitle(cell: CoverageCell, filter: MapFilter) {
-  if (filter === 'to-reprise') return remainingLabel(cell.remaining1970);
-  if (filter === 'published-reprise') {
-    return `${plural(cell.published1970, 'photo')} ${cell.published1970 > 1 ? 'refaites' : 'refaite'}`;
-  }
-  if (filter === 'collection-2022') {
-    return plural(cell.collection2022, 'photo');
-  }
-  return cell.remaining1970 === 0 && cell.total1970 > 0
-    ? 'Secteur complété'
-    : `${cell.percentage}% cartographié`;
-}
-
-function selectionAction(filter: MapFilter) {
-  if (filter === 'to-reprise') return 'Voir les photos';
-  if (filter === 'published-reprise') return 'Voir les photos';
-  if (filter === 'collection-2022') return 'Voir les photos';
-  return 'Explorer';
+  if (filter === 'to-reprise') return remainingLabel(cellRemainingCount(cell));
+  return `${plural(cell.published1970, 'photo')} ${cell.published1970 > 1 ? 'refaites' : 'refaite'}`;
 }
 
 function emptySearchTitle(filter: MapFilter) {
-  if (filter === 'to-reprise') return 'Aucune photo à retrouver ici';
-  if (filter === 'published-reprise') return 'Aucune photo refaite ici';
-  if (filter === 'collection-2022') return 'Aucune photo de 2022 ici';
-  return 'Aucun résultat sur la carte';
+  return filter === 'to-reprise' ? 'Aucune photo à retrouver ici' : 'Aucune photo refaite ici';
 }
 
 function emptySearchCopy(filter: MapFilter, query: string) {
   if (filter === 'to-reprise') {
     return `« ${query} » ne contient plus de mission ouverte. Consultez les photos refaites pour voir le résultat.`;
   }
-  if (filter === 'published-reprise') {
-    return `Aucune photo refaite ne correspond à « ${query} ». Essayez le filtre À retrouver.`;
-  }
-  if (filter === 'collection-2022') {
-    return `Aucune photo de 2022 ne correspond à « ${query} ».`;
-  }
-  return `Aucun repère ne correspond à « ${query} ». Modifiez la recherche ou déplacez la carte.`;
+  return `Aucune photo refaite ne correspond à « ${query} ». Essayez le filtre À retrouver.`;
 }
 
-function focusedCellColors(cell: CoverageCell, filter: MapFilter) {
-  if (filter === 'published-reprise' || (filter === 'all' && cell.remaining1970 === 0)) {
+function focusedCellColors(filter: MapFilter) {
+  if (filter === 'published-reprise') {
     return { fill: 'rgba(112, 137, 124, 0.2)', stroke: Palette.lichen };
-  }
-  if (filter === 'collection-2022') {
-    return { fill: 'rgba(22, 63, 91, 0.16)', stroke: Palette.parisBlue };
   }
   return { fill: 'rgba(185, 95, 62, 0.14)', stroke: Palette.copper };
 }
@@ -176,6 +146,14 @@ function stationIsInCell(station: StationSummary, cell: CoverageCell) {
     station.coordinate.longitude >= west &&
     station.coordinate.longitude <= east
   );
+}
+
+/** Assombrit ou éclaircit une couleur `rgba(...)` sans changer sa teinte, pour le fondu au zoom. */
+function scaleAlpha(rgba: string, factor: number) {
+  const match = rgba.match(/^rgba\(([^)]+)\)$/);
+  if (!match) return rgba;
+  const [r, g, b, a = '1'] = match[1].split(',').map((part) => part.trim());
+  return `rgba(${r}, ${g}, ${b}, ${Number(a) * factor})`;
 }
 
 function normalizeSearchValue(value: string) {
@@ -211,7 +189,6 @@ function searchStationScore(station: StationSummary, query: string) {
 
 function MapPhotoPreview({
   station,
-  cell,
   index,
   total,
   width,
@@ -220,7 +197,6 @@ function MapPhotoPreview({
   onOpen,
 }: {
   station: StationSummary;
-  cell?: CoverageCell;
   index: number;
   total: number;
   width: number;
@@ -238,21 +214,11 @@ function MapPhotoPreview({
   // `??` ne se replie que sur null/undefined : un tableau d'images vide donnait `0` et
   // l'encart annonçait « 0 VUE » pour un carré qui en contient plusieurs.
   const frameCount = detail?.images.length || station.frameCount || 1;
-  const remainingCount = cell?.remaining1970 ?? frameCount;
-  const publishedCount = cell?.published1970 ?? 0;
-  const archiveKicker =
-    publishedCount > 0
-      ? `${plural(remainingCount, 'PHOTO', 'PHOTOS')} À RETROUVER · ${plural(publishedCount, 'PHOTO', 'PHOTOS')} REFAITE${publishedCount > 1 ? 'S' : ''}`
-      : `${plural(remainingCount, 'PHOTO', 'PHOTOS')} À RETROUVER`;
 
   return (
     <Pressable
       accessibilityHint="Ouvre la photographie en grand et permet de contribuer"
-      accessibilityLabel={
-        isArchiveSector
-          ? `Explorer le secteur ${station.name}, ${remainingLabel(remainingCount)}`
-          : `Ouvrir ${station.name}, ${pinLabel(station)}`
-      }
+      accessibilityLabel={`${isArchiveSector ? 'Explorer' : 'Ouvrir'} ${station.name}, ${pinLabel(station)}`}
       accessibilityRole="button"
       onPress={onOpen}
       style={({ pressed }) => [
@@ -315,9 +281,7 @@ function MapPhotoPreview({
       </View>
 
       <View style={styles.photoPreviewBody}>
-        <Text style={styles.photoPreviewKicker}>
-          {isArchiveSector ? archiveKicker : pinLabel(station)}
-        </Text>
+        <Text style={styles.photoPreviewKicker}>{pinLabel(station)}</Text>
         <Text style={styles.photoPreviewTitle} numberOfLines={2}>
           {isArchiveSector ? 'Choisir une photo' : station.name}
         </Text>
@@ -350,10 +314,15 @@ export function MapScreen() {
   const handledFocusRequest = useRef<string | undefined>(undefined);
   const { stations, coverage, grid } = useStations();
   const featuredMission = useFeaturedMission();
-  const { coordinate, isPrecise, loading, locate } = useUserLocation();
+  // La position s'affiche par défaut dès qu'elle est disponible, sans attendre un appui sur le
+  // bouton de localisation — `autoLocate` respecte la préférence « manuel » déjà proposée ailleurs
+  // dans l'app.
+  const { coordinate, isPrecise, loading, locate } = useUserLocation({ autoLocate: true });
   const [query, setQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
-  const [filter, setFilter] = useState<MapFilter>('all');
+  // Les photos déjà refaites intéressent moins que celles qui restent à retrouver : c'est ce
+  // filtre qui ouvre la carte, à une bascule de la vue « Photos refaites ».
+  const [filter, setFilter] = useState<MapFilter>('to-reprise');
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
   const [selected, setSelected] = useState<StationSummary | undefined>();
   const [selectedCell, setSelectedCell] = useState<CoverageCell>();
@@ -372,9 +341,9 @@ export function MapScreen() {
   }>();
   const carouselCardWidth = screenWidth - Spacing.three * 2;
   const carouselStep = carouselCardWidth + Spacing.two;
-  const previewCardHeight = Math.min(380, Math.max(300, screenHeight * 0.42));
-
-
+  // Le carrousel couvrait plus de la moitié de la carte et empêchait de zoomer ou de naviguer
+  // dessous : sa hauteur est nettement réduite par rapport à l'ancien 300-380.
+  const previewCardHeight = Math.min(220, Math.max(190, screenHeight * 0.24));
 
   // Dessiner toutes les mailles importées, y compris hors écran, sature le rendu de la carte :
   // on ne garde que celles qui recoupent la vue,
@@ -392,6 +361,22 @@ export function MapScreen() {
   const normalizedQuery = normalizeSearchValue(query);
   const showIndividualPoints =
     Boolean(normalizedQuery) || region.latitudeDelta <= POINT_ZOOM_THRESHOLD;
+  // Fondu continu entre les deux représentations : 0 = uniquement les carrés, 1 = uniquement les
+  // points. Calculé sur le même seuil que `showIndividualPoints`, dans une bande symétrique
+  // autour de lui, pour que la bascule ne soit plus un couperet.
+  const pointsBlend = Math.min(
+    1,
+    Math.max(
+      0,
+      (POINT_ZOOM_THRESHOLD + GRID_FADE_BUFFER - region.latitudeDelta) / (2 * GRID_FADE_BUFFER),
+    ),
+  );
+  // Les carrés de 1970 n'ont pas d'arrondissement propre : on le retrouve via le repère localisé
+  // le plus proche (reprise publiée ou photo de 2022), qui lui en connaît un.
+  const locatedStations = useMemo(
+    () => stations.filter((station) => Boolean(station.arrondissement)),
+    [stations],
+  );
 
   const statusFilteredStations = useMemo(
     () => stations.filter((station) => stationMatchesFilter(station, filter)),
@@ -480,11 +465,7 @@ export function MapScreen() {
     currentSelection;
 
   const focusedArchiveStations = useMemo(() => {
-    if (
-      !focusedCell ||
-      focusedCell.remaining1970 === 0 ||
-      (filter !== 'all' && filter !== 'to-reprise')
-    ) {
+    if (!focusedCell || focusedCell.remaining1970 === 0 || filter !== 'to-reprise') {
       return [];
     }
     return stations
@@ -504,7 +485,7 @@ export function MapScreen() {
     if (!showIndividualPoints) return [];
     if (searchFocused) return [];
     if (normalizedQuery && !focusedCell) return [];
-    if (filter !== 'all' && filter !== 'to-reprise') return [];
+    if (filter !== 'to-reprise') return [];
     if (focusedCell) return [];
 
     const latitudeRadius = region.latitudeDelta * 0.62;
@@ -655,7 +636,9 @@ export function MapScreen() {
 
     handledFocusRequest.current = requestKey;
     const frame = requestAnimationFrame(() => {
-      setFilter('all');
+      // Sans statut dédié pour rendre la station visible quel que soit son état, on choisit le
+      // filtre qui la contient réellement plutôt qu'un « Tout » qui n'existe plus.
+      setFilter(mappingStatus(requestedStation) === 'published-reprise' ? 'published-reprise' : 'to-reprise');
       handleChooseSearchResult(requestedStation);
     });
     return () => cancelAnimationFrame(frame);
@@ -678,14 +661,7 @@ export function MapScreen() {
     const exactStations = filteredStations.filter(
       (station) => !station.approximate && stationIsInCell(station, cell),
     );
-    const preferredStatus =
-      filter === 'published-reprise'
-        ? 'published-reprise'
-        : filter === 'collection-2022'
-          ? 'collection-2022'
-          : filter === 'all' && cell.remaining1970 === 0
-            ? 'published-reprise'
-            : undefined;
+    const preferredStatus = filter === 'published-reprise' ? 'published-reprise' : undefined;
     const nextSelected =
       exactStations.find(
         (station) => preferredStatus && mappingStatus(station) === preferredStatus,
@@ -758,12 +734,12 @@ export function MapScreen() {
         rotateEnabled={showIndividualPoints}
         onPanDrag={() => setUserMovedMap(true)}
         onRegionChangeComplete={handleRegionChangeComplete}>
-        {!showIndividualPoints
+        {pointsBlend < 1
           ? visibleGrid.map((cell) => (
               <Polygon
                 key={cell.id}
                 coordinates={cell.coordinates}
-                fillColor={cellFill(cell, filter)}
+                fillColor={scaleAlpha(cellFill(cell, filter), 1 - pointsBlend)}
                 strokeColor={
                   selectedCell?.id === cell.id
                     ? Palette.white
@@ -787,8 +763,8 @@ export function MapScreen() {
         {showIndividualPoints && focusedCell ? (
           <Polygon
             coordinates={focusedCell.coordinates}
-            fillColor={focusedCellColors(focusedCell, filter).fill}
-            strokeColor={focusedCellColors(focusedCell, filter).stroke}
+            fillColor={focusedCellColors(filter).fill}
+            strokeColor={focusedCellColors(filter).stroke}
             strokeWidth={2.4}
           />
         ) : null}
@@ -812,13 +788,13 @@ export function MapScreen() {
             ))
           : null}
 
-        {showIndividualPoints
+        {pointsBlend > 0
           ? visibleStations.map((station) => (
               <Marker
                 key={station.id}
                 coordinate={station.coordinate}
                 pinColor={pinColor(station)}
-                opacity={isExploringArchiveCell ? 0.48 : 0.9}
+                opacity={(isExploringArchiveCell ? 0.48 : 0.9) * pointsBlend}
                 zIndex={
                   activeSelected.id === station.id && !isExploringArchiveCell
                     ? 50
@@ -863,34 +839,49 @@ export function MapScreen() {
       <View
         pointerEvents="box-none"
         style={[styles.topOverlay, { top: topOffset }]}>
-        <View style={styles.searchBar}>
-          <GlassSurface variant="clear" />
-          <SymbolView name="magnifyingglass" size={18} tintColor={Palette.inkSoft} />
-          <TextInput
-            value={query}
-            onChangeText={(nextQuery) => {
-              setQuery(nextQuery);
-              setSelected(undefined);
-              setSelectedCell(undefined);
-              setFocusedCell(undefined);
-            }}
-            onFocus={() => setSearchFocused(true)}
-            onSubmitEditing={() => {
-              const firstResult = searchSuggestions[0]?.station;
-              if (firstResult) handleChooseSearchResult(firstResult);
-            }}
-            placeholder="Une rue, un quartier, un arrondissement"
-            placeholderTextColor={Palette.inkSoft}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            style={styles.searchInput}
-          />
-          {query ? (
-            <Pressable onPress={() => setQuery('')} style={styles.clearButton}>
-              <SymbolView name="xmark.circle.fill" size={18} tintColor={Palette.inkSoft} />
-            </Pressable>
-          ) : null}
+        <View style={styles.searchRow}>
+          <View style={styles.searchBar}>
+            <GlassSurface variant="clear" />
+            <SymbolView name="magnifyingglass" size={18} tintColor={Palette.inkSoft} />
+            <TextInput
+              value={query}
+              onChangeText={(nextQuery) => {
+                setQuery(nextQuery);
+                setSelected(undefined);
+                setSelectedCell(undefined);
+                setFocusedCell(undefined);
+              }}
+              onFocus={() => setSearchFocused(true)}
+              onSubmitEditing={() => {
+                const firstResult = searchSuggestions[0]?.station;
+                if (firstResult) handleChooseSearchResult(firstResult);
+              }}
+              placeholder="Une rue, un quartier, un arrondissement"
+              placeholderTextColor={Palette.inkSoft}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              style={styles.searchInput}
+            />
+            {query ? (
+              <Pressable onPress={() => setQuery('')} style={styles.clearButton}>
+                <SymbolView name="xmark.circle.fill" size={18} tintColor={Palette.inkSoft} />
+              </Pressable>
+            ) : null}
+          </View>
+
+          {/* Le pourcentage global vivait dans un bandeau pleine largeur sous la barre de
+              recherche ; il rejoint la barre elle-même, et reste le seul chemin vers /coverage. */}
+          <Pressable
+            accessibilityHint="Ouvre le détail des photos de 1970, de 2022 et des photos refaites aujourd’hui"
+            accessibilityLabel={`${coverage.percentage}% des photos de 1970 cartographiées. Voir les statistiques`}
+            accessibilityRole="button"
+            onPress={() => router.push('/coverage')}
+            style={({ pressed }) => [styles.coverageBadge, pressed && styles.pressed]}>
+            <GlassSurface variant="clear" />
+            <Text style={styles.coverageBadgeText}>{coverage.percentage}%</Text>
+            <SymbolView name="chevron.right" size={11} tintColor={Palette.parisBlue} />
+          </Pressable>
         </View>
 
         {searchFocused ? (
@@ -955,11 +946,13 @@ export function MapScreen() {
                       <View style={styles.searchResultCopy}>
                         <Text style={styles.searchResultTitle} numberOfLines={1}>
                           {station.kind === 'archive-1970'
-                            ? `Secteur ${station.name}`
+                            ? cellPlaceName({ center: station.coordinate, name: station.name }, locatedStations)
                             : station.name}
                         </Text>
                         <Text style={styles.searchResultMeta} numberOfLines={1}>
-                          {pinLabel(station)} · {station.arrondissement ?? 'Paris'}
+                          {pinLabel(station)} · {station.arrondissement ??
+                            nearestArrondissement(station.coordinate, locatedStations) ??
+                            'Paris'}
                         </Text>
                       </View>
                       <SymbolView
@@ -1016,81 +1009,50 @@ export function MapScreen() {
             )}
           </View>
         ) : (
-          <>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterContent}>
-              {FILTERS.map((option) => {
-                const active = filter === option.value;
-                return (
-                  <Pressable
-                    key={option.value}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    onPress={() => {
-                      const searchedArchive = searchMatches.find(
-                        ({ station }) => station.kind === 'archive-1970',
-                      )?.station;
-                      const searchedCell = searchedArchive
-                        ? grid.find((cell) => stationIsInCell(searchedArchive, cell))
-                        : undefined;
-                      const contextualCell = focusedCell ?? selectedCell ?? searchedCell;
+          // Une bascule à deux positions tient dans la largeur de l'écran : contrairement à
+          // l'ancienne rangée de pastilles, elle n'a plus besoin de défiler.
+          <View style={styles.filterSegment}>
+            {FILTERS.map((option) => {
+              const active = filter === option.value;
+              return (
+                <Pressable
+                  key={option.value}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => {
+                    const searchedArchive = searchMatches.find(
+                      ({ station }) => station.kind === 'archive-1970',
+                    )?.station;
+                    const searchedCell = searchedArchive
+                      ? grid.find((cell) => stationIsInCell(searchedArchive, cell))
+                      : undefined;
+                    const contextualCell = focusedCell ?? selectedCell ?? searchedCell;
 
-                      setFilter(option.value);
-                      setSelectedCell(undefined);
-                      setFocusedCell(
-                        contextualCell && cellHasFilter(contextualCell, option.value)
-                          ? contextualCell
-                          : undefined,
-                      );
-                      Keyboard.dismiss();
-                      void Haptics.selectionAsync();
-                    }}
-                    style={[styles.filterChip, active && styles.filterChipActive]}>
-                    <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-
-            <Pressable
-              accessibilityHint="Ouvre le détail des photos de 1970, de 2022 et des photos refaites aujourd’hui"
-              accessibilityLabel={`${coverage.percentage}% des photos de 1970 cartographiées. Voir les statistiques`}
-              accessibilityRole="button"
-              onPress={() => router.push('/coverage')}
-              style={({ pressed }) => [
-                styles.progressCard,
-                pressed && styles.progressCardPressed,
-              ]}>
-              <Text style={styles.progressPercent}>{coverage.percentage}%</Text>
-              <View style={styles.progressInline}>
-                <View style={styles.progressLabelRow}>
-                  <View style={styles.progressLive}>
-                    <View
-                      style={[
-                        styles.progressLiveDot,
-                        { backgroundColor: Palette.lichen },
-                      ]}
-                    />
-                    <Text style={styles.progressKicker}>FONDS 1970</Text>
-                  </View>
-                  <Text style={styles.progressMeta}>
-                    {coverage.published1970.toLocaleString('fr-FR')} /{' '}
-                    {coverage.total1970.toLocaleString('fr-FR')}
+                    setFilter(option.value);
+                    setSelectedCell(undefined);
+                    setFocusedCell(
+                      contextualCell && cellHasFilter(contextualCell, option.value)
+                        ? contextualCell
+                        : undefined,
+                    );
+                    Keyboard.dismiss();
+                    void Haptics.selectionAsync();
+                  }}
+                  style={[
+                    styles.filterSegmentOption,
+                    active && styles.filterSegmentOptionActive,
+                  ]}>
+                  <Text
+                    style={[
+                      styles.filterSegmentLabel,
+                      active && styles.filterSegmentLabelActive,
+                    ]}>
+                    {option.label}
                   </Text>
-                </View>
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[styles.progressFill, { width: `${coverage.percentage}%` }]}
-                  />
-                </View>
-              </View>
-              <SymbolView name="chevron.right" size={12} tintColor={Palette.parisBlue} />
-            </Pressable>
-          </>
+                </Pressable>
+              );
+            })}
+          </View>
         )}
       </View>
 
@@ -1107,11 +1069,14 @@ export function MapScreen() {
                 : 238,
           },
         ]}>
+        {/* Les deux boutons se ressemblaient trop (deux flèches quasi identiques) : celui-ci
+            reprend l'imagerie universelle de la boussole, l'autre garde le pictogramme de
+            localisation, pour qu'on distingue « nord » de « ma position » d'un coup d'œil. */}
         <Pressable
           accessibilityLabel="Revenir au nord"
           onPress={handleResetNorth}
           style={({ pressed }) => [styles.mapButton, pressed && styles.pressed]}>
-          <SymbolView name="location.north.line.fill" size={20} tintColor={Palette.parisBlue} />
+          <SymbolView name="safari" size={22} tintColor={Palette.parisBlue} />
         </Pressable>
         <Pressable
           accessibilityLabel="Utiliser ma position"
@@ -1132,18 +1097,10 @@ export function MapScreen() {
             <View style={styles.gridSelectionCard}>
               <GlassSurface />
               <View style={styles.gridSelectionHeader}>
-                <View>
+                <View style={styles.gridSelectionTextGroup}>
                   <Text style={styles.gridSelectionKicker}>
-                    {filter === 'to-reprise'
-                      ? 'À RETROUVER'
-                      : filter === 'published-reprise'
-                        ? 'PHOTOS REFAITES'
-                        : filter === 'collection-2022'
-                          ? 'PHOTOS DE 2022'
-                          : showIndividualPoints
-                            ? 'SECTEUR'
-                            : 'COUVERTURE'}{' '}
-                    · SECTEUR {selectedCell.name}
+                    {filter === 'to-reprise' ? 'À RETROUVER' : 'PHOTOS REFAITES'}{' '}
+                    · {cellPlaceName(selectedCell, locatedStations)} · N°{selectedCell.name}
                   </Text>
                   <Text style={styles.gridSelectionTitle}>
                     {selectionTitle(selectedCell, filter)}
@@ -1157,24 +1114,22 @@ export function MapScreen() {
                   }
                   onPress={() => openGridCell(selectedCell)}
                   style={({ pressed }) => [styles.gridOpenButton, pressed && styles.pressed]}>
-                  <Text style={styles.gridOpenText}>
-                    {selectionAction(filter)}
-                  </Text>
+                  <Text style={styles.gridOpenText}>Voir les photos</Text>
                   <SymbolView name="photo.on.rectangle" size={15} tintColor={Palette.white} />
                 </Pressable>
               </View>
               <Text style={styles.gridSelectionMeta}>
                 {filter === 'to-reprise'
                   ? `${plural(selectedCell.published1970, 'photo')} déjà ${selectedCell.published1970 > 1 ? 'refaites' : 'refaite'}`
-                  : filter === 'published-reprise'
-                    ? `${plural(selectedCell.total1970, 'photo')} dans les archives du secteur`
-                    : filter === 'collection-2022'
-                      ? 'Photos précisément localisées'
-                      : `${selectedCell.published1970} sur ${selectedCell.total1970} photos refaites`}
+                  : `${plural(selectedCell.total1970, 'photo')} dans les archives du secteur`}
               </Text>
             </View>
           ) : isExploringArchiveCell && focusedCell ? (
-            <View style={[styles.archiveNavigator, { height: previewCardHeight }]}>
+            // Un seul panneau : le lieu et les compteurs ne sont dits qu'ici, dans l'en-tête ;
+            // les cartes du carrousel ci-dessous ne répètent plus ces chiffres. L'en-tête n'a
+            // plus de hauteur figée, pour ne jamais déborder sur le carrousel quand le nom du
+            // lieu passe sur deux lignes.
+            <View style={styles.archiveNavigator}>
               <View style={styles.archiveNavigatorHeader}>
                 <GlassSurface />
                 <View style={styles.archiveRailHeading}>
@@ -1182,13 +1137,14 @@ export function MapScreen() {
                     ARCHIVES DE 1970 · ZONE DE 250 M
                   </Text>
                   <Text style={styles.archiveRailTitle}>
-                    Secteur {focusedCell.name}
+                    {cellPlaceName(focusedCell, locatedStations)}
                   </Text>
                   <Text style={styles.archiveRailMeta}>
                     {plural(focusedCell.remaining1970, 'photo')} à retrouver
                     {focusedCell.published1970 > 0
                       ? ` · ${plural(focusedCell.published1970, 'photo')} ${focusedCell.published1970 > 1 ? 'refaites' : 'refaite'}`
-                      : ''}
+                      : ''}{' '}
+                    · N°{focusedCell.name}
                   </Text>
                 </View>
                 <Pressable
@@ -1220,7 +1176,6 @@ export function MapScreen() {
                 renderItem={({ item, index }) => (
                   <MapPhotoPreview
                     station={item}
-                    cell={focusedCell}
                     index={index}
                     total={focusedArchiveStations.length}
                     width={carouselCardWidth}
@@ -1287,14 +1242,14 @@ export function MapScreen() {
             <View style={styles.gridSelectionCard}>
               <GlassSurface />
               <Text style={styles.gridSelectionKicker}>
-                {focusedCell.remaining1970 === 0 ? 'SECTEUR COMPLÉTÉ' : 'ARCHIVES'} · SECTEUR{' '}
-                {focusedCell.name}
+                {cellRemainingCount(focusedCell) === 0 ? 'SECTEUR COMPLÉTÉ' : 'ARCHIVES'} ·{' '}
+                {cellPlaceName(focusedCell, locatedStations)} · N°{focusedCell.name}
               </Text>
               <Text style={styles.gridSelectionTitle}>
-                {remainingLabel(focusedCell.remaining1970)}
+                {remainingLabel(cellRemainingCount(focusedCell))}
               </Text>
               <Text style={styles.gridSelectionMeta}>
-                {focusedCell.remaining1970 === 0
+                {cellRemainingCount(focusedCell) === 0
                   ? `${plural(focusedCell.published1970, 'photo')} ${focusedCell.published1970 > 1 ? 'refaites' : 'refaite'} dans ce secteur.`
                   : 'Les archives sont regroupées dans une zone de 250 m jusqu’à ce que leur point de vue soit reconnu.'}
               </Text>
@@ -1318,12 +1273,16 @@ export function MapScreen() {
               </Text>
               {!showIndividualPoints ? (
                 <View style={styles.gridLegend}>
-                  {[
-                    ['0%', 'rgba(185, 95, 62, 0.48)'],
-                    ['25%', 'rgba(240, 182, 66, 0.62)'],
-                    ['50%', 'rgba(112, 137, 124, 0.54)'],
-                    ['100%', 'rgba(22, 63, 91, 0.82)'],
-                  ].map(([label, color]) => (
+                  {(filter === 'to-reprise'
+                    ? [
+                        ['Peu', 'rgba(185, 95, 62, 0.26)'],
+                        ['Beaucoup', 'rgba(185, 95, 62, 0.68)'],
+                      ]
+                    : [
+                        ['Peu', 'rgba(112, 137, 124, 0.26)'],
+                        ['Beaucoup', 'rgba(112, 137, 124, 0.78)'],
+                      ]
+                  ).map(([label, color]) => (
                     <View key={label} style={styles.gridLegendItem}>
                       <View style={[styles.gridLegendSwatch, { backgroundColor: color }]} />
                       <Text style={styles.gridLegendLabel}>{label}</Text>
@@ -1350,14 +1309,22 @@ const styles = StyleSheet.create({
     right: 0,
     gap: Spacing.two,
   },
-  searchBar: {
-    height: 50,
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginHorizontal: Spacing.three,
+    gap: Spacing.two,
+  },
+  searchBar: {
+    flex: 1,
+    height: 50,
     borderRadius: Radius.pill,
     backgroundColor: 'rgba(247, 251, 252, 0.2)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.82)',
     paddingHorizontal: Spacing.three,
+    // Sans ce clip, le fond en verre dépasse en rectangle des coins arrondis du conteneur.
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
@@ -1368,7 +1335,25 @@ const styles = StyleSheet.create({
     height: 50,
     color: Palette.ink,
     fontFamily: Fonts.sans,
-    fontSize: 14,
+    ...Typography.body,
+  },
+  coverageBadge: {
+    height: 50,
+    paddingHorizontal: Spacing.twoHalf,
+    borderRadius: Radius.pill,
+    backgroundColor: 'rgba(247, 251, 252, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.82)',
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    ...Shadow.card,
+  },
+  coverageBadgeText: {
+    color: Palette.ink,
+    fontFamily: Fonts.display,
+    ...Typography.title,
   },
   clearButton: {
     width: 28,
@@ -1395,16 +1380,15 @@ const styles = StyleSheet.create({
   searchPanelKicker: {
     color: Palette.copper,
     fontFamily: Fonts.mono,
-    fontSize: 8,
-    fontWeight: '900',
     letterSpacing: 0.65,
+    ...Typography.caption,
+    fontWeight: '700',
   },
   searchPanelTitle: {
-    marginTop: 3,
+    marginTop: Spacing.one,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 20,
-    fontWeight: '900',
+    ...Typography.title,
   },
   searchCloseButton: {
     minHeight: 32,
@@ -1419,15 +1403,15 @@ const styles = StyleSheet.create({
   searchCloseText: {
     color: Palette.parisBlue,
     fontFamily: Fonts.sans,
-    fontSize: 10,
-    fontWeight: '800',
+    ...Typography.caption,
+    fontWeight: '700',
   },
   searchResults: {
     marginTop: Spacing.two,
   },
   searchResult: {
     minHeight: 58,
-    paddingVertical: 7,
+    paddingVertical: Spacing.two,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(22, 63, 91, 0.12)',
     flexDirection: 'row',
@@ -1456,23 +1440,22 @@ const styles = StyleSheet.create({
   searchResultTitle: {
     color: Palette.ink,
     fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '800',
+    ...Typography.body,
+    fontWeight: '600',
   },
   searchResultMeta: {
-    marginTop: 3,
+    marginTop: Spacing.one,
     color: Palette.inkSoft,
     fontFamily: Fonts.mono,
-    fontSize: 8,
-    fontWeight: '800',
     letterSpacing: 0.35,
+    ...Typography.caption,
+    fontWeight: '700',
   },
   searchMore: {
     marginTop: Spacing.two,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 10,
-    lineHeight: 15,
+    ...Typography.caption,
   },
   searchEmpty: {
     minHeight: 76,
@@ -1488,15 +1471,13 @@ const styles = StyleSheet.create({
     flex: 1,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 11,
-    lineHeight: 16,
+    ...Typography.body,
   },
   searchGuideCopy: {
     marginTop: Spacing.two,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 11,
-    lineHeight: 16,
+    ...Typography.body,
   },
   searchShortcuts: {
     marginTop: Spacing.twoHalf,
@@ -1513,107 +1494,41 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.88)',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: Spacing.one,
   },
   searchShortcutText: {
     color: Palette.parisBlue,
     fontFamily: Fonts.sans,
-    fontSize: 10,
-    fontWeight: '800',
+    ...Typography.caption,
+    fontWeight: '700',
   },
-  filterContent: {
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.two,
-  },
-  filterChip: {
-    minHeight: 36,
-    paddingHorizontal: Spacing.three,
+  filterSegment: {
+    flexDirection: 'row',
+    marginHorizontal: Spacing.three,
+    padding: Spacing.half,
     borderRadius: Radius.pill,
     backgroundColor: 'rgba(255,255,255,0.94)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: Palette.line,
+  },
+  filterSegmentOption: {
+    flex: 1,
+    minHeight: 36,
+    borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  filterChipActive: {
+  filterSegmentOptionActive: {
     backgroundColor: Palette.parisBlue,
-    borderColor: Palette.parisBlue,
   },
-  filterLabel: {
+  filterSegmentLabel: {
     color: Palette.ink,
     fontFamily: Fonts.sans,
-    fontSize: 12,
+    ...Typography.caption,
     fontWeight: '700',
   },
-  filterLabelActive: {
+  filterSegmentLabelActive: {
     color: Palette.white,
-  },
-  progressCard: {
-    minHeight: 54,
-    marginHorizontal: Spacing.three,
-    paddingHorizontal: Spacing.twoHalf,
-    paddingVertical: Spacing.two,
-    borderRadius: Radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.twoHalf,
-    ...Shadow.card,
-  },
-  progressCardPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.99 }],
-  },
-  progressPercent: {
-    minWidth: 50,
-    color: Palette.ink,
-    fontFamily: Fonts.display,
-    fontSize: 25,
-    lineHeight: 29,
-    fontWeight: '900',
-  },
-  progressInline: {
-    flex: 1,
-  },
-  progressLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  progressLive: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  progressLiveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  progressKicker: {
-    color: Palette.parisBlue,
-    fontFamily: Fonts.mono,
-    fontSize: 7,
-    fontWeight: '900',
-    letterSpacing: 0.55,
-  },
-  progressTrack: {
-    height: 4,
-    marginTop: 5,
-    borderRadius: 3,
-    overflow: 'hidden',
-    backgroundColor: Palette.blueMist,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-    backgroundColor: Palette.lichen,
-  },
-  progressMeta: {
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    fontSize: 7,
-    fontWeight: '900',
   },
   gridMarker: {
     minWidth: 46,
@@ -1629,13 +1544,13 @@ const styles = StyleSheet.create({
   gridMarkerText: {
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 10,
-    fontWeight: '900',
+    ...Typography.caption,
+    fontWeight: '700',
   },
   unlocatedCluster: {
     minWidth: 42,
     height: 42,
-    paddingHorizontal: 7,
+    paddingHorizontal: Spacing.two,
     borderRadius: 21,
     backgroundColor: Palette.copper,
     borderWidth: 3,
@@ -1647,8 +1562,8 @@ const styles = StyleSheet.create({
   unlocatedCountText: {
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 10,
-    fontWeight: '900',
+    ...Typography.caption,
+    fontWeight: '700',
   },
   selectedPointHalo: {
     width: 34,
@@ -1724,18 +1639,19 @@ const styles = StyleSheet.create({
   archiveNavigator: {
     gap: Spacing.two,
   },
+  // Pas de hauteur figée : un nom de lieu sur deux lignes doit agrandir la fiche plutôt que
+  // déborder par-dessus le carrousel qui la suit.
   archiveNavigatorHeader: {
-    height: 84,
     marginHorizontal: Spacing.three,
     paddingHorizontal: Spacing.twoHalf,
-    paddingVertical: 9,
+    paddingVertical: Spacing.two,
     borderRadius: Radius.medium,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.76)',
     backgroundColor: 'rgba(247, 251, 252, 0.16)',
     overflow: 'hidden',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Spacing.two,
     ...Shadow.card,
@@ -1775,16 +1691,14 @@ const styles = StyleSheet.create({
   photoPreviewFallbackTitle: {
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontWeight: '800',
-    fontSize: 22,
+    ...Typography.title,
   },
   photoPreviewFallbackCopy: {
-    marginTop: 3,
+    marginTop: Spacing.one,
     maxWidth: 240,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 13,
-    lineHeight: 18,
+    ...Typography.caption,
   },
   photoPreviewShade: {
     position: 'absolute',
@@ -1810,24 +1724,24 @@ const styles = StyleSheet.create({
   photoStatusText: {
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '900',
     letterSpacing: 0.45,
+    ...Typography.caption,
+    fontWeight: '700',
   },
   photoCounter: {
     minHeight: 29,
-    paddingHorizontal: 10,
+    paddingHorizontal: Spacing.twoHalf,
     borderRadius: Radius.pill,
     backgroundColor: 'rgba(8, 17, 22, 0.66)',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: Spacing.one,
   },
   photoCounterText: {
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '900',
+    ...Typography.caption,
+    fontWeight: '700',
   },
   photoPreviewBody: {
     position: 'absolute',
@@ -1836,24 +1750,22 @@ const styles = StyleSheet.create({
     bottom: 0,
     minHeight: 114,
     padding: Spacing.three,
-    paddingTop: Spacing.four,
+    paddingTop: Spacing.two,
     backgroundColor: 'rgba(8, 17, 22, 0.82)',
   },
   photoPreviewKicker: {
     color: Palette.brass,
     fontFamily: Fonts.mono,
-    fontSize: 8,
-    fontWeight: '900',
     letterSpacing: 0.6,
+    ...Typography.caption,
+    fontWeight: '700',
   },
   photoPreviewTitle: {
-    marginTop: 4,
-    paddingTop: 2,
+    marginTop: Spacing.one,
+    paddingTop: Spacing.half,
     color: Palette.white,
     fontFamily: Fonts.display,
-    fontSize: 24,
-    lineHeight: 27,
-    fontWeight: '900',
+    ...Typography.title,
   },
   photoPreviewMetaRow: {
     marginTop: Spacing.two,
@@ -1866,100 +1778,19 @@ const styles = StyleSheet.create({
     flex: 1,
     color: Palette.blueMist,
     fontFamily: Fonts.sans,
-    fontSize: 10,
-    fontWeight: '700',
+    ...Typography.caption,
+    fontWeight: '600',
   },
   photoPreviewAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.two,
   },
   photoPreviewActionText: {
     color: Palette.white,
     fontFamily: Fonts.sans,
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  selectionCard: {
-    minHeight: 124,
-    borderRadius: Radius.large,
-    backgroundColor: 'rgba(247, 251, 252, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.58)',
-    overflow: 'hidden',
-    flexDirection: 'row',
-    ...Shadow.card,
-  },
-  selectionCardActive: {
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-  },
-  selectionStripe: {
-    width: 5,
-  },
-  selectionBody: {
-    flex: 1,
-    padding: Spacing.twoHalf,
-  },
-  selectionTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-  },
-  selectionKicker: {
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  carouselPosition: {
-    minHeight: 24,
-    paddingHorizontal: 8,
-    borderRadius: Radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.42)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.78)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  carouselPositionText: {
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    fontSize: 8,
-    fontWeight: '900',
-  },
-  selectionTitle: {
-    marginTop: 5,
-    color: Palette.ink,
-    fontFamily: Fonts.display,
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  selectionMeta: {
-    marginTop: 'auto',
-    paddingTop: Spacing.two,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  selectionMetaText: {
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  openAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  openActionText: {
-    color: Palette.parisBlue,
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '800',
+    ...Typography.caption,
+    fontWeight: '700',
   },
   gridSelectionCard: {
     marginHorizontal: Spacing.three,
@@ -1977,61 +1808,50 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.two,
   },
+  // Depuis que le secteur s'annonce par son arrondissement, le kicker tient sur deux lignes :
+  // sans cette contrainte il pousse le bouton d'ouverture hors de la carte, qui le rogne.
+  gridSelectionTextGroup: {
+    flex: 1,
+    minWidth: 0,
+  },
   gridSelectionKicker: {
     color: Palette.copper,
     fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '900',
     letterSpacing: 0.6,
+    ...Typography.caption,
+    fontWeight: '700',
   },
   gridSelectionTitle: {
-    marginTop: 4,
+    marginTop: Spacing.one,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 24,
-    fontWeight: '900',
+    ...Typography.title,
   },
   gridSelectionMeta: {
     marginTop: Spacing.two,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 11,
+    ...Typography.caption,
     fontWeight: '600',
   },
-  archiveRailCard: {
-    marginHorizontal: Spacing.three,
-    padding: Spacing.twoHalf,
-    borderRadius: Radius.large,
-    backgroundColor: 'rgba(247, 251, 252, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.7)',
-    overflow: 'hidden',
-    ...Shadow.card,
-  },
-  archiveRailHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-  },
+  // `minWidth: 0` empêche ce bloc de texte de pousser le bouton de fermeture hors de la fiche
+  // quand le nom du lieu s'étend sur deux lignes.
   archiveRailHeading: {
     flex: 1,
+    minWidth: 0,
   },
   archiveRailTitle: {
-    marginTop: 2,
+    marginTop: Spacing.half,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 24,
-    lineHeight: 27,
-    fontWeight: '900',
+    ...Typography.title,
   },
   archiveRailMeta: {
-    marginTop: 1,
+    marginTop: Spacing.half,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 10,
-    lineHeight: 14,
-    fontWeight: '700',
+    ...Typography.caption,
+    fontWeight: '600',
   },
   archiveRailClose: {
     width: 30,
@@ -2043,81 +1863,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  archiveRailCopy: {
-    marginTop: 4,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 10,
-    lineHeight: 14,
-  },
-  archiveStationContent: {
-    paddingTop: Spacing.two,
-    paddingRight: Spacing.two,
-    gap: Spacing.two,
-  },
-  archiveStationCard: {
-    width: 236,
-    height: 62,
-    paddingRight: Spacing.two,
-    borderRadius: Radius.medium,
-    backgroundColor: 'rgba(255, 255, 255, 0.52)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.84)',
-    overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  archiveStationImage: {
-    width: 62,
-    height: 62,
-    backgroundColor: Palette.archive,
-  },
-  archiveStationFallback: {
-    width: 62,
-    height: 62,
-    backgroundColor: 'rgba(185, 95, 62, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  archiveStationBody: {
-    flex: 1,
-  },
-  archiveStationIndex: {
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontSize: 7,
-    fontWeight: '900',
-    letterSpacing: 0.4,
-  },
-  archiveStationTitle: {
-    marginTop: 2,
-    color: Palette.ink,
-    fontFamily: Fonts.sans,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  archiveStationMeta: {
-    marginTop: 2,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 9,
-    fontWeight: '600',
-  },
   gridOpenButton: {
+    flexShrink: 0,
     minHeight: 40,
     paddingHorizontal: Spacing.twoHalf,
     borderRadius: Radius.pill,
     backgroundColor: Palette.parisBlue,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.two,
   },
   gridOpenText: {
     color: Palette.white,
     fontFamily: Fonts.sans,
-    fontSize: 11,
-    fontWeight: '800',
+    ...Typography.caption,
+    fontWeight: '700',
   },
   gridHintCard: {
     marginHorizontal: Spacing.three,
@@ -2132,14 +1892,13 @@ const styles = StyleSheet.create({
   gridHintTitle: {
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 20,
-    fontWeight: '900',
+    ...Typography.title,
   },
   gridHintCopy: {
-    marginTop: 3,
+    marginTop: Spacing.one,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 11,
+    ...Typography.body,
   },
   gridLegend: {
     marginTop: Spacing.twoHalf,
@@ -2149,7 +1908,7 @@ const styles = StyleSheet.create({
   gridLegendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: Spacing.one,
   },
   gridLegendSwatch: {
     width: 14,
@@ -2159,8 +1918,8 @@ const styles = StyleSheet.create({
   gridLegendLabel: {
     color: Palette.inkSoft,
     fontFamily: Fonts.mono,
-    fontSize: 8,
-    fontWeight: '800',
+    ...Typography.caption,
+    fontWeight: '700',
   },
   pressed: {
     opacity: 0.88,

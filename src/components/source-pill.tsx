@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Spacing, Typography } from '@/constants/theme';
 
 type SourcePillProps = {
   /** Date du relevé, au format ISO court (`2026-07-28`). */
@@ -36,11 +36,12 @@ const styles = StyleSheet.create({
   container: {
     minHeight: 28,
     paddingHorizontal: Spacing.twoHalf,
+    paddingVertical: Spacing.half,
     borderRadius: Radius.pill,
     backgroundColor: Palette.white,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: Spacing.one,
     alignSelf: 'flex-start',
   },
   inverse: {
@@ -53,9 +54,9 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.lichen,
   },
   label: {
+    ...Typography.caption,
     color: Palette.ink,
     fontFamily: Fonts.mono,
-    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',

@@ -1,10 +1,8 @@
 import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -22,19 +20,21 @@ import { GlassSurface } from '@/components/glass-surface';
 import { SourcePill } from '@/components/source-pill';
 import { StationCard } from '@/components/station-card';
 import { PRIVACY_POLICY_URL } from '@/constants/legal';
-import { Fonts, Palette, Radius, Shadow, Spacing, TabBarClearance } from '@/constants/theme';
+import {
+  Fonts,
+  Palette,
+  Radius,
+  Shadow,
+  Spacing,
+  TabBarClearance,
+  Typography,
+} from '@/constants/theme';
 
 import { useUserLocation } from '@/hooks/use-user-location';
 import { useFeaturedMission, useStations } from '@/providers/stations-provider';
 
-
-import { distanceInMeters, formatDistance } from '@/utils/distance';
-
-const STEPS = [
-  ['01', 'Choisir', 'Une photo de 1970 près de vous.'],
-  ['02', 'Aligner', 'La caméra superpose la photo d’archive.'],
-  ['03', 'Publier', 'Votre photo rejoint la carte.'],
-] as const;
+import { distanceInMeters } from '@/utils/distance';
+import { nearestArrondissement } from '@/utils/place-name';
 
 export function HomeScreen() {
   const router = useRouter();
@@ -43,11 +43,9 @@ export function HomeScreen() {
   const { coordinate, isPrecise, loading: locating, locate } = useUserLocation({
     autoLocate: true,
   });
-  const awaitingFirstLocation = locating && !isPrecise;
 
-  // Mission mise en avant : le point de vue de 2022 le plus proche, encore à reconduire.
-  const featured = useFeaturedMission(isPrecise ? coordinate : undefined);
-
+  // Les archives de 1970 sont le cœur du sujet : on met en avant les secteurs les plus proches,
+  // triés par distance. Les points de vue de 2022 restent accessibles, mais en dernier de liste.
   const nearby = useMemo(
     () =>
       stations
@@ -58,11 +56,25 @@ export function HomeScreen() {
         )
         .map((station) => ({ station, distance: distanceInMeters(coordinate, station.coordinate) }))
         .sort((left, right) => left.distance - right.distance)
-        .slice(0, 3),
+        .slice(0, 3)
+        // « Secteur 794 » ne situe rien : on emprunte l'arrondissement du repère localisé le plus
+        // proche, comme la carte, pour que les deux écrans nomment un lieu de la même façon.
+        .map(({ station, distance }) => ({
+          station: {
+            ...station,
+            arrondissement:
+              station.arrondissement ?? nearestArrondissement(station.coordinate, stations),
+          },
+          distance,
+        })),
     [coordinate, stations],
   );
 
-  const featuredDistance = featured ? distanceInMeters(coordinate, featured.coordinate) : 0;
+  const featured2022 = useFeaturedMission(isPrecise ? coordinate : undefined);
+  const featured2022Distance = featured2022
+    ? distanceInMeters(coordinate, featured2022.coordinate)
+    : 0;
+
   const lastMonth = stats.monthlyActivity[stats.monthlyActivity.length - 1];
 
   const handleLocate = async () => {
@@ -81,12 +93,6 @@ export function HomeScreen() {
 
   const handleRefresh = async () => {
     await Promise.all([refresh(), locate()]);
-  };
-
-  const openFeatured = () => {
-    if (!featured || awaitingFirstLocation) return;
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-    router.push({ pathname: '/station/[id]', params: { id: featured.id } });
   };
 
   return (
@@ -128,19 +134,42 @@ export function HomeScreen() {
 
           <View>
             <Text style={styles.eyebrow}>
-              {awaitingFirstLocation
-                ? 'RECHERCHE AUTOUR DE VOUS'
-                : isPrecise
-                  ? 'AUTOUR DE VOUS'
-                  : 'PARIS · 30 087 PHOTOS DE 1970'}
+              {isPrecise ? 'AUTOUR DE VOUS' : 'PARIS · 30 087 PHOTOS DE 1970'}
             </Text>
             <Text style={styles.heroTitle}>Retrouvez Paris, photo après photo.</Text>
-            <Text style={styles.heroCopy}>
-              Choisissez une photo de 1970, retrouvez où elle a été prise, puis refaites le même
-              cadrage aujourd’hui.
-            </Text>
           </View>
         </SafeAreaView>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Photos près de vous</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              void Haptics.selectionAsync();
+              router.push('/map');
+            }}
+            style={({ pressed }) => [styles.seeAll, pressed && styles.pressedSoft]}>
+            <Text style={styles.seeAllText}>Carte</Text>
+            <SymbolView name="arrow.right" size={13} tintColor={Palette.parisBlue} />
+          </Pressable>
+        </View>
+
+        {/* Les archives de 1970 restent en tête, la vue de 2022 ferme la liste : c'est le fonds
+            historique qui est le sujet de l'application. Les photos vont à fond perdu — c'est
+            elles qu'on vient voir. */}
+        <View style={styles.cardList}>
+          {nearby.map(({ station, distance }) => (
+            <StationCard key={station.id} station={station} distance={distance} wide />
+          ))}
+          {featured2022 ? (
+            <StationCard
+              key={featured2022.id}
+              station={featured2022}
+              distance={featured2022Distance}
+              wide
+            />
+          ) : null}
+        </View>
 
         <Animated.View entering={FadeInDown.delay(80).duration(420)} style={styles.pulseWrapper}>
           <View style={styles.pulse}>
@@ -177,101 +206,6 @@ export function HomeScreen() {
             </Pressable>
           </View>
         </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(140).duration(420)}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ busy: awaitingFirstLocation, disabled: awaitingFirstLocation }}
-            disabled={awaitingFirstLocation}
-            onPress={openFeatured}
-            style={({ pressed }) => [styles.featured, pressed && styles.featuredPressed]}>
-            <Image
-              source={awaitingFirstLocation ? undefined : featured?.previewImage}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-              transition={250}
-            />
-            <View style={styles.featuredShade} />
-            {awaitingFirstLocation ? (
-              <View style={styles.featuredLoading}>
-                <ActivityIndicator color={Palette.white} size="small" />
-                <Text style={styles.featuredLoadingTitle}>Recherche d’une photo près de vous…</Text>
-                <Text style={styles.featuredLoadingCopy}>La mission la plus proche va apparaître ici.</Text>
-              </View>
-            ) : (
-              <>
-                <View style={styles.featuredTop}>
-                  <SourcePill label="Photo à refaire" inverse />
-                </View>
-                <View style={styles.featuredBottom}>
-                  <Text style={styles.featuredKicker}>
-                    {featured?.author ? `${featured.author.toLocaleUpperCase('fr-FR')} · ` : ''}
-                    {featured?.year ?? 2022}
-                  </Text>
-                  <Text style={styles.featuredTitle} numberOfLines={2}>
-                    {featured?.name ?? 'Une photo à refaire'}
-                  </Text>
-                  <View style={styles.featuredMeta}>
-                    <View style={styles.featuredMetaItem}>
-                      <SymbolView name="camera.viewfinder" size={15} tintColor={Palette.blueMist} />
-                      <Text style={styles.featuredMetaText}>Refaire cette photo</Text>
-                    </View>
-                    <Text style={styles.featuredDistance}>
-                      {isPrecise
-                        ? formatDistance(featuredDistance)
-                        : featured?.arrondissement
-                          ? `Paris ${Number(featured.arrondissement.slice(3))}e`
-                          : 'Paris'}
-                    </Text>
-                  </View>
-                </View>
-              </>
-            )}
-          </Pressable>
-        </Animated.View>
-
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionHeading}>
-            <Text style={styles.sectionKicker}>
-              ARCHIVES DE 1970
-            </Text>
-            <Text style={styles.sectionTitle}>Photos près de vous</Text>
-            <Text style={styles.sectionCopy}>
-              Choisissez un secteur, puis une photo à retrouver.
-            </Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              void Haptics.selectionAsync();
-              router.push('/map');
-            }}
-            style={({ pressed }) => [styles.seeAll, pressed && styles.pressedSoft]}>
-            <Text style={styles.seeAllText}>Carte</Text>
-            <SymbolView name="arrow.right" size={13} tintColor={Palette.parisBlue} />
-          </Pressable>
-        </View>
-
-        <View style={styles.cardList}>
-          {nearby.map(({ station, distance }) => (
-            <StationCard key={station.id} station={station} distance={distance} wide />
-          ))}
-        </View>
-
-        <View style={styles.protocol}>
-          <Text style={styles.protocolKicker}>COMMENT ÇA MARCHE</Text>
-          {STEPS.map(([number, title, copy], index) => (
-            <View
-              key={number}
-              style={[styles.protocolRow, index === STEPS.length - 1 && styles.protocolRowLast]}>
-              <Text style={styles.protocolNumber}>{number}</Text>
-              <View style={styles.protocolText}>
-                <Text style={styles.protocolTitle}>{title}</Text>
-                <Text style={styles.protocolCopy}>{copy}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
 
         <View style={styles.dataNote}>
           <SourcePill version={snapshotVersion} />
@@ -324,17 +258,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   brand: {
+    ...Typography.title,
     color: Palette.parisBlue,
     fontFamily: Fonts.display,
     fontWeight: '900',
-    fontSize: 22,
     letterSpacing: 2.5,
   },
   brandSub: {
+    ...Typography.caption,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 11,
-    marginTop: -2,
   },
   locationButton: {
     width: 44,
@@ -355,37 +288,22 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   eyebrow: {
+    ...Typography.caption,
     marginTop: Spacing.three,
     color: Palette.copper,
     fontFamily: Fonts.mono,
     fontWeight: '800',
-    fontSize: 11,
     letterSpacing: 0.8,
   },
   heroTitle: {
+    ...Typography.display,
     marginTop: Spacing.two,
-    marginHorizontal: -2,
-    paddingHorizontal: 2,
-    paddingTop: 4,
-    paddingBottom: 5,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontWeight: '800',
-    fontSize: 42,
-    lineHeight: 48,
-    letterSpacing: -1.2,
-  },
-  heroCopy: {
-    marginTop: Spacing.twoHalf,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 16,
-    lineHeight: 23,
-    maxWidth: 340,
   },
   pulseWrapper: {
     paddingHorizontal: Spacing.three,
-    marginBottom: Spacing.four,
+    marginTop: Spacing.five,
   },
   pulse: {
     borderRadius: Radius.large,
@@ -404,20 +322,19 @@ const styles = StyleSheet.create({
   pulseItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 2,
+    gap: Spacing.half,
   },
   pulseValue: {
+    ...Typography.title,
     color: Palette.parisBlue,
     fontFamily: Fonts.display,
     fontWeight: '800',
-    fontSize: 26,
     textAlign: 'center',
   },
   pulseLabel: {
+    ...Typography.caption,
     color: Palette.inkSoft,
     fontFamily: Fonts.mono,
-    fontSize: 9,
-    letterSpacing: 0.4,
     textTransform: 'uppercase',
     textAlign: 'center',
   },
@@ -437,205 +354,41 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   pulseFooterText: {
+    ...Typography.body,
+    flex: 1,
     color: Palette.parisBlue,
     fontFamily: Fonts.sans,
-    fontSize: 13,
     fontWeight: '700',
   },
-  featured: {
-    // Calée pour que la carte tienne entièrement au-dessus de la barre d'onglets au premier
-    // affichage : son titre est l'appel à l'action, il ne doit pas arriver tronqué.
-    height: 316,
-    marginHorizontal: Spacing.three,
-    borderRadius: Radius.large,
-    overflow: 'hidden',
-    backgroundColor: Palette.blueDeep,
-    ...Shadow.card,
-  },
-  featuredPressed: {
-    transform: [{ scale: 0.99 }],
-  },
-  featuredShade: {
-    position: 'absolute',
-    inset: 0,
-    backgroundColor: 'rgba(8, 17, 22, 0.2)',
-  },
-  featuredLoading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-  },
-  featuredLoadingTitle: {
-    marginTop: Spacing.three,
-    color: Palette.white,
-    fontFamily: Fonts.display,
-    fontSize: 20,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  featuredLoadingCopy: {
-    marginTop: Spacing.two,
-    color: Palette.blueMist,
-    fontFamily: Fonts.sans,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  featuredTop: {
-    padding: Spacing.three,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  featuredBottom: {
-    marginTop: 'auto',
-    padding: Spacing.threeHalf,
-    backgroundColor: 'rgba(8, 17, 22, 0.78)',
-  },
-  featuredKicker: {
-    color: Palette.brass,
-    fontFamily: Fonts.mono,
-    fontWeight: '800',
-    fontSize: 10,
-    letterSpacing: 0.8,
-  },
-  featuredTitle: {
-    marginTop: 7,
-    color: Palette.white,
-    fontFamily: Fonts.display,
-    fontWeight: '800',
-    fontSize: 30,
-    lineHeight: 32,
-    maxWidth: 300,
-  },
-  featuredMeta: {
-    marginTop: Spacing.twoHalf,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  featuredMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  featuredMetaText: {
-    color: Palette.blueMist,
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  featuredDistance: {
-    color: Palette.white,
-    fontFamily: Fonts.mono,
-    fontSize: 12,
-    fontWeight: '800',
-  },
   sectionHeader: {
-    marginTop: Spacing.five,
+    marginTop: Spacing.four,
     marginBottom: Spacing.three,
     paddingHorizontal: Spacing.three,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  sectionHeading: {
-    flex: 1,
-    paddingRight: Spacing.two,
-  },
-  sectionKicker: {
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.7,
+    alignItems: 'center',
   },
   sectionTitle: {
-    marginTop: 5,
-    marginHorizontal: -2,
-    paddingHorizontal: 2,
-    paddingTop: 2,
-    paddingBottom: 4,
+    ...Typography.title,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '800',
-  },
-  sectionCopy: {
-    marginTop: 5,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    lineHeight: 18,
   },
   seeAll: {
     minHeight: 44,
     paddingLeft: Spacing.three,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: Spacing.one,
   },
   seeAllText: {
+    ...Typography.body,
     color: Palette.parisBlue,
     fontFamily: Fonts.sans,
     fontWeight: '700',
-    fontSize: 14,
   },
+  // Bord à bord : ni marge horizontale ni carte blanche autour des photos, qui sont le sujet.
   cardList: {
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingBottom: Spacing.three,
-  },
-  protocol: {
-    marginTop: Spacing.four,
-    marginHorizontal: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingBottom: Spacing.one,
-    backgroundColor: Palette.parisBlue,
-    borderRadius: Radius.large,
-  },
-  protocolKicker: {
-    paddingTop: Spacing.three,
-    paddingBottom: Spacing.two,
-    color: Palette.brass,
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-  },
-  protocolRow: {
-    paddingVertical: Spacing.twoHalf,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.2)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-  },
-  protocolRowLast: {
-    borderBottomWidth: 0,
-  },
-  protocolNumber: {
-    color: Palette.brass,
-    fontFamily: Fonts.mono,
-    fontWeight: '900',
-    fontSize: 14,
-  },
-  protocolText: {
-    flex: 1,
-  },
-  protocolTitle: {
-    color: Palette.white,
-    fontFamily: Fonts.display,
-    fontWeight: '800',
-    fontSize: 20,
-  },
-  protocolCopy: {
-    marginTop: 2,
-    color: Palette.blueMist,
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    lineHeight: 18,
+    gap: Spacing.four,
   },
   dataNote: {
     margin: Spacing.three,
@@ -643,17 +396,15 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   dataCopy: {
+    ...Typography.caption,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 12,
-    lineHeight: 17,
   },
   dataError: {
+    ...Typography.body,
     color: Palette.danger,
     fontFamily: Fonts.sans,
-    fontSize: 12,
     fontWeight: '600',
-    lineHeight: 17,
   },
   privacyLink: {
     minHeight: 44,
@@ -663,9 +414,9 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   privacyLinkText: {
+    ...Typography.caption,
     color: Palette.parisBlue,
     fontFamily: Fonts.sans,
-    fontSize: 13,
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
@@ -681,9 +432,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   locatingText: {
+    ...Typography.body,
     color: Palette.white,
     fontFamily: Fonts.sans,
     fontWeight: '700',
-    fontSize: 13,
   },
 });

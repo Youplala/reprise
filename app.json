@@ -4,7 +4,7 @@
     "slug": "reprise",
     "description": "Retrouver et reconduire les points de vue historiques de Paris.",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/parisgo-app-icon.png",
     "scheme": "reprise",
     "userInterfaceStyle": "light",

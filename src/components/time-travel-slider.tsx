@@ -1,14 +1,20 @@
 import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { GlassSurface } from '@/components/glass-surface';
-import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 
 export const TIMELINE_YEARS = [1970, 2022, 2026] as const;
 
 export type TimelineYear = (typeof TIMELINE_YEARS)[number];
+
+const ERA_LABEL: Record<TimelineYear, string> = {
+  1970: 'Archive',
+  2022: 'Campagne 2022',
+  2026: 'Aujourd’hui',
+};
 
 type TimeTravelSliderProps = {
   activeYear: TimelineYear;
@@ -16,6 +22,10 @@ type TimeTravelSliderProps = {
   onSelect: (year: TimelineYear) => void;
 };
 
+/**
+ * Un seul repère suffit à situer l'époque affichée : glisser le curseur est sa propre
+ * explication, pas besoin d'un titre et d'un mode d'emploi à côté.
+ */
 export function TimeTravelSlider({
   activeYear,
   availableYears,
@@ -43,14 +53,13 @@ export function TimeTravelSlider({
     <View style={styles.container}>
       <GlassSurface variant="regular" tintColor="rgba(13, 42, 60, 0.88)" />
       <View style={styles.content}>
-        <View style={styles.heading}>
-          <Text style={styles.kicker}>VOYAGE DANS LE TEMPS</Text>
-          <Text style={styles.hint}>Glissez entre les époques</Text>
-        </View>
+        <Text style={styles.label}>
+          {activeYear} · {ERA_LABEL[activeYear]}
+        </Text>
 
         <Slider
           accessibilityLabel="Choisir une époque"
-          accessibilityValue={{ text: String(activeYear) }}
+          accessibilityValue={{ text: `${activeYear} · ${ERA_LABEL[activeYear]}` }}
           style={styles.slider}
           value={activeSlot}
           minimumValue={0}
@@ -61,32 +70,6 @@ export function TimeTravelSlider({
           thumbTintColor={Palette.white}
           onValueChange={selectSlot}
         />
-
-        <View style={styles.labels}>
-          {visibleYears.map((year, index) => {
-            const active = year === activeYear;
-            return (
-              <Pressable
-                accessibilityHint="Affiche la photographie de cette époque"
-                accessibilityLabel={String(year)}
-                accessibilityRole="button"
-                key={year}
-                onPress={() => {
-                  if (lastSlot.current !== index) {
-                    lastSlot.current = index;
-                    void Haptics.selectionAsync();
-                  }
-                  onSelect(year);
-                }}
-                style={({ pressed }) => [styles.labelButton, pressed && styles.pressed]}>
-                <Text style={[styles.year, active && styles.yearActive]}>{year}</Text>
-                <Text style={[styles.yearCaption, active && styles.yearCaptionActive]}>
-                  {year === 1970 ? 'ARCHIVE' : year === 2022 ? 'CAMPAGNE' : 'AUJOURD’HUI'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
       </View>
     </View>
   );
@@ -104,59 +87,19 @@ const styles = StyleSheet.create({
   content: {
     paddingTop: Spacing.twoHalf,
     paddingHorizontal: Spacing.three,
-    paddingBottom: Spacing.twoHalf,
+    paddingBottom: Spacing.two,
   },
-  heading: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-  },
-  kicker: {
+  label: {
+    ...Typography.caption,
+    alignSelf: 'center',
     color: Palette.brass,
     fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.7,
-  },
-  hint: {
-    color: Palette.blueMist,
-    fontFamily: Fonts.sans,
-    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   slider: {
     width: '100%',
     height: 30,
-    marginTop: 3,
-  },
-  labels: {
-    marginTop: -1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  labelButton: {
-    minWidth: 64,
-  },
-  year: {
-    color: Palette.blueMist,
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  yearActive: {
-    color: Palette.brass,
-  },
-  yearCaption: {
-    marginTop: 1,
-    color: 'rgba(221,232,236,0.62)',
-    fontFamily: Fonts.mono,
-    fontSize: 7,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  yearCaptionActive: {
-    color: Palette.white,
-  },
-  pressed: {
-    opacity: 0.72,
+    marginTop: Spacing.one,
   },
 });

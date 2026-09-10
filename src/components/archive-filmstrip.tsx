@@ -3,13 +3,18 @@ import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AdaptivePhoto } from '@/components/adaptive-photo';
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Spacing, Typography } from '@/constants/theme';
 
 type ArchiveFilmstripProps = {
   images: readonly ImageSource[];
   selectedIndex: number;
   onSelect: (index: number) => void;
 };
+
+// Des vignettes agrandies : la pellicule est la promesse d'autres vues à reprendre au même
+// endroit, elle mérite plus qu'un liseré discret.
+const FRAME_WIDTH = 148;
+const FRAME_HEIGHT = 104;
 
 export function ArchiveFilmstrip({ images, selectedIndex, onSelect }: ArchiveFilmstripProps) {
   const scrollRef = useRef<ScrollView>(null);
@@ -18,7 +23,7 @@ export function ArchiveFilmstrip({ images, selectedIndex, onSelect }: ArchiveFil
     const frame = requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({
         animated: true,
-        x: Math.max(0, selectedIndex * (108 + Spacing.two) - Spacing.three),
+        x: Math.max(0, selectedIndex * (FRAME_WIDTH + Spacing.two)),
       });
     });
     return () => cancelAnimationFrame(frame);
@@ -33,6 +38,8 @@ export function ArchiveFilmstrip({ images, selectedIndex, onSelect }: ArchiveFil
       {images.map((image, index) => (
         <Pressable
           key={index}
+          accessibilityLabel={`Voir la photo ${index + 1} du secteur`}
+          accessibilityRole="button"
           onPress={() => onSelect(index)}
           style={[styles.frame, selectedIndex === index && styles.selectedFrame]}>
           <AdaptivePhoto source={image} style={styles.image} blurRadius={10} />
@@ -48,12 +55,11 @@ export function ArchiveFilmstrip({ images, selectedIndex, onSelect }: ArchiveFil
 const styles = StyleSheet.create({
   content: {
     gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.two,
   },
   frame: {
-    width: 108,
-    height: 76,
+    width: FRAME_WIDTH,
+    height: FRAME_HEIGHT,
     borderRadius: Radius.small,
     overflow: 'hidden',
     borderWidth: 2,
@@ -62,6 +68,7 @@ const styles = StyleSheet.create({
   },
   selectedFrame: {
     borderColor: Palette.brass,
+    borderWidth: 3,
   },
   image: {
     width: '100%',
@@ -69,20 +76,20 @@ const styles = StyleSheet.create({
   },
   number: {
     position: 'absolute',
-    bottom: 6,
-    left: 6,
-    minWidth: 24,
-    height: 20,
-    paddingHorizontal: 5,
+    bottom: Spacing.one,
+    left: Spacing.one,
+    minWidth: 28,
+    paddingHorizontal: Spacing.one,
+    paddingVertical: Spacing.half,
     borderRadius: Radius.small,
     backgroundColor: 'rgba(8, 17, 22, 0.76)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   numberText: {
+    ...Typography.caption,
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 });

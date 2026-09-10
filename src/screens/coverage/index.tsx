@@ -11,7 +11,7 @@ import { BarChart } from '@/components/charts/bar-chart';
 import { RankedBars } from '@/components/charts/ranked-bars';
 import { StackedShare } from '@/components/charts/stacked-share';
 import { SourcePill } from '@/components/source-pill';
-import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 import { useStations } from '@/providers/stations-provider';
 import { HISTORIC_GRID_COUNT } from '@/services/onboarding';
 import { formatContributorName } from '@/utils/community-stats';
@@ -23,25 +23,29 @@ const BUCKET_COLORS: Record<string, string> = {
   complete: Palette.parisBlue,
 };
 
+// Une seule tête de section a droit au kicker orange sur cet écran — celle du haut de page. Les
+// sections qui suivent se contentent de leur titre. Seule celle qui détache un objet actionnable
+// (la liste de contributeurs) se pose sur une carte ; les autres vivent directement sur le fond.
 function Section({
-  kicker,
   title,
   copy,
   delay,
+  card = false,
   children,
 }: {
-  kicker: string;
   title: string;
   copy?: string;
   delay: number;
+  card?: boolean;
   children: ReactNode;
 }) {
   return (
-    <Animated.View entering={FadeInDown.delay(delay).duration(420)} style={styles.card}>
-      <Text style={styles.cardKicker}>{kicker}</Text>
-      <Text style={styles.cardTitle}>{title}</Text>
-      {copy ? <Text style={styles.cardCopy}>{copy}</Text> : null}
-      <View style={styles.cardBody}>{children}</View>
+    <Animated.View
+      entering={FadeInDown.delay(delay).duration(420)}
+      style={[styles.section, card && styles.sectionCard]}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {copy ? <Text style={styles.sectionCopy}>{copy}</Text> : null}
+      <View style={styles.sectionBody}>{children}</View>
     </Animated.View>
   );
 }
@@ -120,7 +124,6 @@ export function CoverageScreen() {
         </Animated.View>
 
         <Section
-          kicker="LA GRILLE DE 1970"
           title={`${HISTORIC_GRID_COUNT.toLocaleString('fr-FR')} secteurs historiques`}
           copy={`${grid.length.toLocaleString('fr-FR')} secteurs de 250 m sont actuellement référencés dans Paris GO. Voici où en est chacun d’eux.`}
           delay={60}>
@@ -128,22 +131,21 @@ export function CoverageScreen() {
         </Section>
 
         <Section
-          kicker="ACTIVITÉ DE LA COMMUNAUTÉ"
           title="Les photos mois par mois"
           copy={`${stats.datedRecaptures.toLocaleString('fr-FR')} photos datées depuis l’ouverture de la campagne.`}
           delay={120}>
           <BarChart data={months} unit="photos" accentColor={Palette.parisBlue} />
         </Section>
 
-        <Section kicker="RÉPARTITION" title="Les arrondissements les plus actifs" delay={180}>
+        <Section title="Les arrondissements les plus actifs" delay={180}>
           <RankedBars data={arrondissements} color={Palette.lichen} />
         </Section>
 
         <Section
-          kicker={`${stats.contributorCount} PERSONNES`}
           title="Celles et ceux qui refont Paris"
-          copy="Les contributrices et contributeurs sont crédités par leur nom, comme le prévoit le règlement de l’Observatoire."
-          delay={240}>
+          copy={`${stats.contributorCount} personnes créditées par leur prénom, comme le prévoit le règlement de l’Observatoire.`}
+          delay={240}
+          card>
           <View style={styles.contributors}>
             {stats.topContributors.slice(0, 6).map((contributor, index) => (
               <Pressable
@@ -175,7 +177,6 @@ export function CoverageScreen() {
         </Section>
 
         <Section
-          kicker="À FAIRE EN PRIORITÉ"
           title="Les secteurs les plus fournis"
           copy="Ces secteurs contiennent le plus de photos qui n’ont pas encore été refaites."
           delay={300}>
@@ -246,21 +247,18 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   kicker: {
+    ...Typography.caption,
     marginTop: Spacing.four,
     color: Palette.copper,
     fontFamily: Fonts.mono,
-    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.8,
   },
   title: {
+    ...Typography.display,
     marginTop: Spacing.two,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontWeight: '800',
-    fontSize: 36,
-    lineHeight: 38,
-    letterSpacing: -1,
   },
   heroCard: {
     marginHorizontal: Spacing.three,
@@ -274,19 +272,18 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   heroNumber: {
+    ...Typography.title,
     color: Palette.white,
     fontFamily: Fonts.display,
-    fontWeight: '800',
-    fontSize: 56,
+    fontWeight: '900',
     minWidth: 132,
   },
   heroCaption: {
+    ...Typography.body,
     flex: 1,
     marginBottom: Spacing.two,
     color: Palette.blueMist,
     fontFamily: Fonts.sans,
-    fontSize: 13,
-    lineHeight: 17,
   },
   heroTrack: {
     marginTop: Spacing.three,
@@ -301,43 +298,36 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.brass,
   },
   heroDetail: {
+    ...Typography.body,
     marginTop: Spacing.three,
     color: Palette.blueMist,
     fontFamily: Fonts.sans,
-    fontSize: 13,
-    lineHeight: 19,
   },
-  card: {
-    marginTop: Spacing.three,
+  // Une section n'est une carte que si elle détache un objet actionnable (ici, la liste de
+  // contributeurs) ; sinon elle reste posée sur le fond de l'écran.
+  section: {
+    marginTop: Spacing.five,
     marginHorizontal: Spacing.three,
+  },
+  sectionCard: {
+    marginTop: Spacing.three,
     padding: Spacing.threeHalf,
     borderRadius: Radius.large,
     backgroundColor: Palette.white,
     ...Shadow.card,
   },
-  cardKicker: {
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-  },
-  cardTitle: {
-    marginTop: Spacing.one,
+  sectionTitle: {
+    ...Typography.title,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontWeight: '800',
-    fontSize: 24,
-    lineHeight: 27,
   },
-  cardCopy: {
+  sectionCopy: {
+    ...Typography.body,
     marginTop: Spacing.two,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 13,
-    lineHeight: 19,
   },
-  cardBody: {
+  sectionBody: {
     marginTop: Spacing.three,
   },
   contributors: {
@@ -356,23 +346,22 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.blueMist,
   },
   contributorRank: {
+    ...Typography.caption,
     width: 22,
     color: Palette.brass,
     fontFamily: Fonts.mono,
-    fontSize: 12,
     fontWeight: '900',
   },
   contributorName: {
+    ...Typography.body,
     flex: 1,
     color: Palette.ink,
-    fontFamily: Fonts.sans,
-    fontSize: 15,
     fontWeight: '600',
   },
   contributorCount: {
+    ...Typography.body,
     color: Palette.inkSoft,
     fontFamily: Fonts.mono,
-    fontSize: 11,
     fontWeight: '700',
   },
   priority: {
@@ -385,33 +374,31 @@ const styles = StyleSheet.create({
     gap: Spacing.twoHalf,
   },
   priorityRank: {
+    ...Typography.caption,
     width: 22,
     color: Palette.copper,
     fontFamily: Fonts.mono,
-    fontSize: 12,
     fontWeight: '900',
   },
   priorityText: {
     flex: 1,
   },
   priorityTitle: {
+    ...Typography.body,
     color: Palette.ink,
-    fontFamily: Fonts.sans,
-    fontSize: 15,
     fontWeight: '700',
   },
   priorityMeta: {
-    marginTop: 1,
+    ...Typography.body,
+    marginTop: Spacing.half,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 12,
   },
   footnote: {
+    ...Typography.caption,
     margin: Spacing.three,
     marginTop: Spacing.four,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 11,
-    lineHeight: 16,
   },
 });

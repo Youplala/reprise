@@ -2,7 +2,9 @@ import type { Snapshot, SquareBounds } from '@/data/snapshot';
 import type { Coordinate, StationSummary } from '@/types/station';
 
 export type MappingStatus = 'to-reprise' | 'published-reprise' | 'collection-2022';
-export type MapFilter = 'all' | MappingStatus;
+// Le filtre de la carte n'a plus que deux positions : les photos de 2022 rejoignent
+// « à retrouver », elles n'ont pas de statut de filtre à elles.
+export type MapFilter = 'to-reprise' | 'published-reprise';
 
 export type MappingCoverage = {
   /** Vues de 1970 réellement numérisées, et non le nombre d'éléments de l'API. */
@@ -43,13 +45,13 @@ export function mappingStatus(station: StationSummary): MappingStatus {
 }
 
 export function stationMatchesFilter(station: StationSummary, filter: MapFilter) {
-  if (filter === 'all') return true;
   if (station.kind === 'archive-1970') {
     if (filter === 'to-reprise') return (station.remainingCount ?? station.frameCount ?? 0) > 0;
-    if (filter === 'published-reprise') return (station.publishedCount ?? 0) > 0;
-    return false;
+    return (station.publishedCount ?? 0) > 0;
   }
-  return mappingStatus(station) === filter;
+  // Une photo de 2022 reste un point de vue à reprendre : elle rejoint « à retrouver ».
+  if (station.kind === 'station-2022') return filter === 'to-reprise';
+  return filter === 'published-reprise';
 }
 
 function round1(value: number) {
