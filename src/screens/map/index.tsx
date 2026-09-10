@@ -257,13 +257,15 @@ function MapPhotoPreview({
       <View pointerEvents="none" style={styles.photoPreviewShade} />
 
       <View style={styles.photoPreviewTop}>
-        <View style={[styles.photoStatus, { backgroundColor: pinColor(station) }]}>
-          <Text style={styles.photoStatusText}>
-            {isArchiveSector
-              ? 'ARCHIVES 1970'
-              : `${station.year}${detail?.hasRecapture ? ' → 2026' : ''}`}
-          </Text>
-        </View>
+        {isArchiveSector ? (
+          <View />
+        ) : (
+          <View style={[styles.photoStatus, { backgroundColor: pinColor(station) }]}>
+            <Text style={styles.photoStatusText}>
+              {`${station.year}${detail?.hasRecapture ? ' → 2026' : ''}`}
+            </Text>
+          </View>
+        )}
         <View style={styles.photoCounter}>
           {!isArchiveSector ? (
             <SymbolView
@@ -281,15 +283,15 @@ function MapPhotoPreview({
       </View>
 
       <View style={styles.photoPreviewBody}>
-        <Text style={styles.photoPreviewKicker}>{pinLabel(station)}</Text>
+        {isArchiveSector ? null : (
+          <Text style={styles.photoPreviewKicker}>{pinLabel(station)}</Text>
+        )}
         <Text style={styles.photoPreviewTitle} numberOfLines={2}>
           {isArchiveSector ? 'Choisir une photo' : station.name}
         </Text>
         <View style={styles.photoPreviewMetaRow}>
           <Text style={styles.photoPreviewMeta} numberOfLines={1}>
-            {isArchiveSector
-              ? `${plural(frameCount, 'photo')} dans ce secteur`
-              : meta}
+            {isArchiveSector ? `${plural(frameCount, 'vue')} d’archive` : meta}
           </Text>
           <View style={styles.photoPreviewAction}>
             <Text style={styles.photoPreviewActionText}>

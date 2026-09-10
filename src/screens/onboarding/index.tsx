@@ -133,6 +133,12 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   // Sans paragraphe d'intro ni carte de pictogrammes, l'image peut grandir et occuper le
   // haut de l'écran : c'est elle qui porte la page, le texte n'en est que la légende.
   const heroHeight = Math.min(440, Math.max(280, height * 0.46));
+  // La première étape ne porte qu'un titre sous l'image : à hauteur commune, il restait un vide
+  // en bas d'écran. L'image le prend, puisque c'est elle qu'on est venu voir.
+  const heroHeightAlone = Math.min(470, Math.max(300, height * 0.5));
+  // La dernière étape porte le plus de contenu — titre, mention de confidentialité, échappatoire.
+  // L'image lui cède la place : une information sur la vie privée ne doit pas demander à défiler.
+  const heroHeightShort = Math.min(320, Math.max(200, height * 0.34));
 
   const finish = async () => {
     if (finishing) return;
@@ -207,7 +213,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           showsVerticalScrollIndicator={false}>
           <Hero
             pair={pair}
-            height={heroHeight}
+            height={heroHeightAlone}
             onInteractionChange={(active) => setPagerScrollEnabled(!active)}
           />
           {caption ? <PhotoCaption name={caption.name} /> : null}
@@ -261,7 +267,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         style={{ width }}
         contentContainerStyle={styles.page}
         showsVerticalScrollIndicator={false}>
-        <LocationHero pair={publishedSubmissions[0]} height={heroHeight} />
+        <LocationHero pair={publishedSubmissions[0]} height={heroHeightShort} />
         <View style={styles.content}>
           <Heading eyebrow="AUTOUR DE VOUS" title={'La photo la plus\nproche de vous.'} />
           <View style={styles.privacyCard}>
