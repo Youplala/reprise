@@ -295,7 +295,6 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    paddingBottom: Spacing.four,
   },
   brandRow: {
     minHeight: 62,
@@ -329,8 +328,10 @@ const styles = StyleSheet.create({
     color: Palette.ink,
     fontFamily: Fonts.display,
   },
+  // Un seul palier d'espacement sépare l'accroche de la section suivante — ce qui sépare
+  // respire (Spacing.five), pas deux paddings qui s'additionnent (voir direction-visuelle.md).
   sectionHeader: {
-    marginTop: Spacing.four,
+    marginTop: Spacing.five,
     marginBottom: Spacing.three,
     paddingHorizontal: Spacing.three,
     flexDirection: 'row',

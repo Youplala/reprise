@@ -253,9 +253,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.four,
   },
+  // Le rang du contributeur (badge cuivre plus bas) porte une donnée ; ce libellé n'est
+  // qu'une étiquette — un écran ne garde qu'un seul accent cuivre (voir direction-visuelle.md).
   kicker: {
     ...Typography.caption,
-    color: Palette.copper,
+    color: Palette.inkSoft,
     fontFamily: Fonts.mono,
     fontWeight: '900',
     letterSpacing: 0.8,
