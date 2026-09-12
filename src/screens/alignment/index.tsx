@@ -26,7 +26,6 @@ import { SIMULATED_CAMERA_IMAGE } from '@/constants/demo';
 
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useCameraLenses } from '@/hooks/use-camera-lenses';
-import { useDeviceAttitude } from '@/hooks/use-device-attitude';
 import { useImageAspectRatio } from '@/hooks/use-image-aspect-ratio';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { readGrantedCaptureLocation } from '@/services/capture-location';
@@ -37,12 +36,6 @@ import {
 import { authorizeOfficialCapture } from '@/services/official-capture-authority';
 
 const AnimatedArchiveImage = Animated.createAnimatedComponent(Image);
-// Inclinaison du capteur quand l'appareil est tenu vertical, en portrait.
-const UPRIGHT_PITCH_DEGREES = 90;
-// Au-delà, l'horizon penche visiblement sur la comparaison.
-const LEVEL_TOLERANCE_DEGREES = 2;
-// Au-delà, la vue bascule en plongée ou contre-plongée, refusées par le règlement.
-const PITCH_TOLERANCE_DEGREES = 8;
 
 const MAX_CAMERA_ZOOM = 1;
 
@@ -102,7 +95,6 @@ export function AlignmentScreen() {
   const [overlayOpacity] = useState(() => new Animated.Value(0.52));
   const [overlayOffset] = useState(() => new Animated.ValueXY({ x: 0, y: 0 }));
   const [overlayScale] = useState(() => new Animated.Value(1));
-  const attitude = useDeviceAttitude();
   const { lenses, selectedLens, setSelectedLens, activeLabel, onAvailableLensesChanged } =
     useCameraLenses(cameraRef, cameraReady);
 
@@ -160,18 +152,6 @@ export function AlignmentScreen() {
 
   const backgroundImage = isSimulator ? SIMULATED_CAMERA_IMAGE : undefined;
 
-  // Ces deux mesures viennent des capteurs et ne disent rien de la ressemblance avec la vue de
-  // 1970 : aucune analyse d'image n'a lieu ici. Elles portent donc un nom qui correspond à ce
-  // qu'elles mesurent vraiment, plutôt qu'un pourcentage d'« alignement » qui laisserait croire
-  // à une comparaison automatique.
-  const rollDegrees = (attitude.roll * 180) / Math.PI;
-  // En portrait, le capteur renvoie environ 90° quand l'appareil est vertical : l'écart à cette
-  // référence mesure la plongée ou la contre-plongée.
-  const pitchDegrees = (attitude.pitch * 180) / Math.PI - UPRIGHT_PITCH_DEGREES;
-
-  const sensorsAvailable = !isSimulator;
-  const isLevel = Math.abs(rollDegrees) <= LEVEL_TOLERANCE_DEGREES;
-  const isFlat = Math.abs(pitchDegrees) <= PITCH_TOLERANCE_DEGREES;
   const topBarOffset = Math.max(insets.top, 52) + Spacing.one;
   const captureFrame = useMemo(() => {
     const horizontalPadding = Spacing.three;
@@ -203,22 +183,6 @@ export function AlignmentScreen() {
     viewfinderSize.height,
     viewfinderSize.width,
   ]);
-
-  // L'article 7.3 du règlement de l'Observatoire écarte les vues en plongée et en contre-plongée :
-  // c'est le défaut de cadrage qu'il faut signaler en premier.
-  // L'article 7.3 du règlement écarte les vues en plongée et en contre-plongée : c'est le seul
-  // défaut que les capteurs savent réellement détecter, et donc le seul qu'on signale.
-  const warning = !sensorsAvailable
-    ? undefined
-    : !isFlat
-      ? pitchDegrees > 0
-        ? 'Vous visez vers le haut, redressez l’appareil'
-        : 'Vous visez vers le bas, redressez l’appareil'
-      : !isLevel
-        ? rollDegrees > 0
-          ? 'L’appareil penche à droite'
-          : 'L’appareil penche à gauche'
-        : undefined;
 
   const dragResponder = useMemo(
     () =>
@@ -364,8 +328,6 @@ export function AlignmentScreen() {
           referenceUri: referenceUriOf(referenceImage) ?? '',
           uri: captureUri,
           simulated: liveCamera ? '0' : '1',
-          roll: rollDegrees.toFixed(1),
-          pitch: pitchDegrees.toFixed(1),
           latitude: captureLocation ? String(captureLocation.latitude) : '',
           longitude: captureLocation ? String(captureLocation.longitude) : '',
           locationPrecision: captureLocation?.precision ?? '',
@@ -649,26 +611,6 @@ export function AlignmentScreen() {
             <SymbolView name="arrow.counterclockwise" size={18} tintColor={Palette.white} />
           </Pressable>
         </View>
-
-        {warning ? (
-          <View style={styles.qualityCard}>
-            <SymbolView name="exclamationmark.triangle.fill" size={22} tintColor={Palette.brass} />
-            <View style={styles.qualityCopy}>
-              <Text style={styles.qualityLabel}>
-                NIVEAU · {Math.abs(rollDegrees).toFixed(0)}° · {Math.abs(pitchDegrees).toFixed(0)}°
-              </Text>
-              <Text style={styles.qualityInstruction}>{warning}</Text>
-            </View>
-            <View style={styles.level}>
-              <View
-                style={[
-                  styles.levelBubble,
-                  { transform: [{ translateX: Math.max(-19, Math.min(19, rollDegrees * 2.5)) }] },
-                ]}
-              />
-            </View>
-          </View>
-        ) : null}
 
       </View>
 
@@ -1040,51 +982,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 0.45,
   },
-  qualityCard: {
-    position: 'absolute',
-    left: Spacing.three,
-    right: Spacing.three,
-    bottom: Spacing.three,
-    minHeight: 72,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Radius.medium,
-    backgroundColor: 'rgba(8, 17, 22, 0.78)',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  qualityCopy: {
-    flex: 1,
-    paddingHorizontal: Spacing.two,
-  },
-  qualityLabel: {
-    color: Palette.blueMist,
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  qualityInstruction: {
-    marginTop: 3,
-    color: Palette.white,
-    fontFamily: Fonts.sans,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  level: {
-    width: 48,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.42)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  levelBubble: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: Palette.brass,
-  },
+
   nudges: {
     position: 'absolute',
     alignItems: 'center',

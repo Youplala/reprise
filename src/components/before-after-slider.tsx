@@ -6,6 +6,7 @@ import {
   type AccessibilityActionEvent,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native';
@@ -24,6 +25,7 @@ import Animated, {
 
 import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useImageAspectRatio } from '@/hooks/use-image-aspect-ratio';
+import { comparisonDimensionsForAspectRatio } from '@/services/photo-geometry';
 
 type BeforeAfterSliderProps = {
   before: ImageSource;
@@ -51,15 +53,20 @@ export function BeforeAfterSlider({
   onInteractionChange,
 }: BeforeAfterSliderProps) {
   const [width, setWidth] = useState(0);
+  const { height: windowHeight } = useWindowDimensions();
   const { aspectRatio } = useImageAspectRatio(before);
-  // Hauteur calée sur le format de la photo de référence, comme le reste de l'app.
-  const resolvedHeight =
-    height ?? (width ? Math.min(440, Math.max(220, width / aspectRatio)) : 280);
+  // La comparaison montre le cadre complet. Pour un format exceptionnellement étroit, elle
+  // réduit sa largeur plutôt que de recadrer l'image ou de créer une vue démesurée.
+  const dimensions = height
+    ? { width, height }
+    : comparisonDimensionsForAspectRatio(width, aspectRatio, windowHeight * 0.82);
+  const resolvedWidth = dimensions.width;
+  const resolvedHeight = dimensions.height;
 
   const ratio = useSharedValue(0.5);
   // Dérivé de la largeur mesurée : le React Compiler interdit de muter une valeur partagée
   // depuis un gestionnaire d'événement, et une dérivation exprime mieux la dépendance.
-  const containerWidth = useDerivedValue(() => width, [width]);
+  const containerWidth = useDerivedValue(() => resolvedWidth, [resolvedWidth]);
   const active = useSharedValue(0);
   // Mémorise le bord déjà atteint pour ne pas répéter le retour haptique à chaque frame.
   const edgeLatched = useSharedValue(0);
@@ -162,8 +169,9 @@ export function BeforeAfterSlider({
   };
 
   return (
-    <GestureDetector gesture={gesture}>
-      <View
+    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={style}>
+      <GestureDetector gesture={gesture}>
+        <View
         accessible
         accessibilityActions={[
           { name: 'increment', label: `Afficher plus de ${beforeLabel}` },
@@ -173,8 +181,10 @@ export function BeforeAfterSlider({
         accessibilityLabel={`Comparaison entre ${beforeLabel} et ${afterLabel}`}
         accessibilityRole="adjustable"
         onAccessibilityAction={handleAccessibilityAction}
-        onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-        style={[styles.container, { height: resolvedHeight, borderRadius }, style]}
+        style={[
+          styles.container,
+          { width: resolvedWidth, height: resolvedHeight, borderRadius, alignSelf: 'center' },
+        ]}
         testID="before-after-slider">
         <Image source={before} style={StyleSheet.absoluteFill} contentFit="cover" transition={180} />
 
@@ -182,7 +192,7 @@ export function BeforeAfterSlider({
           <Animated.View style={[styles.afterImageHolder, afterImageStyle, { height: resolvedHeight }]}>
             <Image
               source={after}
-              style={[StyleSheet.absoluteFill, { width }]}
+              style={[StyleSheet.absoluteFill, { width: resolvedWidth }]}
               contentFit="cover"
               transition={180}
             />
@@ -201,8 +211,9 @@ export function BeforeAfterSlider({
             <SymbolView name="arrow.left.and.right" size={14} tintColor={Palette.parisBlue} />
           </Animated.View>
         </Animated.View>
-      </View>
-    </GestureDetector>
+        </View>
+      </GestureDetector>
+    </View>
   );
 }
 
