@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { afterEach, expect, it } from '@jest/globals';
 import { act, create } from 'react-test-renderer';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 import { MapPreviewSheet, isVerticalPreviewDrag, previewShouldCollapse } from '@/components/map-preview-sheet';
 
@@ -31,6 +31,9 @@ it('permet aussi de réduire et rouvrir la fiche en touchant la poignée', async
     </MapPreviewSheet>;
   }
   await act(async () => { renderer = create(<Harness />); });
+  const measuredContent = renderer.root.findAll((node) => typeof node.props.onLayout === 'function')[0];
+  // Une mesure dans le flux hérite de la hauteur animée et rétrécit à chaque frame.
+  expect(StyleSheet.flatten(measuredContent.props.style)).toMatchObject({ position: 'absolute', top: 0 });
   const handle = () => renderer.root.findAll((node) =>
     node.props.accessibilityRole === 'button' && typeof node.props.onPress === 'function')[0];
   expect(handle().props.accessibilityState.expanded).toBe(true);

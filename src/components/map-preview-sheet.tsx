@@ -120,5 +120,7 @@ const styles = StyleSheet.create({
   grabberCollapsed: { backgroundColor: Palette.inkSoft, shadowOpacity: 0 },
   pressed: { backgroundColor: Palette.blueMist },
   clip: { overflow: 'hidden' },
-  content: { flexShrink: 0 },
+  // Mesurer la hauteur intrinsèque, indépendamment du masque animé. Sinon une FlatList
+  // se contracte avec son parent et sa mesure devient la prochaine hauteur « ouverte ».
+  content: { position: 'absolute', top: 0, left: 0, right: 0 },
 });

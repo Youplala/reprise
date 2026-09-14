@@ -270,9 +270,11 @@ export function ReviewScreen() {
             <View style={styles.saveConfirmation}>
               <SymbolView name="checkmark.circle.fill" size={16} tintColor={Palette.lichen} />
               <Text style={styles.saveConfirmationText}>
-                {inLibrary
-                  ? 'Photo enregistrée. Vous pouvez préparer le dépôt officiel.'
-                  : 'Photo conservée dans le carnet, disponible après fermeture de l’application.'}
+                {isSimulated
+                  ? 'Aperçu ajouté au carnet. Aucune photo créée en mode démo.'
+                  : inLibrary
+                    ? 'Photo enregistrée dans Photos et dans le carnet.'
+                    : 'Photo conservée dans le carnet uniquement. La copie dans Photos n’a pas abouti.'}
               </Text>
             </View>
           ) : null}

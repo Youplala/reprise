@@ -11,14 +11,14 @@ import {
 
 export type { CapturePreparation, NewCapture, SavedCapture } from '@/services/fieldbook-store';
 
-type MediaLibraryModule = typeof import('expo-media-library');
+type MediaLibraryModule = typeof import('expo-media-library/legacy');
 
 const CAPTURES_DIRECTORY = new Directory(Paths.document, 'reprise-captures');
 
 function loadMediaLibrary(): MediaLibraryModule | undefined {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('expo-media-library') as MediaLibraryModule;
+    return require('expo-media-library/legacy') as MediaLibraryModule;
   } catch {
     return undefined;
   }

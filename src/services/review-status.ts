@@ -78,9 +78,9 @@ function storageStatus({ simulated, saved, savedToLibrary }: ReviewStatusInput):
   }
   if (saved) {
     return {
-      icon: 'exclamationmark.circle.fill',
+      icon: 'info.circle.fill',
       title: 'Conservation',
-      copy: 'Carnet créé, mais aucune copie durable confirmée',
+      copy: 'Photo conservée dans le carnet, mais pas dans Photos',
     };
   }
   return {

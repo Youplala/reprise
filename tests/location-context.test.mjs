@@ -150,8 +150,9 @@ test('l’accueil garde toute l’exploration accessible et ne redemande pas le 
   assert.match(source, /const handleRefresh = refresh;/);
   assert.doesNotMatch(source, /Promise\.all\(\[refresh\(\), locate\(\)\]\)/);
   assert.doesNotMatch(source, /disabled=\{awaitingFirstLocation\}/);
-  assert.match(source, /La consultation fonctionne partout/);
-  assert.match(source, /rendez-vous au point de\s+vue parisien/);
+  assert.match(source, />Autour de moi<\/Text>/);
+  assert.doesNotMatch(source, /Retrouvez Paris, photo après photo|Observatoire mobile de Paris/);
+  assert.doesNotMatch(source, /locationContent\.sectionTitle|styles\.seeAll/);
 });
 
 test('les reprises publiées restent indépendantes de la localisation', async () => {

@@ -116,10 +116,7 @@ export function HomeScreen() {
         contentContainerStyle={styles.scrollContent}>
         <SafeAreaView edges={['top']} style={styles.safeHeader}>
           <View style={styles.brandRow}>
-            <View>
-              <Text style={styles.brand}>PARIS GO</Text>
-              <Text style={styles.brandSub}>Observatoire mobile de Paris</Text>
-            </View>
+            <Text accessibilityRole="header" style={styles.brand}>Autour de moi</Text>
             <View style={styles.headerActions}>
               <Pressable
                 accessibilityLabel="Ouvrir le carnet"
@@ -148,29 +145,7 @@ export function HomeScreen() {
             </View>
           </View>
 
-          <View>
-            <Text style={styles.eyebrow}>{locationContent.eyebrow}</Text>
-            <Text style={styles.heroTitle}>Retrouvez Paris, photo après photo.</Text>
-            <Text style={styles.heroCopy}>
-              La consultation fonctionne partout. Pour refaire une photo, rendez-vous au point de
-              vue parisien.
-            </Text>
-          </View>
         </SafeAreaView>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{locationContent.sectionTitle}</Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              void Haptics.selectionAsync();
-              router.push('/map');
-            }}
-            style={({ pressed }) => [styles.seeAll, pressed && styles.pressedSoft]}>
-            <Text style={styles.seeAllText}>Carte</Text>
-            <SymbolView name="arrow.right" size={13} tintColor={Palette.parisBlue} />
-          </Pressable>
-        </View>
 
         {/* Les archives de 1970 restent en tête, la vue de 2022 ferme la liste : c'est le fonds
             historique qui est le sujet de l'application. Les photos vont à fond perdu — c'est
@@ -267,24 +242,23 @@ const styles = StyleSheet.create({
   safeHeader: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
+    paddingBottom: Spacing.two,
   },
   brandRow: {
     minHeight: 62,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   brand: {
     ...Typography.title,
     color: Palette.parisBlue,
     fontFamily: Fonts.display,
     fontWeight: '900',
-    letterSpacing: 2.5,
-  },
-  brandSub: {
-    ...Typography.caption,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
+    fontSize: 28,
+    lineHeight: 34,
+    flex: 1,
   },
   headerActions: {
     flexDirection: 'row',
@@ -307,20 +281,6 @@ const styles = StyleSheet.create({
   },
   pressedSoft: {
     opacity: 0.6,
-  },
-  eyebrow: {
-    ...Typography.caption,
-    marginTop: Spacing.three,
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  heroTitle: {
-    ...Typography.display,
-    marginTop: Spacing.two,
-    color: Palette.ink,
-    fontFamily: Fonts.display,
   },
   pulseWrapper: {
     paddingHorizontal: Spacing.three,
@@ -377,40 +337,6 @@ const styles = StyleSheet.create({
   pulseFooterText: {
     ...Typography.body,
     flex: 1,
-    color: Palette.parisBlue,
-    fontFamily: Fonts.sans,
-    fontWeight: '700',
-  },
-  // Un seul palier d'espacement sépare l'accroche de la section suivante — ce qui sépare
-  // respire (Spacing.five), pas deux paddings qui s'additionnent (voir direction-visuelle.md).
-  heroCopy: {
-    ...Typography.body,
-    marginTop: Spacing.two,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-  },
-  sectionHeader: {
-    marginTop: Spacing.five,
-    marginBottom: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    ...Typography.title,
-    color: Palette.ink,
-    fontFamily: Fonts.display,
-  },
-  seeAll: {
-    minHeight: 44,
-    paddingLeft: Spacing.three,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-  },
-  seeAllText: {
-    ...Typography.body,
     color: Palette.parisBlue,
     fontFamily: Fonts.sans,
     fontWeight: '700',
