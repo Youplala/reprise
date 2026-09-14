@@ -26,6 +26,10 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Label>Communauté</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="about">
+        <NativeTabs.Trigger.Label>À propos</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'info.circle', selected: 'info.circle.fill' }} />
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }

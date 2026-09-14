@@ -79,3 +79,18 @@ aucune mise à niveau automatique hors périmètre n'a été effectuée.
   Pas de changement spéculatif des gestes natifs ni du filtrage des archives.
 - Vérification locale : TypeScript, lint, 161 tests Node et 22 tests Jest, export JS iOS.
   Changements locaux uniquement, pas de nouveau binaire TestFlight.
+
+## Onglet À propos et signature Paris GO
+
+- Quatrième onglet natif « À propos » : bloc de marque bleu, présentation d’Élie Brosset,
+  contact laiton `parisgo@eliebrosset.com`, site, code GitHub et confidentialité.
+  Nom et informations du projet repris du site existant ; adresse choisie par le développeur.
+- La mention « Open source » est limitée à cet écran dans l’application. Site GitHub Pages
+  inchangé. Signature « Paris GO » conservée sur les comparaisons et le visuel de partage,
+  sous les crédits pour leur laisser toute la largeur.
+- Rendu de l’onglet et de la fiche « 2 rue Charles Robin » vérifié dans ParisGO-Dev.
+  Les crédits et « Paris GO » sont visibles sans la mention « Open source ».
+  Navigation GitHub ouverte dans Safari ; retour dans l’app. Aucun courriel envoyé.
+- Tests comportementaux des quatre liens et du retour d’erreur : cycle rouge/vert,
+  notamment pour l’adresse `mailto:` demandée. TypeScript, lint, 161 tests Node,
+  24 tests Jest et export JS iOS réussis. Aucun nouveau build TestFlight publié.

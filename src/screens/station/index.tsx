@@ -36,7 +36,7 @@ import {
   type TimelineYear,
 } from '@/components/time-travel-slider';
 import { Fonts, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
-import { PROJECT_LABEL, PROJECT_URL } from '@/constants/legal';
+import { PROJECT_URL } from '@/constants/legal';
 import { PARIS_CENTER } from '@/data/archive';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
@@ -512,9 +512,7 @@ export function StationScreen() {
                       </Text>
                     </View>
                   </View>
-                  <View style={styles.repriseMark}>
-                    <Text style={styles.repriseMarkText}>PARIS GO · {PROJECT_LABEL}</Text>
-                  </View>
+                  <Text style={styles.parisGoSignature}>Paris GO</Text>
                 </View>
               </View>
 
@@ -689,9 +687,7 @@ export function StationScreen() {
                   {currentCredit}
                 </Text>
               </View>
-              <View style={styles.repriseMark}>
-                <Text style={styles.repriseMarkText}>PARIS GO · {PROJECT_LABEL}</Text>
-              </View>
+              <Text style={styles.parisGoSignature}>Paris GO</Text>
             </View>
           </View>
         </View>
@@ -1121,10 +1117,14 @@ const styles = StyleSheet.create({
     minHeight: 64,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     gap: Spacing.two,
+  },
+  parisGoSignature: {
+    ...Typography.caption,
+    fontFamily: Fonts.display,
+    fontWeight: '900',
+    color: Palette.parisBlue,
+    alignSelf: 'flex-end',
   },
   recaptureCreditRow: {
     flex: 1,
@@ -1155,16 +1155,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.mono,
     fontWeight: '700',
     letterSpacing: 0.35,
-  },
-  repriseMark: {
-    alignItems: 'flex-end',
-  },
-  repriseMarkText: {
-    ...Typography.caption,
-    color: Palette.parisBlue,
-    fontFamily: Fonts.mono,
-    fontWeight: '700',
-    letterSpacing: 0.4,
   },
   shareButton: {
     minHeight: 52,
@@ -1365,10 +1355,7 @@ const styles = StyleSheet.create({
     minHeight: 82,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.twoHalf,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.three,
+    gap: Spacing.two,
     backgroundColor: Palette.white,
   },
   shareExportCredits: {
