@@ -35,6 +35,8 @@ import { useFeaturedMission, useStations } from '@/providers/stations-provider';
 
 import { distanceInMeters } from '@/utils/distance';
 import { nearestArrondissement } from '@/utils/place-name';
+import { PARIS_CENTER } from '@/data/archive';
+import { HOME_LOCATION_CONTENT, classifyLocationContext } from '@/services/location-context';
 
 export function HomeScreen() {
   const router = useRouter();
@@ -43,6 +45,10 @@ export function HomeScreen() {
   const { coordinate, isPrecise, loading: locating, locate } = useUserLocation({
     autoLocate: true,
   });
+  const locationContext = classifyLocationContext({ coordinate, isPrecise });
+  const locationContent = HOME_LOCATION_CONTENT[locationContext];
+  const proximityOrigin = locationContext === 'in-paris' ? coordinate : PARIS_CENTER;
+
 
   // Les archives de 1970 sont le cœur du sujet : on met en avant les secteurs les plus proches,
   // triés par distance. Les points de vue de 2022 restent accessibles, mais en dernier de liste.
@@ -54,7 +60,10 @@ export function HomeScreen() {
             station.kind === 'archive-1970' &&
             (station.remainingCount ?? station.frameCount ?? 0) > 0,
         )
-        .map((station) => ({ station, distance: distanceInMeters(coordinate, station.coordinate) }))
+        .map((station) => ({
+          station,
+          distance: distanceInMeters(proximityOrigin, station.coordinate),
+        }))
         .sort((left, right) => left.distance - right.distance)
         .slice(0, 3)
         // « Secteur 794 » ne situe rien : on emprunte l'arrondissement du repère localisé le plus
@@ -67,10 +76,10 @@ export function HomeScreen() {
           },
           distance,
         })),
-    [coordinate, stations],
+    [proximityOrigin, stations],
   );
 
-  const featured2022 = useFeaturedMission(isPrecise ? coordinate : undefined);
+  const featured2022 = useFeaturedMission(locationContext === 'in-paris' ? coordinate : undefined);
   const featured2022Distance = featured2022
     ? distanceInMeters(coordinate, featured2022.coordinate)
     : 0;
@@ -91,9 +100,7 @@ export function HomeScreen() {
     );
   };
 
-  const handleRefresh = async () => {
-    await Promise.all([refresh(), locate()]);
-  };
+  const handleRefresh = refresh;
 
   return (
     <View style={styles.screen}>
@@ -113,35 +120,46 @@ export function HomeScreen() {
               <Text style={styles.brand}>PARIS GO</Text>
               <Text style={styles.brandSub}>Observatoire mobile de Paris</Text>
             </View>
-            <Pressable
-              accessibilityLabel="Utiliser ma position"
-              accessibilityRole="button"
-              accessibilityState={{ busy: locating, disabled: locating }}
-              disabled={locating}
-              onPress={handleLocate}
-              style={({ pressed }) => [
-                styles.locationButton,
-                locating && styles.locationButtonDisabled,
-                pressed && styles.pressed,
-              ]}>
-              <SymbolView
-                name={isPrecise ? 'location.fill' : 'location'}
-                size={21}
-                tintColor={Palette.parisBlue}
-              />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                accessibilityLabel="Ouvrir le carnet"
+                accessibilityRole="button"
+                onPress={() => router.push('/fieldbook')}
+                style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}>
+                <SymbolView name="book.closed.fill" size={20} tintColor={Palette.parisBlue} />
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Utiliser ma position"
+                accessibilityRole="button"
+                accessibilityState={{ busy: locating, disabled: locating }}
+                disabled={locating}
+                onPress={handleLocate}
+                style={({ pressed }) => [
+                  styles.locationButton,
+                  locating && styles.locationButtonDisabled,
+                  pressed && styles.pressed,
+                ]}>
+                <SymbolView
+                  name={isPrecise ? 'location.fill' : 'location'}
+                  size={21}
+                  tintColor={Palette.parisBlue}
+                />
+              </Pressable>
+            </View>
           </View>
 
           <View>
-            <Text style={styles.eyebrow}>
-              {isPrecise ? 'AUTOUR DE VOUS' : 'PARIS · 30 087 PHOTOS DE 1970'}
-            </Text>
+            <Text style={styles.eyebrow}>{locationContent.eyebrow}</Text>
             <Text style={styles.heroTitle}>Retrouvez Paris, photo après photo.</Text>
+            <Text style={styles.heroCopy}>
+              La consultation fonctionne partout. Pour refaire une photo, rendez-vous au point de
+              vue parisien.
+            </Text>
           </View>
         </SafeAreaView>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{isPrecise ? 'Photos près de vous' : 'Photos à Paris'}</Text>
+          <Text style={styles.sectionTitle}>{locationContent.sectionTitle}</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => {
@@ -159,13 +177,13 @@ export function HomeScreen() {
             elles qu'on vient voir. */}
         <View style={styles.cardList}>
           {nearby.map(({ station, distance }) => (
-            <StationCard key={station.id} station={station} distance={isPrecise ? distance : undefined} wide />
+            <StationCard key={station.id} station={station} distance={locationContent.showDistances ? distance : undefined} wide />
           ))}
           {featured2022 ? (
             <StationCard
               key={featured2022.id}
               station={featured2022}
-              distance={isPrecise ? featured2022Distance : undefined}
+              distance={locationContent.showDistances ? featured2022Distance : undefined}
               wide
             />
           ) : null}
@@ -268,6 +286,10 @@ const styles = StyleSheet.create({
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
   },
+  headerActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
   locationButton: {
     width: 44,
     height: 44,
@@ -361,6 +383,12 @@ const styles = StyleSheet.create({
   },
   // Un seul palier d'espacement sépare l'accroche de la section suivante — ce qui sépare
   // respire (Spacing.five), pas deux paddings qui s'additionnent (voir direction-visuelle.md).
+  heroCopy: {
+    ...Typography.body,
+    marginTop: Spacing.two,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+  },
   sectionHeader: {
     marginTop: Spacing.five,
     marginBottom: Spacing.three,

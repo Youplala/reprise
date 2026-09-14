@@ -29,24 +29,49 @@ import { getReviewStatusRows, type CaptureLocation } from '@/services/review-sta
 
 export function ReviewScreen() {
   const router = useRouter();
-  const { id, frame, referenceUri, uri, simulated, roll, pitch, latitude, longitude, locationPrecision } = useLocalSearchParams<{
+  const {
+    id,
+    frame,
+    referenceUri,
+    uri,
+    simulated,
+    latitude,
+    longitude,
+    locationPrecision,
+    captureId,
+    resumed,
+    currentSaved,
+    currentPreparation,
+    referencePreparation,
+  } = useLocalSearchParams<{
     id: string;
     frame?: string;
     referenceUri?: string;
     uri?: string;
     simulated?: string;
-    roll?: string;
-    pitch?: string;
+
     latitude?: string;
     longitude?: string;
     locationPrecision?: string;
+    captureId?: string;
+    resumed?: string;
+    currentSaved?: string;
+    currentPreparation?: string;
+    referencePreparation?: string;
   }>();
   const { detail } = useStationDetail(id);
-  const [saved, setSaved] = useState(false);
-  const [inLibrary, setInLibrary] = useState(false);
+  const [saved, setSaved] = useState(resumed === '1');
+  const [inLibrary, setInLibrary] = useState(currentSaved === '1');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>();
-  const [savedCaptureUri, setSavedCaptureUri] = useState<string>();
+  const [savedCaptureUri, setSavedCaptureUri] = useState<string | undefined>(
+    resumed === '1' ? uri : undefined,
+  );
+  const [savedCaptureId, setSavedCaptureId] = useState<string | undefined>(captureId);
+  const [savedCoordinate, setSavedCoordinate] = useState<{
+    latitude: number;
+    longitude: number;
+  }>();
   const [comparisonActive, setComparisonActive] = useState(false);
   const isSimulated = simulated !== '0';
   const isArchiveSector = detail?.kind === 'archive-1970';
@@ -78,12 +103,6 @@ export function ReviewScreen() {
     : isSimulated
       ? SIMULATED_CAMERA_IMAGE
       : detail?.recaptureImage;
-  // Inclinaisons relevées au moment du déclenchement. Ce ne sont pas des scores de
-  // ressemblance : l'app ne compare aucune image, elle rapporte ce que les capteurs ont mesuré.
-  const rollDegrees = Number(roll);
-  const pitchDegrees = Number(pitch);
-  const hasTilt = Number.isFinite(rollDegrees) && Number.isFinite(pitchDegrees);
-  const isUpright = hasTilt && Math.abs(rollDegrees) <= 2 && Math.abs(pitchDegrees) <= 8;
   const latitudeValue = Number(latitude);
   const longitudeValue = Number(longitude);
   const captureLocation: CaptureLocation | undefined =
@@ -105,10 +124,12 @@ export function ReviewScreen() {
     try {
       const { capture, savedToLibrary } = await saveCapture({
         stationId: id,
+        stationName: detail?.name,
+        stationAddress: detail?.address,
+        frameIndex,
         imageUri: uri || undefined,
         simulated: isSimulated,
-        roll: hasTilt ? rollDegrees : undefined,
-        pitch: hasTilt ? pitchDegrees : undefined,
+
         coordinate: captureLocation
           ? { latitude: captureLocation.latitude, longitude: captureLocation.longitude }
           : undefined,
@@ -116,6 +137,8 @@ export function ReviewScreen() {
       });
       setInLibrary(savedToLibrary);
       setSavedCaptureUri(capture.imageUri);
+      setSavedCaptureId(capture.id);
+      setSavedCoordinate(capture.coordinate);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSaved(true);
     } catch {
@@ -126,16 +149,29 @@ export function ReviewScreen() {
   };
 
   const openObservatoire = () => {
-    const captureUri = uri ?? savedCaptureUri ?? '';
+    const captureUri = savedCaptureUri ?? uri ?? '';
     router.push({
       pathname: '/official-submit' as never,
       params: {
         id,
+        captureId: savedCaptureId ?? '',
         frame: String(frameIndex),
         referenceUri: referenceUriOf(referenceImage) ?? '',
         uri: captureUri,
         simulated: isSimulated ? '1' : '0',
         currentSaved: saved && inLibrary ? '1' : '0',
+        currentPreparation: currentPreparation ?? '',
+        referencePreparation: referencePreparation ?? '',
+        latitude: savedCoordinate
+          ? String(savedCoordinate.latitude)
+          : captureLocation
+            ? String(captureLocation.latitude)
+            : '',
+        longitude: savedCoordinate
+          ? String(savedCoordinate.longitude)
+          : captureLocation
+            ? String(captureLocation.longitude)
+            : '',
       },
     });
   };
@@ -143,7 +179,7 @@ export function ReviewScreen() {
   const share = () =>
     Share.share({
       message: `J’ai retrouvé un point de vue de ${detail?.year ?? 1970} à Paris avec Paris GO.`,
-      url: uri,
+      url: savedCaptureUri ?? uri,
     });
 
   return (
@@ -184,20 +220,6 @@ export function ReviewScreen() {
         <View style={styles.body}>
           <Text style={styles.kicker}>{isSimulated ? 'APERÇU SIMULATEUR' : 'PHOTO TERMINÉE'}</Text>
           <Text style={styles.title}>Le même lieu,{'\n'}deux époques.</Text>
-          {hasTilt ? (
-            <View style={styles.tiltRow}>
-              <SymbolView
-                name={isUpright ? 'checkmark.circle.fill' : 'exclamationmark.triangle.fill'}
-                size={15}
-                tintColor={isUpright ? Palette.lichen : Palette.brass}
-              />
-              <Text style={styles.tiltText}>
-                {isUpright
-                  ? 'Appareil droit à la prise de vue'
-                  : `Appareil penché de ${Math.abs(rollDegrees).toFixed(0)}°, un nouvel essai est conseillé`}
-              </Text>
-            </View>
-          ) : null}
 
           {isSimulated ? (
             <Text style={styles.noteText}>
@@ -212,37 +234,26 @@ export function ReviewScreen() {
               : 'Paris GO prépare le formulaire officiel, les deux images et les informations du point de vue. Vous gardez la main sur le règlement et l’envoi final.'}
           </Text>
 
-          <View style={styles.checklist}>
-            <Text style={styles.checklistKicker}>CONTRÔLE AVANT DÉPÔT</Text>
-            {[
-              ...reviewStatusRows.map(({ icon, title, copy }) => [icon, title, copy] as const),
-              [
-                !hasTilt || isUpright ? 'checkmark.circle.fill' : 'exclamationmark.circle.fill',
-                'Tenue de l’appareil',
-                !hasTilt
-                  ? 'Non mesurée'
-                  : isUpright
-                    ? 'Appareil droit à la prise de vue'
-                    : 'L’appareil penchait, un nouvel essai est conseillé',
-              ],
-            ].map(([icon, title, copy]) => (
-              <View key={title} style={styles.checkRow}>
-                <SymbolView
-                  name={icon as 'checkmark.circle.fill'}
-                  size={21}
-                  tintColor={
-                    icon.startsWith('check')
-                      ? Palette.lichen
-                      : icon.startsWith('info')
-                        ? Palette.parisBlue
-                        : Palette.copper
-                  }
-                />
-                <View style={styles.checkCopy}>
-                  <Text style={styles.checkTitle}>{title}</Text>
-                  <Text style={styles.checkText}>{copy}</Text>
-                </View>
+        <View style={styles.checklist}>
+          <Text style={styles.checklistKicker}>CONTRÔLE AVANT DÉPÔT</Text>
+          {reviewStatusRows.map(({ icon, title, copy }) => (
+            <View key={title} style={styles.checkRow}>
+              <SymbolView
+                name={icon as 'checkmark.circle.fill'}
+                size={21}
+                tintColor={
+                  icon.startsWith('check')
+                    ? Palette.lichen
+                    : icon.startsWith('info')
+                      ? Palette.parisBlue
+                      : Palette.copper
+                }
+              />
+              <View style={styles.checkCopy}>
+                <Text style={styles.checkTitle}>{title}</Text>
+                <Text style={styles.checkText}>{copy}</Text>
               </View>
+            </View>
             ))}
           </View>
 
@@ -261,7 +272,7 @@ export function ReviewScreen() {
               <Text style={styles.saveConfirmationText}>
                 {inLibrary
                   ? 'Photo enregistrée. Vous pouvez préparer le dépôt officiel.'
-                  : 'Photo ajoutée au carnet de cette session.'}
+                  : 'Photo conservée dans le carnet, disponible après fermeture de l’application.'}
               </Text>
             </View>
           ) : null}
@@ -334,18 +345,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
     color: Palette.ink,
     fontFamily: Fonts.display,
-  },
-  tiltRow: {
-    marginTop: Spacing.two,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-  },
-  tiltText: {
-    ...Typography.caption,
-    flex: 1,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
   },
   noteText: {
     ...Typography.body,

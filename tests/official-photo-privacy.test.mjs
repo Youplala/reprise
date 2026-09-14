@@ -80,7 +80,7 @@ test('le deep link ne peut pas autoriser lui-même une lecture ou un télécharg
 });
 
 test('le formulaire conserve l’URI caméra pour vérifier la taille d’une photo déjà sauvegardée', () => {
-  assert.match(reviewScreen, /const captureUri = uri \?\? savedCaptureUri \?\? ''/);
+  assert.match(reviewScreen, /const captureUri = savedCaptureUri \?\? uri \?\? ''/);
   assert.doesNotMatch(reviewScreen, /authorizeOfficialCapture/);
   assert.match(alignmentScreen, /authorizeOfficialCapture\(id \?\? '', captureUri\)/);
 });

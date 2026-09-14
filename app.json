@@ -71,12 +71,6 @@
         }
       ],
       [
-        "expo-sensors",
-        {
-          "motionPermission": "Autoriser Paris GO à utiliser l’orientation de l’iPhone pour aligner les prises de vue."
-        }
-      ],
-      [
         "expo-media-library",
         {
           "savePhotosPermission": "Autoriser Paris GO à enregistrer vos reprises dans vos photos, pour les retrouver au moment de les déposer sur l’Observatoire.",

@@ -1,9 +1,12 @@
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 
 import { PARIS_CENTER } from '@/data/archive';
 import { shouldAutoLocate } from '@/services/location-preference';
-import type { Coordinate } from '@/types/station';
+import {
+  createUserLocationState,
+  reduceUserLocationState,
+} from '@/services/user-location-state';
 
 type UseUserLocationOptions = {
   autoLocate?: boolean;
@@ -12,23 +15,22 @@ type UseUserLocationOptions = {
 export function useUserLocation({ autoLocate = false }: UseUserLocationOptions = {}) {
   const requestVersion = useRef(0);
   const inFlight = useRef(false);
-  const [coordinate, setCoordinate] = useState<Coordinate>(PARIS_CENTER);
-  const [isPrecise, setIsPrecise] = useState(false);
-  const [loading, setLoading] = useState(autoLocate);
-  const [error, setError] = useState<string>();
+  const [{ coordinate, isPrecise, loading, error }, dispatch] = useReducer(
+    reduceUserLocationState,
+    createUserLocationState(PARIS_CENTER, autoLocate),
+  );
 
   const locate = useCallback(async () => {
     if (inFlight.current) return undefined;
     inFlight.current = true;
     const version = ++requestVersion.current;
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    setLoading(true);
-    setError(undefined);
+    dispatch({ type: 'start' });
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (version !== requestVersion.current) return undefined;
       if (!permission.granted) {
-        setError('Position non autorisée');
+        dispatch({ type: 'failure', error: 'Position non autorisée' });
         return;
       }
 
@@ -50,17 +52,16 @@ export function useUserLocation({ autoLocate = false }: UseUserLocationOptions =
         latitude: result.coords.latitude,
         longitude: result.coords.longitude,
       };
-      setCoordinate(nextCoordinate);
-      setIsPrecise(true);
+      dispatch({ type: 'success', coordinate: nextCoordinate });
       return nextCoordinate;
     } catch {
-      if (version === requestVersion.current) setError('Position indisponible');
+      if (version === requestVersion.current) dispatch({ type: 'failure', error: 'Position indisponible' });
       return undefined;
     } finally {
       clearTimeout(timeout);
       if (version === requestVersion.current) {
         inFlight.current = false;
-        setLoading(false);
+        dispatch({ type: 'stop' });
       }
     }
   }, []);
@@ -72,7 +73,7 @@ export function useUserLocation({ autoLocate = false }: UseUserLocationOptions =
       .then((enabled) => {
         if (cancelled) return;
         if (enabled) return locate();
-        setLoading(false);
+        dispatch({ type: 'stop' });
         return undefined;
       })
       .catch(() => { if (!cancelled) void locate(); });
