@@ -132,7 +132,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [finishing, setFinishing] = useState(false);
   // Sans paragraphe d'intro ni carte de pictogrammes, l'image peut grandir et occuper le
   // haut de l'écran : c'est elle qui porte la page, le texte n'en est que la légende.
-  const heroHeight = Math.min(440, Math.max(280, height * 0.46));
   // La première étape ne porte qu'un titre sous l'image : à hauteur commune, il restait un vide
   // en bas d'écran. L'image le prend, puisque c'est elle qu'on est venu voir.
   const heroHeightAlone = Math.min(470, Math.max(300, height * 0.5));
@@ -238,7 +237,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           showsVerticalScrollIndicator={false}>
           <Hero
             pair={pair}
-            height={heroHeight}
+            height={heroHeightShort}
             playIntro={isActive}
             onInteractionChange={(active) => setPagerScrollEnabled(!active)}
           />
@@ -256,6 +255,12 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
               <ProcessStep number="02" title="REPRENDRE" copy="avec le guide" />
               <ProcessStep number="03" title="DÉPOSER" copy="sur le site officiel" />
             </View>
+            <Text style={styles.mapGuide}>
+              Sur la carte, touchez un secteur pour ouvrir ses photos. Une teinte plus soutenue
+              indique davantage de photos à retrouver ou déjà refaites, selon l’onglet.
+              Les repères indiquent les positions vérifiées ; les autres archives restent regroupées
+              par secteur de 250 m.
+            </Text>
           </View>
         </ScrollView>
       );
@@ -503,6 +508,11 @@ const styles = StyleSheet.create({
   processRow: {
     flexDirection: 'row',
     gap: Spacing.three,
+  },
+  mapGuide: {
+    ...Typography.body,
+    fontFamily: Fonts.sans,
+    color: Palette.inkSoft,
   },
   processStep: {
     flex: 1,

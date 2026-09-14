@@ -298,9 +298,8 @@ const styles = StyleSheet.create({
   },
   brandRow: {
     minHeight: 62,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: Spacing.two,
   },
   brand: {
     ...Typography.title,

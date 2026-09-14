@@ -19,7 +19,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import MapView, { Circle, Marker, Polygon, UrlTile } from 'react-native-maps';
+import MapView, { Circle, Marker, Polygon } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
@@ -599,7 +599,7 @@ export function StationScreen() {
               key={`${id}-${coordinate.latitude}-${coordinate.longitude}`}
               style={StyleSheet.absoluteFill}
               initialRegion={region}
-              mapType={Platform.OS === 'android' ? 'none' : 'standard'}
+              mapType="mutedStandard"
               loadingEnabled
               loadingBackgroundColor={Palette.blueMist}
               pitchEnabled={false}
@@ -607,12 +607,6 @@ export function StationScreen() {
               scrollEnabled={false}
               zoomEnabled={false}
               pointerEvents="none">
-              <UrlTile
-                urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                maximumZ={19}
-                shouldReplaceMapContent={Platform.OS === 'ios'}
-                tileCacheMaxAge={604800}
-              />
               {squareBounds ? (
                 <Polygon
                   coordinates={[
@@ -646,9 +640,6 @@ export function StationScreen() {
             <View pointerEvents="none" style={styles.mapAction}>
               <Text style={styles.mapActionText}>Ouvrir la carte</Text>
               <SymbolView name="arrow.up.right" size={11} tintColor={Palette.parisBlue} />
-            </View>
-            <View pointerEvents="none" style={styles.mapAttribution}>
-              <Text style={styles.mapAttributionText}>© OPENSTREETMAP</Text>
             </View>
           </Pressable>
 
@@ -1060,7 +1051,8 @@ const styles = StyleSheet.create({
   mapLegend: {
     position: 'absolute',
     left: Spacing.two,
-    bottom: Spacing.two,
+    top: Spacing.two,
+    maxWidth: '90%',
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
     borderRadius: Radius.pill,
@@ -1075,7 +1067,7 @@ const styles = StyleSheet.create({
   },
   mapAction: {
     position: 'absolute',
-    top: Spacing.two,
+    bottom: Spacing.five,
     right: Spacing.two,
     minHeight: 32,
     paddingHorizontal: Spacing.two,
@@ -1091,22 +1083,6 @@ const styles = StyleSheet.create({
     color: Palette.parisBlue,
     fontFamily: Fonts.sans,
     fontWeight: '700',
-  },
-  mapAttribution: {
-    position: 'absolute',
-    right: Spacing.two,
-    bottom: Spacing.two,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
-    borderRadius: Radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-  },
-  mapAttributionText: {
-    ...Typography.caption,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    fontWeight: '700',
-    letterSpacing: 0.35,
   },
   recaptureBlock: {
     marginTop: Spacing.four,

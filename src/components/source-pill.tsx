@@ -34,6 +34,8 @@ export function SourcePill({ version, label, inverse = false }: SourcePillProps)
 
 const styles = StyleSheet.create({
   container: {
+    maxWidth: '100%',
+    flexShrink: 1,
     minHeight: 28,
     paddingHorizontal: Spacing.twoHalf,
     paddingVertical: Spacing.half,
@@ -48,12 +50,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8, 17, 22, 0.72)',
   },
   dot: {
+    flexShrink: 0,
     width: 7,
     height: 7,
     borderRadius: 4,
     backgroundColor: Palette.lichen,
   },
   label: {
+    flexShrink: 1,
     ...Typography.caption,
     color: Palette.ink,
     fontFamily: Fonts.mono,

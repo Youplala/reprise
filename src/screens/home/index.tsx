@@ -141,7 +141,7 @@ export function HomeScreen() {
         </SafeAreaView>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Photos près de vous</Text>
+          <Text style={styles.sectionTitle}>{isPrecise ? 'Photos près de vous' : 'Photos à Paris'}</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => {
@@ -159,13 +159,13 @@ export function HomeScreen() {
             elles qu'on vient voir. */}
         <View style={styles.cardList}>
           {nearby.map(({ station, distance }) => (
-            <StationCard key={station.id} station={station} distance={distance} wide />
+            <StationCard key={station.id} station={station} distance={isPrecise ? distance : undefined} wide />
           ))}
           {featured2022 ? (
             <StationCard
               key={featured2022.id}
               station={featured2022}
-              distance={featured2022Distance}
+              distance={isPrecise ? featured2022Distance : undefined}
               wide
             />
           ) : null}

@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Keyboard,
@@ -20,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AdaptivePhoto } from '@/components/adaptive-photo';
 import { ArchiveContactSheet } from '@/components/archive-contact-sheet';
 import { GlassSurface } from '@/components/glass-surface';
+import { MapPreviewSheet } from '@/components/map-preview-sheet';
 import { Fonts, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
@@ -326,6 +328,8 @@ export function MapScreen() {
   // filtre qui ouvre la carte, à une bascule de la vue « Photos refaites ».
   const [filter, setFilter] = useState<MapFilter>('to-reprise');
   const [region, setRegion] = useState<Region>(INITIAL_REGION);
+  const [heading, setHeading] = useState(0);
+  const [previewCollapsed, setPreviewCollapsed] = useState(false);
   const [selected, setSelected] = useState<StationSummary | undefined>();
   const [selectedCell, setSelectedCell] = useState<CoverageCell>();
   const [focusedCell, setFocusedCell] = useState<CoverageCell>();
@@ -334,13 +338,6 @@ export function MapScreen() {
     latitude: INITIAL_REGION.latitude,
     longitude: INITIAL_REGION.longitude,
   });
-  const [mapTarget, setMapTarget] = useState<{
-    latitude: number;
-    longitude: number;
-    latitudeDelta?: number;
-    longitudeDelta?: number;
-    avoidBottomOverlay?: boolean;
-  }>();
   const carouselCardWidth = screenWidth - Spacing.three * 2;
   const carouselStep = carouselCardWidth + Spacing.two;
   // Le carrousel couvrait plus de la moitié de la carte et empêchait de zoomer ou de naviguer
@@ -516,11 +513,19 @@ export function MapScreen() {
   const hasSelectedExactStation =
     !activeSelected.approximate &&
     visibleStations.some((station) => station.id === activeSelected.id);
+  const hasPreview = Boolean(selectedCell || focusedCell || hasNoFilteredSearchResults ||
+    (showIndividualPoints && hasSelectedExactStation));
 
   const topOffset = Math.max(insets.top, 52) + Spacing.one;
 
-  useEffect(() => {
-    if (!mapTarget) return;
+  const setMapTarget = useCallback((mapTarget: {
+    latitude: number;
+    longitude: number;
+    latitudeDelta?: number;
+    longitudeDelta?: number;
+    avoidBottomOverlay?: boolean;
+  }) => {
+    setPreviewCollapsed(false);
     const latitudeDelta = mapTarget.latitudeDelta ?? 0.018;
     const longitudeDelta = mapTarget.longitudeDelta ?? 0.014;
     const visibleMapTop = topOffset + MAP_TOP_CONTROLS_HEIGHT;
@@ -531,16 +536,15 @@ export function MapScreen() {
         ? (screenHeight / 2 - visibleMapCenter) / screenHeight
         : 0;
 
-    mapRef.current?.animateToRegion(
-      {
-        latitude: mapTarget.latitude - latitudeDelta * verticalOffsetRatio,
-        longitude: mapTarget.longitude,
-        latitudeDelta,
-        longitudeDelta,
-      },
-      520,
-    );
-  }, [mapTarget, previewCardHeight, screenHeight, topOffset]);
+    // Conserver la cible dans l'état : une commande impérative peut être perdue pendant
+    // le montage ou la réactivation de l'onglet natif depuis une fiche photo.
+    setRegion({
+      latitude: mapTarget.latitude - latitudeDelta * verticalOffsetRatio,
+      longitude: mapTarget.longitude,
+      latitudeDelta,
+      longitudeDelta,
+    });
+  }, [previewCardHeight, screenHeight, topOffset]);
 
   useEffect(() => {
     const selectedIndex = visibleStations.findIndex(
@@ -583,9 +587,10 @@ export function MapScreen() {
       latitudeDelta: 0.025,
       longitudeDelta: 0.02,
     });
-  }, [locate, statusFilteredStations]);
+  }, [locate, setMapTarget, statusFilteredStations]);
 
   const handleSelect = useCallback((station: StationSummary) => {
+    setPreviewCollapsed(false);
     Keyboard.dismiss();
     setSelectedCell(undefined);
     setFocusedCell(undefined);
@@ -623,7 +628,7 @@ export function MapScreen() {
       Keyboard.dismiss();
       void Haptics.selectionAsync();
     },
-    [grid],
+    [grid, setMapTarget],
   );
 
   useEffect(() => {
@@ -636,8 +641,8 @@ export function MapScreen() {
     );
     if (!requestedStation) return;
 
-    handledFocusRequest.current = requestKey;
     const frame = requestAnimationFrame(() => {
+      handledFocusRequest.current = requestKey;
       // Sans statut dédié pour rendre la station visible quel que soit son état, on choisit le
       // filtre qui la contient réellement plutôt qu'un « Tout » qui n'existe plus.
       setFilter(mappingStatus(requestedStation) === 'published-reprise' ? 'published-reprise' : 'to-reprise');
@@ -653,6 +658,7 @@ export function MapScreen() {
 
   const handleGridSelect = (cell: CoverageCell) => {
     if (!cellHasFilter(cell, filter)) return;
+    setPreviewCollapsed(false);
     Keyboard.dismiss();
     setFocusedCell(undefined);
     setSelectedCell(cell);
@@ -686,9 +692,10 @@ export function MapScreen() {
       longitudeDelta,
       avoidBottomOverlay: true,
     });
-  }, [filter, filteredStations]);
+  }, [filter, filteredStations, setMapTarget]);
 
   const handleResetNorth = useCallback(() => {
+    void Haptics.selectionAsync();
     mapRef.current?.animateCamera({ heading: 0 }, { duration: 300 });
   }, []);
 
@@ -698,6 +705,9 @@ export function MapScreen() {
         region.latitudeDelta > POINT_ZOOM_THRESHOLD &&
         nextRegion.latitudeDelta <= POINT_ZOOM_THRESHOLD;
       setRegion(nextRegion);
+      void mapRef.current?.getCamera().then((camera) => {
+        setHeading(camera.heading);
+      }).catch(() => undefined);
       if (userMovedMap || enteredPointView) {
         setBrowseOrigin({
           latitude: nextRegion.latitude,
@@ -718,7 +728,7 @@ export function MapScreen() {
       setMapTarget({ ...station.coordinate });
       void Haptics.selectionAsync();
     },
-    [activeSelected.id, visibleStations],
+    [activeSelected.id, setMapTarget, visibleStations],
   );
 
   return (
@@ -727,7 +737,7 @@ export function MapScreen() {
         ref={mapRef}
         provider={PROVIDER_DEFAULT}
         style={StyleSheet.absoluteFill}
-        initialRegion={INITIAL_REGION}
+        region={region}
         mapType="mutedStandard"
         showsCompass={false}
         showsUserLocation={false}
@@ -1063,38 +1073,52 @@ export function MapScreen() {
           styles.mapControls,
           {
             bottom:
-              isExploringArchiveCell ||
+              previewCollapsed || searchFocused
+                ? 126
+                : isExploringArchiveCell ||
               (showIndividualPoints && hasSelectedExactStation)
                 ? previewCardHeight + 126
-                : showIndividualPoints || selectedCell
+                : selectedCell || focusedCell || hasNoFilteredSearchResults
                 ? 276
-                : 238,
+                : 126,
           },
         ]}>
-        {/* Les deux boutons se ressemblaient trop (deux flèches quasi identiques) : celui-ci
-            reprend l'imagerie universelle de la boussole, l'autre garde le pictogramme de
-            localisation, pour qu'on distingue « nord » de « ma position » d'un coup d'œil. */}
+        <GlassSurface />
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Revenir au nord"
+          accessibilityValue={{ text: `Orientation ${Math.round(heading)} degrés` }}
           onPress={handleResetNorth}
-          style={({ pressed }) => [styles.mapButton, pressed && styles.pressed]}>
-          <SymbolView name="safari" size={22} tintColor={Palette.parisBlue} />
+          style={({ pressed }) => [styles.mapButton, pressed && styles.mapButtonPressed]}>
+          <Text style={styles.compassNorth}>N</Text>
+          <View style={[styles.compassNeedle, { transform: [{ rotate: `${-heading}deg` }] }]}>
+            <View style={styles.compassNeedleNorth} />
+            <View style={styles.compassNeedleSouth} />
+          </View>
         </Pressable>
+        <View style={styles.mapControlDivider} />
         <Pressable
-          accessibilityLabel="Utiliser ma position"
+          accessibilityRole="button"
+          accessibilityLabel={loading ? 'Recherche de votre position' : 'Utiliser ma position'}
+          accessibilityState={{ disabled: loading, busy: loading }}
           onPress={handleLocate}
           disabled={loading}
-          style={({ pressed }) => [styles.mapButton, pressed && styles.pressed]}>
-          <SymbolView
-            name={isPrecise ? 'location.fill' : 'location'}
-            size={20}
-            tintColor={Palette.parisBlue}
-          />
+          style={({ pressed }) => [styles.mapButton, pressed && styles.mapButtonPressed]}>
+          {loading ? (
+            <ActivityIndicator size="small" color={Palette.parisBlue} />
+          ) : (
+            <SymbolView
+              name={isPrecise ? 'location.fill' : 'location'}
+              size={22}
+              tintColor={Palette.parisBlue}
+            />
+          )}
         </Pressable>
       </View>
 
-      {!searchFocused ? (
+      {!searchFocused && hasPreview ? (
         <View style={styles.bottomOverlay} pointerEvents="box-none">
+          <MapPreviewSheet collapsed={previewCollapsed} onCollapsedChange={setPreviewCollapsed}>
           {selectedCell ? (
             <View style={styles.gridSelectionCard}>
               <GlassSurface />
@@ -1256,44 +1280,18 @@ export function MapScreen() {
                   : 'Les archives sont regroupées dans une zone de 250 m jusqu’à ce que leur point de vue soit reconnu.'}
               </Text>
             </View>
-          ) : (
+          ) : hasNoFilteredSearchResults ? (
             <View style={styles.gridHintCard}>
               <GlassSurface />
               <Text style={styles.gridHintTitle}>
-                {hasNoFilteredSearchResults
-                  ? emptySearchTitle(filter)
-                  : showIndividualPoints
-                    ? 'Coordonnées fiables'
-                    : 'Progression par secteur'}
+                {emptySearchTitle(filter)}
               </Text>
               <Text style={styles.gridHintCopy}>
-                {hasNoFilteredSearchResults
-                  ? emptySearchCopy(filter, query)
-                  : showIndividualPoints
-                    ? 'Les archives non localisées restent regroupées. Seules les positions vérifiées deviennent des pins.'
-                    : 'Touchez une zone colorée pour voir son taux et ouvrir ses photos.'}
+                {emptySearchCopy(filter, query)}
               </Text>
-              {!showIndividualPoints ? (
-                <View style={styles.gridLegend}>
-                  {(filter === 'to-reprise'
-                    ? [
-                        ['Peu', 'rgba(185, 95, 62, 0.26)'],
-                        ['Beaucoup', 'rgba(185, 95, 62, 0.68)'],
-                      ]
-                    : [
-                        ['Peu', 'rgba(112, 137, 124, 0.26)'],
-                        ['Beaucoup', 'rgba(112, 137, 124, 0.78)'],
-                      ]
-                  ).map(([label, color]) => (
-                    <View key={label} style={styles.gridLegendItem}>
-                      <View style={[styles.gridLegendSwatch, { backgroundColor: color }]} />
-                      <Text style={styles.gridLegendLabel}>{label}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
             </View>
-          )}
+          ) : null}
+          </MapPreviewSheet>
         </View>
       ) : null}
     </View>
@@ -1621,16 +1619,50 @@ const styles = StyleSheet.create({
   mapControls: {
     position: 'absolute',
     right: Spacing.three,
-    gap: Spacing.two,
+    borderRadius: Radius.medium,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
   },
   mapButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: Palette.white,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shadow.card,
+  },
+  mapButtonPressed: {
+    backgroundColor: Palette.blueMist,
+  },
+  mapControlDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: Spacing.twoHalf,
+    backgroundColor: Palette.line,
+  },
+  compassNorth: {
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    fontWeight: '700',
+    color: Palette.parisBlue,
+    marginBottom: 2,
+  },
+  compassNeedle: {
+    alignItems: 'center',
+  },
+  compassNeedleNorth: {
+    borderLeftWidth: 4,
+    borderRightWidth: 4,
+    borderBottomWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: Palette.copper,
+  },
+  compassNeedleSouth: {
+    borderLeftWidth: 4,
+    borderRightWidth: 4,
+    borderTopWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: Palette.parisBlue,
   },
   bottomOverlay: {
     position: 'absolute',
@@ -1901,27 +1933,6 @@ const styles = StyleSheet.create({
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
     ...Typography.body,
-  },
-  gridLegend: {
-    marginTop: Spacing.twoHalf,
-    flexDirection: 'row',
-    gap: Spacing.three,
-  },
-  gridLegendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-  },
-  gridLegendSwatch: {
-    width: 14,
-    height: 10,
-    borderRadius: 3,
-  },
-  gridLegendLabel: {
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    ...Typography.caption,
-    fontWeight: '700',
   },
   pressed: {
     opacity: 0.88,
