@@ -17,7 +17,7 @@ export const OFFICIAL_CONTRIBUTION_GUIDE = [
     body: 'Paris GO remplit uniquement ce qui est certain et utile au dépôt.',
     points: [
       'Adresse, date, position et type d’appareil sont préremplis.',
-      'Le commentaire reste vide et entièrement libre.',
+      'Le commentaire est libre. La mention « Photo refaite avec Paris GO. » sera ajoutée lors de l’envoi.',
       'Relisez tout avant de continuer.',
     ],
   },

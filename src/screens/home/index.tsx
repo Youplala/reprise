@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   },
   // Bord à bord : ni marge horizontale ni carte blanche autour des photos, qui sont le sujet.
   cardList: {
-    gap: Spacing.four,
+    backgroundColor: Palette.fog,
   },
   dataNote: {
     margin: Spacing.three,

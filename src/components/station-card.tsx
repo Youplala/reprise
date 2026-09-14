@@ -99,6 +99,7 @@ export function StationCard({
             </View>
           </View>
         </View>
+        {wide ? <View style={styles.cardSeparator} /> : null}
       </Pressable>
     </Link>
   );
@@ -191,11 +192,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  // La légende se pose directement sur le fond de l'écran : pas de carte, pas de fond blanc.
-  // L'image « wide » va à fond perdu, mais le texte garde le padding de page du reste de l'écran.
+  // Le fond de légende relie le texte à sa photo, avant le séparateur vers la suivante.
   captionWide: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.twoHalf,
+    paddingBottom: Spacing.three,
+    backgroundColor: Palette.fog,
+  },
+  cardSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Palette.line,
+    marginHorizontal: Spacing.three,
+    marginBottom: Spacing.three,
   },
   captionTile: {
     paddingTop: Spacing.two,

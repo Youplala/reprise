@@ -206,8 +206,43 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
         ),
         device: Array.from(document.querySelectorAll('input[type=radio]')).find((control) => keyOf(control).includes('appareil')),
       });
+      const commentControl = (root = document) => findByLabel(
+          ['observations commentaires', 'observations', 'commentaires', 'observation', 'commentaire'],
+          (candidate) => candidate.tagName === 'TEXTAREA', root, true,
+        );
+      // Aucun texte injecté pendant la saisie. Le submit capturé précède la sérialisation
+      // du formulaire officiel, sans déclencher l'envoi ni toucher aux consentements.
+      const signatureDocuments = window.__parisGoSignatureDocuments instanceof WeakSet
+        ? window.__parisGoSignatureDocuments : new WeakSet();
+      window.__parisGoSignatureDocuments = signatureDocuments;
+      if (!signatureDocuments.has(document)) {
+        signatureDocuments.add(document);
+        document.addEventListener('submit', (event) => {
+          const form = event.target;
+          if (form?.tagName !== 'FORM' || !findByLabel(['titre de la fiche'], textControl, form)) return;
+          const control = commentControl(form);
+          if (!control || control.disabled || control.readOnly) return;
+          const current = String(control.value || '');
+          if (/(?:^|[^a-z0-9])paris\\s+go(?=$|[^a-z0-9])/i.test(current)) return;
+          const value = current + (current.trim() ? '\\n\\n' : '') + 'Photo refaite avec Paris GO.';
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+          if (setter) setter.call(control, value);
+          else control.value = value;
+          emitEvents(control);
+        }, true);
+      }
+      const explainSignature = () => {
+        const control = commentControl();
+        if (!control || document.getElementById('paris-go-signature-notice')) return;
+        const notice = document.createElement('p');
+        notice.id = 'paris-go-signature-notice';
+        notice.textContent = 'La mention « Photo refaite avec Paris GO. » sera ajoutée lors de l’envoi.';
+        notice.style.cssText = 'font-size:13px;line-height:1.4;color:#4D606A;margin:8px 0;';
+        control.after(notice);
+      };
       const fill = () => {
         const fields = new Set(window.__reprisePrefilledFields || []);
+        explainSignature();
         if (fillByLabel(['adresse complete', 'adresse', 'adresse postale', 'numero et rue'], payload.address)) fields.add('address');
         if (fillByLabel(['titre de la fiche'], payload.address)) fields.add('title');
         if (fillByLabel(['arrondissement', 'code postal'], payload.postalCode)) fields.add('arrondissement');

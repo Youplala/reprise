@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BeforeAfterSlider } from '@/components/before-after-slider';
-import { SourcePill } from '@/components/source-pill';
+import { ParisGoBadge } from '@/components/paris-go-badge';
 import { StationCard } from '@/components/station-card';
 import { Fonts, Palette, Radius, Shadow, Spacing, TabBarClearance, Typography } from '@/constants/theme';
 
@@ -63,6 +63,7 @@ function LiveComparisonCard({
         borderRadius={0}
       />
       <View style={styles.activityBody}>
+        <ParisGoBadge photo={detail} />
         <Text style={styles.activityTitle}>{detail.name}</Text>
         <View style={styles.activityMetaRow}>
           <Text style={styles.activityMeta} numberOfLines={1}>
@@ -117,26 +118,27 @@ export function CollectiveScreen() {
         contentContainerStyle={styles.content}>
         <SafeAreaView edges={['top']} style={styles.header}>
           <View style={styles.brandRow}>
-            <View>
-              <Text style={styles.brand}>COMMUNAUTÉ</Text>
-              <Text style={styles.brandSub}>Les regards qui refont Paris</Text>
-            </View>
-            <SourcePill version={snapshotVersion} />
+            <Text accessibilityRole="header" style={styles.brand}>Communauté</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Voir les statistiques"
+              onPress={() => router.push('/coverage')}
+              style={({ pressed }) => [styles.statsLink, pressed && styles.contributorsPressed]}>
+              <SymbolView name="chart.bar.fill" size={18} tintColor={Palette.parisBlue} />
+              <Text style={styles.statsLinkText}>Statistiques</Text>
+            </Pressable>
           </View>
-
-          <Text style={styles.eyebrow}>INSTANTANÉ DE L’OBSERVATOIRE</Text>
-          <Text style={styles.title}>Paris, avant{'\n'}et aujourd’hui.</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Rechercher un contributeur"
+            onPress={() => router.push('/contributors')}
+            style={({ pressed }) => [styles.searchLink, pressed && styles.contributorsPressed]}>
+            <SymbolView name="magnifyingglass" size={19} tintColor={Palette.inkSoft} />
+            <Text style={styles.searchLinkText}>Trouver un contributeur</Text>
+            <SymbolView name="chevron.right" size={13} tintColor={Palette.inkSoft} />
+          </Pressable>
         </SafeAreaView>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Derniers avant/après</Text>
-          <SymbolView name="arrow.left.and.right" size={18} tintColor={Palette.parisBlue} />
-        </View>
 
         {/* La comparaison avant/après est le sujet même de l'app : elle occupe le haut de la
             liste à fond perdu, sans carte blanche autour. */}
         {feedStatus === 'ready' ? (
-          feed.map((detail) => (
+          <View style={styles.feed}>{feed.map((detail) => (
             <LiveComparisonCard
               key={detail.id}
               detail={detail}
@@ -144,7 +146,7 @@ export function CollectiveScreen() {
                 router.push({ pathname: '/station/[id]', params: { id: detail.id } })
               }
             />
-          ))
+          ))}</View>
         ) : (
           <View style={styles.feedEmpty}>
             <SymbolView name="photo.on.rectangle.angled" size={24} tintColor={Palette.inkSoft} />
@@ -295,10 +297,13 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
+    paddingBottom: Spacing.three,
   },
   brandRow: {
     minHeight: 62,
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: Spacing.two,
   },
   brand: {
@@ -306,29 +311,15 @@ const styles = StyleSheet.create({
     color: Palette.parisBlue,
     fontFamily: Fonts.display,
     fontWeight: '900',
-    letterSpacing: 2.2,
+    fontSize: 28,
+    lineHeight: 34,
+    flex: 1,
   },
-  brandSub: {
-    ...Typography.caption,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-  },
-  eyebrow: {
-    ...Typography.caption,
-    marginTop: Spacing.three,
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-  title: {
-    ...Typography.display,
-    marginTop: Spacing.two,
-    color: Palette.ink,
-    fontFamily: Fonts.display,
-  },
-  // Un seul palier d'espacement sépare l'accroche de la section suivante — ce qui sépare
-  // respire (Spacing.five), pas deux paddings qui s'additionnent (voir direction-visuelle.md).
+  statsLink: { minHeight: 44, paddingHorizontal: Spacing.twoHalf, borderRadius: Radius.pill, backgroundColor: Palette.white, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  statsLinkText: { ...Typography.caption, fontFamily: Fonts.sans, fontWeight: '700', color: Palette.parisBlue },
+  searchLink: { minHeight: 48, paddingHorizontal: Spacing.three, marginTop: Spacing.two, borderRadius: Radius.medium, backgroundColor: Palette.white, flexDirection: 'row', alignItems: 'center', gap: Spacing.twoHalf },
+  searchLinkText: { ...Typography.body, fontFamily: Fonts.sans, color: Palette.inkSoft, flex: 1 },
+  feed: { backgroundColor: Palette.blueMist },
   sectionHeader: {
     marginTop: Spacing.five,
     marginBottom: Spacing.three,
@@ -342,10 +333,11 @@ const styles = StyleSheet.create({
     color: Palette.ink,
     fontFamily: Fonts.display,
   },
-  // La comparaison va à fond perdu : pas de carte blanche, pas de marge horizontale, pas de coin
-  // arrondi puisqu'elle touche les deux bords de l'écran.
+  // Photo pleine largeur, légende attachée, puis un espace distinct avant la suivante.
   activityCard: {
-    marginBottom: Spacing.four,
+    marginBottom: Spacing.twoHalf,
+    borderBottomWidth: 1,
+    borderBottomColor: Palette.line,
   },
   activityCardPressed: {
     opacity: 0.92,
@@ -353,6 +345,8 @@ const styles = StyleSheet.create({
   activityBody: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.twoHalf,
+    paddingBottom: Spacing.four,
+    backgroundColor: Palette.white,
   },
   activityTitle: {
     ...Typography.title,

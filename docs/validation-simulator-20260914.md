@@ -52,3 +52,30 @@ Les captures simulées n'ont volontairement aucun fichier photo et ne testent pa
 
 `npm install` signale 22 vulnérabilités de dépendances (15 modérées, 7 hautes) ;
 aucune mise à niveau automatique hors périmètre n'a été effectuée.
+
+## Itération Communauté et cartes (après-midi)
+
+- Communauté : en-tête compact, accès explicite Statistiques et annuaire des 155 contributeurs.
+  Recherche sur les noms publics, sans limite au top dix, insensible à la casse et aux accents.
+  Navigation vérifiée vers Elie B. (rang 106), retour conservant la recherche,
+  état sans résultat et effacement ; lien Statistiques vérifié dans le simulateur.
+- Profil : identité et compteurs allégés, comparaisons pleine largeur, dates visibles.
+  Tri existant par date de prise de vue décroissante conservé ; entrées sans date à la fin.
+- Badge bleu et laiton « Refaite avec Paris GO » dans le profil, le fil, la carte et la fiche.
+  Détection déclarative de la mention dans la description publique déjà importée ; aucun
+  nouveau champ privé ni nouvel appel à l'API. Les fiches `1h3` et `1mv`, confirmées par leur
+  auteur dans la conversation, sont les deux seules exceptions historiques sans mention.
+- Le commentaire officiel reste libre et vide au départ. La signature est ajoutée à la fin
+  lors du `submit`, en préservant le texte existant et sans doublon. Une notice près du champ
+  et le guide annoncent cet ajout. Tests du bridge sur fixture locale et revue GPT Sol réussis.
+  Aucun dépôt réel effectué ; un éventuel chemin amont utilisant directement `form.submit()`
+  sans événement `submit` reste hors de la couverture actuelle.
+- Cartes de secteur simplifiées : lieu, compteur, flèche. Zone ouverte = un bloc avec aperçu,
+  sans numéros internes ni instructions répétées. Fiche archive allégée, crédits conservés.
+  Autour conserve les images pleine largeur, fond uniforme et fin séparateur de légende.
+- Bulles inertes après plusieurs rafraîchissements à chaud : reproduit puis résolu par
+  rechargement complet. Le toucher des bulles et l'ouverture du secteur ont été revérifiés ;
+  l'utilisateur a confirmé que le déplacement fonctionne également après rechargement.
+  Pas de changement spéculatif des gestes natifs ni du filtrage des archives.
+- Vérification locale : TypeScript, lint, 161 tests Node et 22 tests Jest, export JS iOS.
+  Changements locaux uniquement, pas de nouveau binaire TestFlight.

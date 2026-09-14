@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.fog,
   },
   grabber: {
-    width: 28, height: 4, borderRadius: 2, backgroundColor: Palette.white,
+    width: 28, height: 4, borderRadius: 2, backgroundColor: Palette.inkSoft,
     shadowColor: Palette.ink, shadowOpacity: 0.35, shadowRadius: 2,
     shadowOffset: { width: 0, height: 1 },
   },

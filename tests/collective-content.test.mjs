@@ -65,7 +65,6 @@ test('l’écran ne rend plus d’interaction ou de sortie communautaire factice
   );
 
   assert.doesNotMatch(source, /Encourager|Encouragé|MARCHE DE LA COMMUNAUTÉ|Rejoindre la mission/);
-  assert.match(source, /INSTANTANÉ DE L’OBSERVATOIRE/);
   assert.match(source, /SUGGESTION LOCALE/);
   assert.match(source, /Données Observatoire : relevé public/);
   assert.match(source, /params: \{ id: localSuggestion\.stationId \}/);

@@ -126,6 +126,20 @@ export function formatContributorName(name: string) {
   return [given, ...particles, initial].join(' ');
 }
 
+/** Annuaire complet, recherché par le nom public abrégé ; la clé originale ouvre le profil. */
+export function searchContributors(contributors: Contributor[], query: string): Contributor[] {
+  const terms = contributorKey(query).split(' ').filter(Boolean);
+  return contributors
+    .filter(({ name }) => {
+      const label = contributorKey(formatContributorName(name));
+      return terms.every((term) => label.includes(term));
+    })
+    .sort((left, right) =>
+      formatContributorName(left.name).localeCompare(formatContributorName(right.name), 'fr-FR') ||
+      left.name.localeCompare(right.name, 'fr-FR'),
+    );
+}
+
 export function buildCommunityStats(snapshot: Snapshot): CommunityStats {
   const recaptures = snapshot.stations.filter((station) => station.kind === 'recapture-1970');
 

@@ -22,6 +22,7 @@ import { AdaptivePhoto } from '@/components/adaptive-photo';
 import { ArchiveContactSheet } from '@/components/archive-contact-sheet';
 import { GlassSurface } from '@/components/glass-surface';
 import { MapPreviewSheet } from '@/components/map-preview-sheet';
+import { ParisGoBadge } from '@/components/paris-go-badge';
 import { Fonts, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
@@ -223,6 +224,7 @@ function MapPhotoPreview({
       onPress={onOpen}
       style={({ pressed }) => [
         styles.photoPreviewCard,
+        isArchiveSector && styles.archivePreviewCard,
         { width, height },
         pressed && styles.photoPreviewPressed,
       ]}>
@@ -256,7 +258,7 @@ function MapPhotoPreview({
 
       <View pointerEvents="none" style={styles.photoPreviewShade} />
 
-      <View style={styles.photoPreviewTop}>
+      {!isArchiveSector ? <View style={styles.photoPreviewTop}>
         {isArchiveSector ? (
           <View />
         ) : (
@@ -280,22 +282,20 @@ function MapPhotoPreview({
               : `${index + 1}/${total}`}
           </Text>
         </View>
-      </View>
+      </View> : null}
 
-      <View style={styles.photoPreviewBody}>
-        {isArchiveSector ? null : (
-          <Text style={styles.photoPreviewKicker}>{pinLabel(station)}</Text>
-        )}
-        <Text style={styles.photoPreviewTitle} numberOfLines={2}>
-          {isArchiveSector ? 'Choisir une photo' : station.name}
-        </Text>
+      <View style={[styles.photoPreviewBody, isArchiveSector && styles.archivePreviewBody]}>
+        {detail?.hasRecapture ? <ParisGoBadge photo={detail} /> : null}
+        {!isArchiveSector ? <Text style={styles.photoPreviewTitle} numberOfLines={2}>
+          {station.name}
+        </Text> : null}
         <View style={styles.photoPreviewMetaRow}>
-          <Text style={styles.photoPreviewMeta} numberOfLines={1}>
-            {isArchiveSector ? `${plural(frameCount, 'vue')} d’archive` : meta}
-          </Text>
+          {!isArchiveSector ? <Text style={styles.photoPreviewMeta} numberOfLines={1}>
+            {meta}
+          </Text> : <View style={styles.archivePreviewSpacer} />}
           <View style={styles.photoPreviewAction}>
             <Text style={styles.photoPreviewActionText}>
-              {isArchiveSector ? 'Voir les photos' : 'Ouvrir'}
+              {isArchiveSector ? 'Choisir une photo' : 'Ouvrir'}
             </Text>
             <SymbolView name="arrow.right" size={14} tintColor={Palette.white} />
           </View>
@@ -1162,36 +1162,29 @@ export function MapScreen() {
         <View style={styles.bottomOverlay} pointerEvents="box-none">
           <MapPreviewSheet collapsed={previewCollapsed} onCollapsedChange={setPreviewCollapsed}>
           {selectedCell ? (
-            <View style={styles.gridSelectionCard}>
-              <GlassSurface />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Voir les photos du secteur ${selectedCell.name}, ${selectionTitle(selectedCell, filter)}`}
+              onPress={() => openGridCell(selectedCell)}
+              style={({ pressed }) => [styles.gridSelectionCard, pressed && styles.pressed]}>
               <View style={styles.gridSelectionHeader}>
                 <View style={styles.gridSelectionTextGroup}>
                   <Text style={styles.gridSelectionKicker}>
-                    {filter === 'to-reprise' ? 'À RETROUVER' : 'PHOTOS REFAITES'}{' '}
-                    · {cellPlaceName(selectedCell, locatedStations)} · N°{selectedCell.name}
+                    {filter === 'to-reprise' ? 'Archives de 1970' : 'Photos refaites'}
                   </Text>
                   <Text style={styles.gridSelectionTitle}>
-                    {selectionTitle(selectedCell, filter)}
+                    {cellPlaceName(selectedCell, locatedStations)}
+                  </Text>
+                  <Text style={styles.gridSelectionMeta}>
+                    {plural(filter === 'to-reprise' ? cellRemainingCount(selectedCell) : selectedCell.published1970, 'photo')}
+                    {filter === 'to-reprise' ? ' à retrouver' : ''}
                   </Text>
                 </View>
-                <Pressable
-                  accessibilityLabel={
-                    showIndividualPoints
-                      ? `Voir les photos du secteur ${selectedCell.name}`
-                      : `Explorer le secteur ${selectedCell.name}`
-                  }
-                  onPress={() => openGridCell(selectedCell)}
-                  style={({ pressed }) => [styles.gridOpenButton, pressed && styles.pressed]}>
-                  <Text style={styles.gridOpenText}>Voir les photos</Text>
-                  <SymbolView name="photo.on.rectangle" size={15} tintColor={Palette.white} />
-                </Pressable>
+                <View style={styles.gridOpenButton}>
+                  <SymbolView name="arrow.right" size={19} tintColor={Palette.white} />
+                </View>
               </View>
-              <Text style={styles.gridSelectionMeta}>
-                {filter === 'to-reprise'
-                  ? `${plural(selectedCell.published1970, 'photo')} déjà ${selectedCell.published1970 > 1 ? 'refaites' : 'refaite'}`
-                  : `${plural(selectedCell.total1970, 'photo')} dans les archives du secteur`}
-              </Text>
-            </View>
+            </Pressable>
           ) : isExploringArchiveCell && focusedCell ? (
             // Un seul panneau : le lieu et les compteurs ne sont dits qu'ici, dans l'en-tête ;
             // les cartes du carrousel ci-dessous ne répètent plus ces chiffres. L'en-tête n'a
@@ -1199,20 +1192,15 @@ export function MapScreen() {
             // lieu passe sur deux lignes.
             <View style={styles.archiveNavigator}>
               <View style={styles.archiveNavigatorHeader}>
-                <GlassSurface />
                 <View style={styles.archiveRailHeading}>
                   <Text style={styles.gridSelectionKicker}>
-                    ARCHIVES DE 1970 · ZONE DE 250 M
+                    Archives de 1970
                   </Text>
                   <Text style={styles.archiveRailTitle}>
                     {cellPlaceName(focusedCell, locatedStations)}
                   </Text>
                   <Text style={styles.archiveRailMeta}>
                     {plural(focusedCell.remaining1970, 'photo')} à retrouver
-                    {focusedCell.published1970 > 0
-                      ? ` · ${plural(focusedCell.published1970, 'photo')} ${focusedCell.published1970 > 1 ? 'refaites' : 'refaite'}`
-                      : ''}{' '}
-                    · N°{focusedCell.name}
                   </Text>
                 </View>
                 <Pressable
@@ -1237,17 +1225,14 @@ export function MapScreen() {
                 snapToAlignment="start"
                 snapToInterval={carouselStep}
                 windowSize={3}
-                contentContainerStyle={[
-                  styles.carouselContent,
-                  { paddingRight: screenWidth - carouselCardWidth },
-                ]}
+                contentContainerStyle={styles.archiveCarouselContent}
                 renderItem={({ item, index }) => (
                   <MapPhotoPreview
                     station={item}
                     index={index}
                     total={focusedArchiveStations.length}
                     width={carouselCardWidth}
-                    height={previewCardHeight - 92}
+                    height={128}
                     meta="Paris · position exacte à retrouver"
                     onOpen={() =>
                       router.push({
@@ -1733,25 +1718,29 @@ const styles = StyleSheet.create({
     bottom: 110,
   },
   archiveNavigator: {
-    gap: Spacing.two,
+    marginHorizontal: Spacing.three,
+    backgroundColor: Palette.fog,
+    borderRadius: Radius.large,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Palette.white,
+    ...Shadow.card,
   },
   // Pas de hauteur figée : un nom de lieu sur deux lignes doit agrandir la fiche plutôt que
   // déborder par-dessus le carrousel qui la suit.
   archiveNavigatorHeader: {
-    marginHorizontal: Spacing.three,
-    paddingHorizontal: Spacing.twoHalf,
-    paddingVertical: Spacing.two,
-    borderRadius: Radius.medium,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.76)',
-    backgroundColor: 'rgba(247, 251, 252, 0.16)',
-    overflow: 'hidden',
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.threeHalf,
+    paddingBottom: Spacing.twoHalf,
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Spacing.two,
-    ...Shadow.card,
   },
+  archiveCarouselContent: { gap: Spacing.two },
+  archivePreviewCard: { borderRadius: 0, borderWidth: 0, shadowOpacity: 0, elevation: 0 },
+  archivePreviewSpacer: { flex: 1 },
+  archivePreviewBody: { minHeight: 0, padding: Spacing.twoHalf, backgroundColor: 'rgba(8, 17, 22, 0.55)' },
   carouselContent: {
     paddingLeft: Spacing.three,
     gap: Spacing.two,
@@ -1849,13 +1838,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.two,
     backgroundColor: 'rgba(8, 17, 22, 0.82)',
   },
-  photoPreviewKicker: {
-    color: Palette.brass,
-    fontFamily: Fonts.mono,
-    letterSpacing: 0.6,
-    ...Typography.caption,
-    fontWeight: '700',
-  },
   photoPreviewTitle: {
     marginTop: Spacing.one,
     paddingTop: Spacing.half,
@@ -1890,9 +1872,9 @@ const styles = StyleSheet.create({
   },
   gridSelectionCard: {
     marginHorizontal: Spacing.three,
-    padding: Spacing.three,
+    padding: Spacing.threeHalf,
     borderRadius: Radius.large,
-    backgroundColor: 'rgba(247, 251, 252, 0.16)',
+    backgroundColor: Palette.fog,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.76)',
     overflow: 'hidden',
@@ -1912,8 +1894,7 @@ const styles = StyleSheet.create({
   },
   gridSelectionKicker: {
     color: Palette.copper,
-    fontFamily: Fonts.mono,
-    letterSpacing: 0.6,
+    fontFamily: Fonts.sans,
     ...Typography.caption,
     fontWeight: '700',
   },
@@ -1924,7 +1905,7 @@ const styles = StyleSheet.create({
     ...Typography.title,
   },
   gridSelectionMeta: {
-    marginTop: Spacing.two,
+    marginTop: Spacing.one,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
     ...Typography.caption,
@@ -1950,9 +1931,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   archiveRailClose: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.48)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.82)',
@@ -1961,19 +1942,13 @@ const styles = StyleSheet.create({
   },
   gridOpenButton: {
     flexShrink: 0,
-    minHeight: 40,
-    paddingHorizontal: Spacing.twoHalf,
+    height: 44,
+    width: 44,
     borderRadius: Radius.pill,
     backgroundColor: Palette.parisBlue,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-  },
-  gridOpenText: {
-    color: Palette.white,
-    fontFamily: Fonts.sans,
-    ...Typography.caption,
-    fontWeight: '700',
+    justifyContent: 'center',
   },
   gridHintCard: {
     marginHorizontal: Spacing.three,

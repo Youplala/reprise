@@ -26,6 +26,7 @@ import { captureRef } from 'react-native-view-shot';
 import { AdaptivePhoto } from '@/components/adaptive-photo';
 import { ArchiveFilmstrip } from '@/components/archive-filmstrip';
 import { BeforeAfterSlider } from '@/components/before-after-slider';
+import { ParisGoBadge } from '@/components/paris-go-badge';
 import { GlassSurface } from '@/components/glass-surface';
 import { PhotoViewer } from '@/components/photo-viewer';
 import { PrimaryButton } from '@/components/primary-button';
@@ -81,10 +82,6 @@ export function StationScreen() {
   const [sharingCard, setSharingCard] = useState(false);
   const [shareMenuVisible, setShareMenuVisible] = useState(false);
   const isArchive = (detail?.kind ?? summary?.kind) === 'archive-1970';
-  const remainingArchiveCount =
-    detail?.remainingCount ?? summary?.remainingCount ?? archiveCount;
-  const publishedArchiveCount =
-    detail?.publishedCount ?? summary?.publishedCount ?? 0;
   const { images: archiveImages, loading: archiveImagesLoading } = useBhvpImages(
     isArchive ? detail?.archiveLinks : undefined,
   );
@@ -397,7 +394,7 @@ export function StationScreen() {
             </Pressable>
           </SafeAreaView>
           <View style={styles.heroCaption}>
-            <SourcePill label={detail?.sourceLabel ?? 'Observatoire de Paris'} inverse />
+            <SourcePill label={isArchive ? 'Archives BHVP · 1970' : detail?.sourceLabel ?? 'Observatoire de Paris'} inverse />
             <Pressable
               accessibilityLabel="Afficher la photo en plein écran"
               accessibilityRole="button"
@@ -431,16 +428,14 @@ export function StationScreen() {
         ) : null}
 
         <View style={styles.content}>
-          <Text style={styles.kicker}>
-            {isArchive
-              ? `ARCHIVE DE ${referenceYear}`
-              : detail?.hasRecapture
+          {!isArchive ? <Text style={styles.kicker}>
+            {detail?.hasRecapture
                 ? 'PHOTO REFAITE'
                 : detail?.approximate ?? summary?.approximate
                   ? 'MISSION À LOCALISER'
                   : 'POINT DE VUE GÉOLOCALISÉ'}
-          </Text>
-          <Text style={styles.title}>
+          </Text> : null}
+          <Text style={[styles.title, isArchive && styles.archiveTitle]}>
             {isArchive ? `Photo ${selectedViewNumber}` : title}
           </Text>
 
@@ -455,11 +450,12 @@ export function StationScreen() {
           {hasHistoricalNotice ? (
             <View style={styles.storySection}>
               <Text style={styles.storyCredit}>
-                {referenceCreditTitle} · {referenceCreditSource}
+                {referenceCreditTitle}
               </Text>
+              <Text style={styles.storyText}>{referenceCreditSource}</Text>
               {referenceLocations.length ? (
                 <Text style={styles.storyText}>
-                  Lieux cités dans la légende : {referenceLocations.join(' · ')}
+                  Dans la légende : {referenceLocations.join(' · ')}
                 </Text>
               ) : null}
               {selectedArchiveMetadata?.notes?.length ? (
@@ -468,16 +464,12 @@ export function StationScreen() {
             </View>
           ) : null}
 
-          {!hasComparison ? (
+          {!hasComparison && !isArchive ? (
             <Text style={styles.description}>
-              {isArchive
-                ? remainingArchiveCount === 0
-                  ? `Les ${archiveCount} ${archiveCount > 1 ? 'photos de ce secteur ont' : 'photo de ce secteur a'} déjà été refaites. Vous pouvez proposer un cadrage plus fidèle.`
-                  : `${remainingArchiveCount} ${remainingArchiveCount > 1 ? 'photos restent' : 'photo reste'} à retrouver dans ce secteur${publishedArchiveCount > 0 ? `, ${publishedArchiveCount} ${publishedArchiveCount > 1 ? 'déjà refaites' : 'déjà refaite'}` : ''}. Choisissez-la, puis retrouvez son point de vue sur place.`
-                : (detail?.description ??
+              {detail?.description ??
                   (detail?.approximate ?? summary?.approximate
                     ? 'Le point de vue exact reste à retrouver dans cette zone.'
-                    : 'Un point de vue de référence de l’Observatoire photo participatif des paysages parisiens.'))}
+                    : 'Un point de vue de référence de l’Observatoire photo participatif des paysages parisiens.')}
             </Text>
           ) : null}
 
@@ -485,6 +477,7 @@ export function StationScreen() {
             <View style={styles.recaptureBlock}>
               <View style={styles.recaptureCard}>
                 <View style={styles.recaptureBody}>
+                  {detail ? <ParisGoBadge photo={detail} /> : null}
                   <Text style={styles.recaptureKicker}>{referenceYear} → AUJOURD’HUI</Text>
                   <Text style={styles.recaptureTitle}>Même lieu, deux époques</Text>
                   <Text style={styles.recaptureHint}>
@@ -976,6 +969,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.display,
     fontWeight: '700',
   },
+  archiveTitle: { ...Typography.title, marginTop: 0 },
   description: {
     ...Typography.body,
     marginTop: Spacing.three,

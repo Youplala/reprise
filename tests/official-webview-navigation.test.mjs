@@ -36,17 +36,6 @@ test('les nouvelles fenêtres sont interceptées sans aucune externalisation', (
   assert.equal(externalOpenCalls.length, 0);
 });
 
-test('le commentaire public reste vide par défaut', () => {
-  const start = screenSource.indexOf('const prefill = useMemo');
-  const end = screenSource.indexOf('const buildInjectedScript', start);
-  assert.notEqual(start, -1);
-  assert.notEqual(end, -1);
-
-  const prefillPayload = screenSource.slice(start, end);
-  assert.doesNotMatch(prefillPayload, /\bnote\s*:/);
-  assert.doesNotMatch(prefillPayload, /referenceUrl/);
-});
-
 test('le guide de contribution peut être rouvert depuis le formulaire', () => {
   assert.match(screenSource, /<OfficialContributionGuide/);
   assert.match(screenSource, /setGuideVisible\(true\)/);
