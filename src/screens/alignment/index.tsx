@@ -2,15 +2,17 @@ import Slider from '@react-native-community/slider';
 import * as Device from 'expo-device';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
-import { Image, type ImageSource } from 'expo-image';
+import { Image } from 'expo-image';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { SymbolView } from 'expo-symbols';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  AppState,
+  Linking,
   PanResponder,
   Pressable,
   StyleSheet,
@@ -24,19 +26,16 @@ import { SIMULATED_CAMERA_IMAGE } from '@/constants/demo';
 
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useCameraLenses } from '@/hooks/use-camera-lenses';
-import { useDeviceAttitude } from '@/hooks/use-device-attitude';
 import { useImageAspectRatio } from '@/hooks/use-image-aspect-ratio';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { readGrantedCaptureLocation } from '@/services/capture-location';
+import {
+  historicalReferenceForFrame,
+  referenceUriOf,
+} from '@/services/camera-reference';
 import { authorizeOfficialCapture } from '@/services/official-capture-authority';
 
 const AnimatedArchiveImage = Animated.createAnimatedComponent(Image);
-// Inclinaison du capteur quand l'appareil est tenu vertical, en portrait.
-const UPRIGHT_PITCH_DEGREES = 90;
-// Au-delà, l'horizon penche visiblement sur la comparaison.
-const LEVEL_TOLERANCE_DEGREES = 2;
-// Au-delà, la vue bascule en plongée ou contre-plongée, refusées par le règlement.
-const PITCH_TOLERANCE_DEGREES = 8;
 
 const MAX_CAMERA_ZOOM = 1;
 
@@ -78,7 +77,8 @@ export function AlignmentScreen() {
   const cameraRef = useRef<CameraView>(null);
   const { id, frame } = useLocalSearchParams<{ id: string; frame?: string }>();
   const { detail } = useStationDetail(id);
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, refreshPermission] = useCameraPermissions({ get: false });
+  const permissionRefreshInFlight = useRef(false);
   const [edgeMode, setEdgeMode] = useState(false);
   const [opacity, setOpacity] = useState(0.52);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -95,9 +95,37 @@ export function AlignmentScreen() {
   const [overlayOpacity] = useState(() => new Animated.Value(0.52));
   const [overlayOffset] = useState(() => new Animated.ValueXY({ x: 0, y: 0 }));
   const [overlayScale] = useState(() => new Animated.Value(1));
-  const attitude = useDeviceAttitude();
   const { lenses, selectedLens, setSelectedLens, activeLabel, onAvailableLensesChanged } =
     useCameraLenses(cameraRef, cameraReady);
+
+  useEffect(() => {
+    if (!Device.isDevice || !isFocused) return;
+
+    let mounted = true;
+    const refreshCameraPermission = () => {
+      if (permissionRefreshInFlight.current) return;
+      permissionRefreshInFlight.current = true;
+      void refreshPermission()
+        .catch(() => {
+          if (mounted) {
+            setCaptureError('La vérification de l’accès à la caméra a échoué. Réessayez.');
+          }
+        })
+        .finally(() => {
+          permissionRefreshInFlight.current = false;
+        });
+    };
+
+    refreshCameraPermission();
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && isFocused) refreshCameraPermission();
+    });
+
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, [isFocused, refreshPermission]);
 
   const isSimulator = !Device.isDevice;
   const liveCamera = Device.isDevice && permission?.granted;
@@ -110,34 +138,20 @@ export function AlignmentScreen() {
     () => (archiveImages.length > 0 ? archiveImages : detail?.images ?? []),
     [archiveImages, detail?.images],
   );
-  const frameIndex = Number.isFinite(requestedFrame)
-    ? Math.max(0, Math.min(Math.max(0, stationImages.length - 1), requestedFrame))
-    : 0;
-  const referenceImage = useMemo<ImageSource | undefined>(() => {
-    return stationImages[frameIndex] ?? detail?.referenceImage;
-  }, [detail?.referenceImage, frameIndex, stationImages]);
+  const { frameIndex, image: referenceImage } = historicalReferenceForFrame({
+    images: stationImages,
+    recaptureImage: detail?.recaptureImage,
+    referenceImage: detail?.referenceImage,
+    requestedFrame,
+  });
   const referenceImageKey = JSON.stringify(referenceImage ?? null);
   const referenceImageFailed = failedReferenceKey === referenceImageKey;
   const referenceImageLoaded = loadedReferenceKey === referenceImageKey;
   const { aspectRatio: referenceAspectRatio, orientation: referenceOrientation } =
     useImageAspectRatio(referenceImage);
 
-  const backgroundImage = isSimulator
-    ? SIMULATED_CAMERA_IMAGE
-    : detail?.recaptureImage ?? referenceImage;
+  const backgroundImage = isSimulator ? SIMULATED_CAMERA_IMAGE : undefined;
 
-  // Ces deux mesures viennent des capteurs et ne disent rien de la ressemblance avec la vue de
-  // 1970 : aucune analyse d'image n'a lieu ici. Elles portent donc un nom qui correspond à ce
-  // qu'elles mesurent vraiment, plutôt qu'un pourcentage d'« alignement » qui laisserait croire
-  // à une comparaison automatique.
-  const rollDegrees = (attitude.roll * 180) / Math.PI;
-  // En portrait, le capteur renvoie environ 90° quand l'appareil est vertical : l'écart à cette
-  // référence mesure la plongée ou la contre-plongée.
-  const pitchDegrees = (attitude.pitch * 180) / Math.PI - UPRIGHT_PITCH_DEGREES;
-
-  const sensorsAvailable = !isSimulator;
-  const isLevel = Math.abs(rollDegrees) <= LEVEL_TOLERANCE_DEGREES;
-  const isFlat = Math.abs(pitchDegrees) <= PITCH_TOLERANCE_DEGREES;
   const topBarOffset = Math.max(insets.top, 52) + Spacing.one;
   const captureFrame = useMemo(() => {
     const horizontalPadding = Spacing.three;
@@ -169,22 +183,6 @@ export function AlignmentScreen() {
     viewfinderSize.height,
     viewfinderSize.width,
   ]);
-
-  // L'article 7.3 du règlement de l'Observatoire écarte les vues en plongée et en contre-plongée :
-  // c'est le défaut de cadrage qu'il faut signaler en premier.
-  // L'article 7.3 du règlement écarte les vues en plongée et en contre-plongée : c'est le seul
-  // défaut que les capteurs savent réellement détecter, et donc le seul qu'on signale.
-  const warning = !sensorsAvailable
-    ? undefined
-    : !isFlat
-      ? pitchDegrees > 0
-        ? 'Vous visez vers le haut, redressez l’appareil'
-        : 'Vous visez vers le bas, redressez l’appareil'
-      : !isLevel
-        ? rollDegrees > 0
-          ? 'L’appareil penche à droite'
-          : 'L’appareil penche à gauche'
-        : undefined;
 
   const dragResponder = useMemo(
     () =>
@@ -290,8 +288,8 @@ export function AlignmentScreen() {
       );
       return;
     }
-    if (Device.isDevice && !permission?.granted) {
-      await requestPermission();
+    if (Device.isDevice && !liveCamera) {
+      setCaptureError('Autorisez la caméra avant de prendre une photo.');
       return;
     }
     if (liveCamera && !cameraReady) {
@@ -306,7 +304,9 @@ export function AlignmentScreen() {
         ? readGrantedCaptureLocation()
         : Promise.resolve(undefined);
       const result = liveCamera
-        ? await cameraRef.current?.takePictureAsync({ quality: 1, exif: true })
+        // Pas d'EXIF : le recadrage ré-encode et le supprime, mais le repli sur le JPEG brut
+        // enverrait les coordonnées GPS au formulaire de l'Observatoire. Rien ne lit ces données.
+        ? await cameraRef.current?.takePictureAsync({ quality: 1, exif: false })
         : undefined;
       const croppedResult = result
         ? await cropToAspectRatio(
@@ -325,10 +325,9 @@ export function AlignmentScreen() {
         params: {
           id: id ?? '',
           frame: String(frameIndex),
+          referenceUri: referenceUriOf(referenceImage) ?? '',
           uri: captureUri,
           simulated: liveCamera ? '0' : '1',
-          roll: rollDegrees.toFixed(1),
-          pitch: pitchDegrees.toFixed(1),
           latitude: captureLocation ? String(captureLocation.latitude) : '',
           longitude: captureLocation ? String(captureLocation.longitude) : '',
           locationPrecision: captureLocation?.precision ?? '',
@@ -340,6 +339,72 @@ export function AlignmentScreen() {
       setCapturing(false);
     }
   };
+
+  const shutterDisabled =
+    capturing ||
+    !referenceImage ||
+    referenceImageFailed ||
+    (Device.isDevice && !liveCamera) ||
+    (liveCamera && !cameraReady);
+
+  if (Device.isDevice && !permission?.granted) {
+    const permissionLoading = permission === null;
+    const canAskAgain = permission?.canAskAgain !== false;
+    return (
+      <SafeAreaView edges={['top', 'bottom']} style={styles.permissionScreen}>
+        <Pressable
+          accessibilityLabel="Fermer le viseur"
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.permissionClose, pressed && styles.pressed]}>
+          <SymbolView name="xmark" size={18} tintColor={Palette.white} />
+        </Pressable>
+        <View style={styles.permissionCard}>
+          {permissionLoading ? (
+            <ActivityIndicator color={Palette.brass} size="large" />
+          ) : (
+            <SymbolView name="camera.fill" size={34} tintColor={Palette.brass} />
+          )}
+          <Text style={styles.permissionTitle}>
+            {permissionLoading ? 'Préparation de la caméra…' : 'Accès à la caméra requis'}
+          </Text>
+          <Text style={styles.permissionCopy}>
+            {permissionLoading
+              ? 'Paris GO vérifie l’autorisation avant d’ouvrir le viseur.'
+              : canAskAgain
+                ? 'Autorisez Paris GO à utiliser la caméra pour afficher le vrai viseur et prendre votre photo.'
+                : 'L’accès à la caméra est refusé. Ouvrez les Réglages iOS et autorisez la caméra pour Paris GO.'}
+          </Text>
+          {!permissionLoading ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: permissionLoading }}
+              onPress={() => {
+                setCaptureError(undefined);
+                if (canAskAgain) {
+                  void requestPermission().catch(() => {
+                    setCaptureError('La demande d’accès à la caméra a échoué. Réessayez.');
+                  });
+                } else {
+                  void Linking.openSettings().catch(() => {
+                    setCaptureError('Les Réglages ne peuvent pas être ouverts automatiquement.');
+                  });
+                }
+              }}
+              style={({ pressed }) => [styles.permissionButton, pressed && styles.pressed]}>
+              <Text style={styles.permissionButtonText}>
+                {canAskAgain ? 'Autoriser la caméra' : 'Ouvrir les Réglages'}
+              </Text>
+            </Pressable>
+          ) : null}
+          {captureError ? (
+            <Text accessibilityLiveRegion="polite" style={styles.permissionError}>
+              {captureError}
+            </Text>
+          ) : null}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -365,7 +430,7 @@ export function AlignmentScreen() {
               setCaptureError('La caméra ne peut pas démarrer. Fermez le viseur puis réessayez.');
             }}
           />
-        ) : (
+        ) : isSimulator ? (
           <Image
             source={backgroundImage}
             style={[
@@ -374,7 +439,7 @@ export function AlignmentScreen() {
             ]}
             contentFit="cover"
           />
-        )}
+        ) : null}
 
         <View style={styles.cameraWash} />
         {captureFrame.width ? (
@@ -547,26 +612,6 @@ export function AlignmentScreen() {
           </Pressable>
         </View>
 
-        {warning ? (
-          <View style={styles.qualityCard}>
-            <SymbolView name="exclamationmark.triangle.fill" size={22} tintColor={Palette.brass} />
-            <View style={styles.qualityCopy}>
-              <Text style={styles.qualityLabel}>
-                NIVEAU · {Math.abs(rollDegrees).toFixed(0)}° · {Math.abs(pitchDegrees).toFixed(0)}°
-              </Text>
-              <Text style={styles.qualityInstruction}>{warning}</Text>
-            </View>
-            <View style={styles.level}>
-              <View
-                style={[
-                  styles.levelBubble,
-                  { transform: [{ translateX: Math.max(-19, Math.min(19, rollDegrees * 2.5)) }] },
-                ]}
-              />
-            </View>
-          </View>
-        ) : null}
-
       </View>
 
       <SafeAreaView edges={['bottom']} style={styles.controlPanel}>
@@ -690,12 +735,9 @@ export function AlignmentScreen() {
           </Pressable>
           <Pressable
             accessibilityLabel={liveCamera ? 'Prendre la photo' : 'Simuler la photo'}
-            disabled={
-              capturing ||
-              !referenceImage ||
-              referenceImageFailed ||
-              (liveCamera && !cameraReady)
-            }
+            accessibilityRole="button"
+            accessibilityState={{ disabled: shutterDisabled }}
+            disabled={shutterDisabled}
             onPress={capture}
             style={({ pressed }) => [
               styles.shutterOuter,
@@ -711,7 +753,7 @@ export function AlignmentScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.captureHint}>
+        <Text accessibilityLiveRegion="polite" style={styles.captureHint}>
           {captureError ??
             (archiveImagesLoading
               ? 'Chargement de la photographie historique depuis la BHVP…'
@@ -731,6 +773,65 @@ export function AlignmentScreen() {
 }
 
 const styles = StyleSheet.create({
+  permissionScreen: {
+    flex: 1,
+    padding: Spacing.three,
+    backgroundColor: Palette.black,
+  },
+  permissionClose: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: Palette.inkSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  permissionCard: {
+    flex: 1,
+    maxWidth: 420,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.four,
+  },
+  permissionTitle: {
+    marginTop: Spacing.three,
+    color: Palette.white,
+    fontFamily: Fonts.display,
+    fontSize: 30,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  permissionCopy: {
+    marginTop: Spacing.two,
+    color: Palette.blueMist,
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  permissionButton: {
+    minHeight: 50,
+    marginTop: Spacing.four,
+    paddingHorizontal: Spacing.four,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.brass,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  permissionButtonText: {
+    color: Palette.blueDeep,
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  permissionError: {
+    marginTop: Spacing.two,
+    color: Palette.brass,
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    textAlign: 'center',
+  },
   screen: {
     flex: 1,
     backgroundColor: Palette.black,
@@ -881,51 +982,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 0.45,
   },
-  qualityCard: {
-    position: 'absolute',
-    left: Spacing.three,
-    right: Spacing.three,
-    bottom: Spacing.three,
-    minHeight: 72,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Radius.medium,
-    backgroundColor: 'rgba(8, 17, 22, 0.78)',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  qualityCopy: {
-    flex: 1,
-    paddingHorizontal: Spacing.two,
-  },
-  qualityLabel: {
-    color: Palette.blueMist,
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  qualityInstruction: {
-    marginTop: 3,
-    color: Palette.white,
-    fontFamily: Fonts.sans,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  level: {
-    width: 48,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.42)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  levelBubble: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: Palette.brass,
-  },
+
   nudges: {
     position: 'absolute',
     alignItems: 'center',

@@ -1,9 +1,12 @@
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 
 import { PARIS_CENTER } from '@/data/archive';
 import { shouldAutoLocate } from '@/services/location-preference';
-import type { Coordinate } from '@/types/station';
+import {
+  createUserLocationState,
+  reduceUserLocationState,
+} from '@/services/user-location-state';
 
 type UseUserLocationOptions = {
   autoLocate?: boolean;
@@ -11,18 +14,17 @@ type UseUserLocationOptions = {
 
 export function useUserLocation({ autoLocate = false }: UseUserLocationOptions = {}) {
   const autoLocateStarted = useRef(false);
-  const [coordinate, setCoordinate] = useState<Coordinate>(PARIS_CENTER);
-  const [isPrecise, setIsPrecise] = useState(false);
-  const [loading, setLoading] = useState(autoLocate);
-  const [error, setError] = useState<string>();
+  const [{ coordinate, isPrecise, loading, error }, dispatch] = useReducer(
+    reduceUserLocationState,
+    createUserLocationState(PARIS_CENTER, autoLocate),
+  );
 
   const locate = useCallback(async () => {
-    setLoading(true);
-    setError(undefined);
+    dispatch({ type: 'start' });
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (!permission.granted) {
-        setError('Position non autorisée');
+        dispatch({ type: 'failure', error: 'Position non autorisée' });
         return;
       }
 
@@ -33,14 +35,11 @@ export function useUserLocation({ autoLocate = false }: UseUserLocationOptions =
         latitude: result.coords.latitude,
         longitude: result.coords.longitude,
       };
-      setCoordinate(nextCoordinate);
-      setIsPrecise(true);
+      dispatch({ type: 'success', coordinate: nextCoordinate });
       return nextCoordinate;
     } catch {
-      setError('Position indisponible');
+      dispatch({ type: 'failure', error: 'Position indisponible' });
       return undefined;
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -50,7 +49,7 @@ export function useUserLocation({ autoLocate = false }: UseUserLocationOptions =
     void shouldAutoLocate()
       .then((enabled) => {
         if (enabled) return locate();
-        setLoading(false);
+        dispatch({ type: 'stop' });
         return undefined;
       })
       .catch(() => void locate());

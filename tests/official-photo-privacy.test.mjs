@@ -49,8 +49,8 @@ test('la destination finale après redirection reste sur une source d’archive 
 });
 
 test('la copie utilisateur dans Photos reste distincte de la pièce jointe automatique', () => {
-  assert.doesNotMatch(officialService, /album Reprise|album dédié|Photos \(Récents\)/);
-  assert.doesNotMatch(reviewScreen, /album Reprise/);
+  assert.doesNotMatch(officialService, /album Paris GO|album dédié|Photos \(Récents\)/);
+  assert.doesNotMatch(reviewScreen, /album Paris GO/);
   assert.match(reviewScreen, /Photos \(Récents\)/);
   assert.match(officialScreen, /Les deux photos sont ajoutées automatiquement/);
   assert.doesNotMatch(officialScreen, /Écriture dans Photos impossible/);
@@ -65,7 +65,9 @@ test('l’écran ignore les préparations obsolètes et limite le haptique aux n
   assert.match(officialScreen, /documentGenerationRef\.current/);
   assert.match(officialScreen, /images: emptyPreparedImages\(\)/);
   const invalidation = officialScreen.indexOf('automaticPreparationKey.current = key');
-  const incompleteReturn = officialScreen.indexOf('if (isSimulated || !uri || !referenceUri) return');
+  const incompleteReturn = officialScreen.indexOf(
+    'if (isSimulated || !uri || !trustedReferenceUri) return',
+  );
   const invalidationBlock = officialScreen.slice(invalidation, incompleteReturn);
   assert.ok(invalidation >= 0 && incompleteReturn > invalidation);
   assert.match(invalidationBlock, /setImageError\(undefined\)/);
@@ -78,7 +80,7 @@ test('le deep link ne peut pas autoriser lui-même une lecture ou un télécharg
 });
 
 test('le formulaire conserve l’URI caméra pour vérifier la taille d’une photo déjà sauvegardée', () => {
-  assert.match(reviewScreen, /const captureUri = uri \?\? savedCaptureUri \?\? ''/);
+  assert.match(reviewScreen, /const captureUri = savedCaptureUri \?\? uri \?\? ''/);
   assert.doesNotMatch(reviewScreen, /authorizeOfficialCapture/);
   assert.match(alignmentScreen, /authorizeOfficialCapture\(id \?\? '', captureUri\)/);
 });

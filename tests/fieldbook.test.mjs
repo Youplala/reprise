@@ -45,7 +45,7 @@ function setup(initial = null) {
     files,
     now: () => new Date('2026-08-11T17:00:00.000Z'),
   });
-  return { copied, files, getValue: () => value, removed, store };
+  return { copied, files, storage, getValue: () => value, removed, store };
 }
 
 test('copie la capture dans Documents avant de créer le brouillon', async () => {
@@ -116,6 +116,28 @@ test('supprime ensemble le fichier privé et ses métadonnées sans toucher Phot
   assert.equal(await store.remove(capture.id), true);
   assert.deepEqual(removed, [capture.imageUri]);
   assert.deepEqual(JSON.parse(getValue()), []);
+});
+
+test('retire aussi une référence Documents absente quand une copie Photos existe', async () => {
+  const { store, files } = setup();
+  const capture = await store.save({ stationId: 'station-1', frameIndex: 0,
+    imageUri: 'file:///cache/capture.jpg', simulated: false });
+  await store.update(capture.id, { assetId: 'photos-asset-1' });
+  await files.remove(capture.imageUri);
+  assert.deepEqual(await store.list(), []);
+});
+
+test('autorise le brouillon durable après redémarrage mais refuse les paramètres arbitraires', async () => {
+  const { store, files, storage } = setup();
+  const capture = await store.save({ stationId: 'station-1', frameIndex: 0,
+    imageUri: 'file:///cache/capture.jpg', simulated: false });
+  const restarted = createFieldbookStore({ storage, files });
+  assert.equal(await restarted.authorizeCapture(capture.id, 'station-1', capture.imageUri), true);
+  assert.equal(await restarted.authorizeCapture(capture.id, 'station-2', capture.imageUri), false);
+  assert.equal(await restarted.authorizeCapture('unknown', 'station-1', capture.imageUri), false);
+  assert.equal(await restarted.authorizeCapture(capture.id, 'station-1', 'file:///cache/legacy.jpg'), false);
+  files.isManaged = () => false;
+  assert.equal(await restarted.authorizeCapture(capture.id, 'station-1', capture.imageUri), false);
 });
 
 test('restaure les métadonnées si le fichier privé ne peut pas être supprimé', async () => {

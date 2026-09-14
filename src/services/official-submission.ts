@@ -60,7 +60,7 @@ async function prepareUploadFile(uri: string, filenameStem: string): Promise<Off
 
 /**
  * Prépare les deux fichiers directement pour le multipart GoGoCarto. Aucune autorisation Photos
- * n'est nécessaire et aucun fichier personnel n'est envoyé à Reprise : les octets restent en
+ * n'est nécessaire et aucun fichier personnel n'est envoyé à Paris GO : les octets restent en
  * mémoire jusqu'à leur injection sur l'origine officielle exacte.
  */
 export async function prepareImagesForOfficialForm(input: {

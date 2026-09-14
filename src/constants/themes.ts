@@ -1,6 +1,6 @@
 // Jetons sémantiques clair / sombre.
 //
-// `Palette` reste la liste des teintes brutes de Reprise ; ici on décrit ce à quoi elles servent.
+// `Palette` reste la liste des teintes brutes de Paris GO ; ici on décrit ce à quoi elles servent.
 // Les écrans doivent référencer `theme.surface` plutôt que `Palette.white`, sinon le mode sombre
 // reste impossible à câbler — c'est ce qui est arrivé à `Colors.dark`, défini puis jamais importé.
 

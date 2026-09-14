@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Directory, File, Paths } from 'expo-file-system';
+import { isOfficialCaptureAuthorized } from '@/services/official-capture-authority';
 
 import {
   createFieldbookStore,
@@ -43,7 +44,17 @@ const files = {
     return new File(uri).exists;
   },
   isManaged(uri: string) {
-    return uri.startsWith(`${CAPTURES_DIRECTORY.uri}/`);
+    try {
+      const url = new URL(uri);
+      if (url.protocol !== 'file:' || url.host || url.search || url.hash) return false;
+      const canonical = new URL(decodeURIComponent(url.href));
+      const directory = new URL(CAPTURES_DIRECTORY.uri);
+      const root = `${directory.pathname.replace(/\/$/, '')}/`;
+      const filename = canonical.pathname.slice(root.length);
+      return canonical.pathname.startsWith(root) && Boolean(filename) && !filename.includes('/');
+    } catch {
+      return false;
+    }
   },
   async remove(uri: string) {
     new File(uri).delete();
@@ -73,11 +84,20 @@ export async function getSavedCaptures() {
   return store.list();
 }
 
+export async function isSavedCaptureAuthorized(captureId: string, stationId: string, uri: string) {
+  return store.authorizeCapture(captureId, stationId, uri);
+}
+
 /**
  * Écrit d'abord une copie privée durable dans Documents. Photos reste une copie facultative :
  * un refus de permission ne peut donc plus fragiliser le brouillon.
  */
 export async function saveCapture(capture: NewCapture): Promise<CaptureSaveOutcome> {
+  // La copie durable ne doit pas transformer une URI de deep link arbitraire en autorisation.
+  if (!capture.simulated && (!capture.imageUri ||
+    !isOfficialCaptureAuthorized(capture.stationId, capture.imageUri))) {
+    throw new Error('CAPTURE_NOT_AUTHORIZED');
+  }
   let saved = await store.save(capture);
   let assetId: string | undefined;
 

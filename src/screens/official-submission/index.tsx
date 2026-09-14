@@ -22,6 +22,11 @@ import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { useUserLocation } from '@/hooks/use-user-location';
+import {
+  historicalReferenceForFrame,
+  referenceUriOf,
+  validatedHistoricalReferenceUri,
+} from '@/services/camera-reference';
 import { isOfficialCaptureAuthorized } from '@/services/official-capture-authority';
 import {
   markOfficialContributionGuideSeen,
@@ -52,7 +57,7 @@ import {
   shouldInjectOfficialScripts,
 } from '@/services/official-navigation';
 import { OFFICIAL_SUBMISSION_FIXTURE_HTML } from '@/services/official-submission-fixture';
-import { updateCapturePreparation } from '@/services/fieldbook';
+import { isSavedCaptureAuthorized, updateCapturePreparation } from '@/services/fieldbook';
 import {
   buildObservatoirePrefillScript,
   OFFICIAL_SUBMISSION_FIXTURE_ENABLED,
@@ -66,7 +71,7 @@ import {
 function preparationErrorLabel(error: PreparedImages['current']['error']) {
   switch (error) {
     case 'permission-denied':
-      return 'Accès Photos refusé — autorisez Reprise dans Réglages.';
+      return 'Accès Photos refusé — autorisez Paris GO dans Réglages.';
     case 'missing-uri':
       return 'Fichier absent — choisissez cette image manuellement dans le formulaire.';
     case 'download-failed':
@@ -80,7 +85,7 @@ function preparationErrorLabel(error: PreparedImages['current']['error']) {
     case 'unsupported-format':
       return 'Format non pris en charge — choisissez cette image manuellement.';
     case 'untrusted-uri':
-      return 'Source de photo non reconnue — reprenez la photo depuis Reprise.';
+      return 'Source de photo non reconnue — reprenez la photo depuis Paris GO.';
     case 'save-failed':
       return 'Préparation du fichier impossible — réessayez ou choisissez-le manuellement.';
     default:
@@ -131,6 +136,7 @@ export function OfficialSubmissionScreen() {
   const {
     id,
     frame,
+    referenceUri,
     uri,
     simulated,
     currentSaved,
@@ -142,6 +148,7 @@ export function OfficialSubmissionScreen() {
   } = useLocalSearchParams<{
     id: string;
     frame?: string;
+    referenceUri?: string;
     uri?: string;
     simulated?: string;
     currentSaved?: string;
@@ -151,22 +158,45 @@ export function OfficialSubmissionScreen() {
     currentPreparation?: string;
     referencePreparation?: string;
   }>();
-  const authorizedCurrentUri = useRef(
-    uri && isOfficialCaptureAuthorized(id, uri) ? uri : undefined,
-  ).current;
+  const authorizationKey = JSON.stringify([id, uri, captureId]);
+  const [captureAuthorization, setCaptureAuthorization] = useState<{ key: string; uri?: string }>();
+  const authorizationPending = captureAuthorization?.key !== authorizationKey;
+  const authorizedCurrentUri = authorizationPending ? undefined : captureAuthorization?.uri;
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      const authorized = Boolean(uri && (
+        isOfficialCaptureAuthorized(id, uri) ||
+        (captureId && await isSavedCaptureAuthorized(captureId, id, uri))
+      ));
+      if (!cancelled) setCaptureAuthorization({ key: authorizationKey, uri: authorized ? uri : undefined });
+    };
+    void check().catch(() => {
+      if (!cancelled) setCaptureAuthorization({ key: authorizationKey });
+    });
+    return () => { cancelled = true; };
+  }, [authorizationKey, captureId, id, uri]);
   const { detail } = useStationDetail(id);
   const isArchiveSector = detail?.kind === 'archive-1970';
   const { images: archiveImages } = useBhvpImages(
     isArchiveSector ? detail?.archiveLinks : undefined,
   );
   const requestedFrame = Number.parseInt(frame ?? '0', 10);
-  const frameIndex = Number.isFinite(requestedFrame)
-    ? Math.max(0, Math.min(Math.max(0, archiveImages.length - 1), requestedFrame))
-    : 0;
-  const referenceSource =
-    archiveImages[frameIndex] ?? detail?.images[frameIndex] ?? detail?.referenceImage;
-  const referenceUri =
-    typeof referenceSource === 'object' && referenceSource ? referenceSource.uri : undefined;
+  const stationImages = archiveImages.length > 0 ? archiveImages : detail?.images ?? [];
+  const historicalReference = historicalReferenceForFrame({
+    images: stationImages,
+    recaptureImage: detail?.recaptureImage,
+    referenceImage: detail?.referenceImage,
+    requestedFrame,
+  });
+  const resolvedReferenceUri = referenceUriOf(historicalReference.image);
+  const trustedReferenceUri =
+    validatedHistoricalReferenceUri({
+      candidateUri: referenceUri,
+      images: stationImages,
+      recaptureImage: detail?.recaptureImage,
+      referenceImage: detail?.referenceImage,
+    }) ?? resolvedReferenceUri;
   const isSimulated = simulated !== '0';
   const hasSavedCoordinate =
     Boolean(latitude && longitude) &&
@@ -346,7 +376,7 @@ export function OfficialSubmissionScreen() {
     if (!explicitRequest && latestPreparationInFlight.current !== undefined) return;
     const request = explicitRequest ?? {
       generation: ++preparationGeneration.current,
-      key: `${id}|${uri}|${referenceUri}`,
+      key: `${id}|${uri}|${trustedReferenceUri}`,
     };
     if (!explicitRequest) latestPreparationRequest.current = request;
     latestPreparationInFlight.current = request.generation;
@@ -364,12 +394,12 @@ export function OfficialSubmissionScreen() {
         currentUri: uri,
         preparationId: String(request.generation),
         previous,
-        referenceUri,
+        referenceUri: trustedReferenceUri,
         stationId: id,
       });
       if (!isCurrentOfficialPreparation(request, latestPreparationRequest.current)) return;
       setImagePreparation(result);
-      if (captureId) {
+      if (captureId && uri === authorizedCurrentUri) {
         await updateCapturePreparation(captureId, result.images).catch(() => undefined);
       }
       if (didAddReadyImage(previous.images, result.images)) {
@@ -388,10 +418,11 @@ export function OfficialSubmissionScreen() {
       }
       setPreparingImages(latestPreparationInFlight.current !== undefined);
     }
-  }, [authorizedCurrentUri, captureId, id, imagePreparation, isSimulated, referenceUri, uri]);
+  }, [authorizedCurrentUri, captureId, id, imagePreparation, isSimulated, trustedReferenceUri, uri]);
 
   useEffect(() => {
-    const key = `${id}|${isSimulated ? 'simulated' : 'live'}|${uri ?? ''}|${referenceUri ?? ''}`;
+    if (authorizationPending) return;
+    const key = `${id}|${isSimulated ? 'simulated' : 'live'}|${uri ?? ''}|${trustedReferenceUri ?? ''}`;
     if (automaticPreparationKey.current === key) return;
     automaticPreparationKey.current = key;
     preparationGeneration.current += 1;
@@ -416,15 +447,9 @@ export function OfficialSubmissionScreen() {
         buildObservatoireFileCleanupScript(String(request.generation)),
       );
     }
-    if (isSimulated || !uri || !referenceUri) return;
+    if (isSimulated || !uri || !trustedReferenceUri) return;
     void prepareImages(request);
-  }, [
-    id,
-    isSimulated,
-    prepareImages,
-    referenceUri,
-    uri,
-  ]);
+  }, [authorizationPending, id, isSimulated, prepareImages, trustedReferenceUri, uri]);
 
   const allowNavigation = (request: { url: string }) => {
     return isAllowedOfficialNavigation(request.url, OFFICIAL_SUBMISSION_FIXTURE_ENABLED);
@@ -483,7 +508,7 @@ export function OfficialSubmissionScreen() {
               <Text style={styles.trustText}>
                 {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
                   ? 'Aucune donnée ni photo ne quitte cet appareil.'
-                  : 'Reprise ne reçoit ni votre identité ni vos photos. Elles partent du formulaire officiel.'}
+                  : 'Paris GO ne reçoit ni votre identité ni vos photos. Elles partent du formulaire officiel.'}
               </Text>
             </View>
             <View style={styles.prefillBadge}>
@@ -658,7 +683,7 @@ export function OfficialSubmissionScreen() {
               onError={() => {
                 setLoading(false);
                 setFormError(
-                  'Le serveur officiel de l’Observatoire ne répond pas. Ce problème est extérieur à vos photos et à Reprise.',
+                  'Le serveur officiel de l’Observatoire ne répond pas. Ce problème est extérieur à vos photos et à Paris GO.',
                 );
               }}
               onHttpError={(event) => {

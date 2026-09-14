@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 2,
+  "appName": "Reprise",
+  "themeId": "reprise-archive",
+  "connectedCanvas": true,
+  "locales": [
+    "fr"
+  ],
+  "locale": "fr",
+  "device": "iphone",
+  "orientation": "portrait",
+  "appIcon": "/app-icon.png",
+  "slidesByDevice": {
+    "iphone": [
+      {
+        "id": "reprise-01",
+        "layout": "hero",
+        "label": {
+          "fr": "1 755 SECTEURS HISTORIQUES"
+        },
+        "headline": {
+          "fr": "Paris,\ncarré par carré."
+        },
+        "screenshot": "/screenshots/apple/iphone/fr/01.png",
+        "transforms": {
+          "caption": {
+            "x": 90,
+            "y": 145,
+            "width": 1080,
+            "height": 700,
+            "rotation": 0,
+            "zIndex": 4
+          },
+          "device": {
+            "x": 160,
+            "y": 900,
+            "width": 1000,
+            "height": 2037,
+            "rotation": -3,
+            "zIndex": 3
+          }
+        }
+      },
+      {
+        "id": "reprise-02",
+        "layout": "no-device",
+        "label": {
+          "fr": "30 076 PHOTOS DE 1970"
+        },
+        "headline": {
+          "fr": "Retrouvez les vues\nd’hier."
+        },
+        "screenshot": "",
+        "transforms": {
+          "caption": {
+            "x": 110,
+            "y": 420,
+            "width": 1090,
+            "height": 1050,
+            "rotation": 0,
+            "zIndex": 5
+          }
+        },
+        "textElements": [
+          {
+            "id": "archive-era",
+            "text": {
+              "fr": "1970  →  aujourd’hui"
+            },
+            "transform": {
+              "x": 150,
+              "y": 1830,
+              "width": 1020,
+              "height": 180,
+              "rotation": 0,
+              "zIndex": 5
+            },
+            "fontSize": 62,
+            "fontWeight": 750,
+            "color": "#C85E3C",
+            "align": "center"
+          },
+          {
+            "id": "archive-scope",
+            "text": {
+              "fr": "RUES  ·  QUARTIERS  ·  ARRONDISSEMENTS"
+            },
+            "transform": {
+              "x": 130,
+              "y": 2110,
+              "width": 1060,
+              "height": 120,
+              "rotation": 0,
+              "zIndex": 5
+            },
+            "fontSize": 30,
+            "fontWeight": 700,
+            "color": "#57707A",
+            "align": "center"
+          }
+        ]
+      },
+      {
+        "id": "reprise-03",
+        "layout": "device-top",
+        "label": {
+          "fr": "SUPERPOSITION HISTORIQUE"
+        },
+        "headline": {
+          "fr": "Cadrez hier\nsur aujourd’hui."
+        },
+        "screenshot": "/screenshots/apple/iphone/fr/03.png",
+        "transforms": {
+          "device": {
+            "x": 140,
+            "y": -115,
+            "width": 1040,
+            "height": 2119,
+            "rotation": -2,
+            "zIndex": 3
+          },
+          "caption": {
+            "x": 100,
+            "y": 2040,
+            "width": 1120,
+            "height": 700,
+            "rotation": 0,
+            "zIndex": 4
+          }
+        }
+      },
+      {
+        "id": "reprise-04",
+        "layout": "device-bottom",
+        "label": {
+          "fr": "ACTIVITÉ DE LA COMMUNAUTÉ"
+        },
+        "headline": {
+          "fr": "Suivez l’effort\ncollectif."
+        },
+        "screenshot": "/screenshots/apple/iphone/fr/04.png",
+        "transforms": {
+          "caption": {
+            "x": 100,
+            "y": 150,
+            "width": 1100,
+            "height": 690,
+            "rotation": 0,
+            "zIndex": 4
+          },
+          "device": {
+            "x": 160,
+            "y": 865,
+            "width": 1000,
+            "height": 2037,
+            "rotation": 3,
+            "zIndex": 3
+          }
+        }
+      },
+      {
+        "id": "reprise-05",
+        "layout": "no-device",
+        "label": {
+          "fr": "REPRISE · OBSERVATOIRE MOBILE DE PARIS"
+        },
+        "headline": {
+          "fr": "Chaque photo\nchange la carte."
+        },
+        "screenshot": "",
+        "transforms": {
+          "caption": {
+            "x": 130,
+            "y": 520,
+            "width": 1060,
+            "height": 1250,
+            "rotation": 0,
+            "zIndex": 4
+          }
+        },
+        "textElements": [
+          {
+            "id": "closing-note",
+            "text": {
+              "fr": "Retrouver. Refaire. Transmettre."
+            },
+            "transform": {
+              "x": 170,
+              "y": 2050,
+              "width": 980,
+              "height": 190,
+              "rotation": 0,
+              "zIndex": 5
+            },
+            "fontSize": 48,
+            "fontWeight": 650,
+            "color": "#57707A",
+            "align": "center"
+          }
+        ]
+      }
+    ],
+    "android": [],
+    "ipad": [],
+    "android-7": [],
+    "android-10": [],
+    "feature-graphic": []
+  }
+}

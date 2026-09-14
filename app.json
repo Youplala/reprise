@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "Reprise",
+    "name": "Paris GO",
     "slug": "reprise",
     "description": "Retrouver et reconduire les points de vue historiques de Paris.",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/reprise-app-icon.png",
+    "icon": "./assets/images/parisgo-app-icon.png",
     "scheme": "reprise",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/images/reprise-app-icon.png",
+      "icon": "./assets/images/parisgo-app-icon.png",
       "bundleIdentifier": "fr.youplala.repriseparis",
       "supportsTablet": false,
       "config": {
@@ -19,10 +19,10 @@
     "android": {
       "package": "fr.youplala.repriseparis",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#FCF6F0",
+        "foregroundImage": "./assets/images/parisgo-android-foreground.png",
+        "backgroundImage": "./assets/images/parisgo-android-background.png",
+        "monochromeImage": "./assets/images/parisgo-android-monochrome.png"
       },
       "blockedPermissions": [
         "android.permission.ACTIVITY_RECOGNITION",
@@ -44,15 +44,16 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0F233A",
-          "image": "./assets/images/reprise-app-icon.png",
+          "backgroundColor": "#FCF6F0",
+          "image": "./assets/images/parisgo-splash.png",
           "imageWidth": 184
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Autoriser Reprise à utiliser l’appareil photo pour reconduire une vue historique.",
+          "cameraPermission": "Autoriser Paris GO à utiliser l’appareil photo pour reconduire une vue historique.",
+          "microphonePermission": false,
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false
         }
@@ -60,7 +61,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Autoriser Reprise à afficher les points de vue historiques autour de vous.",
+          "locationWhenInUsePermission": "Autoriser Paris GO à afficher les points de vue historiques autour de vous.",
           "locationAlwaysAndWhenInUsePermission": false,
           "locationAlwaysPermission": false,
           "isIosBackgroundLocationEnabled": false,
@@ -70,15 +71,9 @@
         }
       ],
       [
-        "expo-sensors",
-        {
-          "motionPermission": "Autoriser Reprise à utiliser l’orientation de l’iPhone pour aligner les prises de vue."
-        }
-      ],
-      [
         "expo-media-library",
         {
-          "savePhotosPermission": "Autoriser Reprise à enregistrer vos reprises dans vos photos, pour les retrouver au moment de les déposer sur l’Observatoire.",
+          "savePhotosPermission": "Autoriser Paris GO à enregistrer vos reprises dans vos photos, pour les retrouver au moment de les déposer sur l’Observatoire.",
           "photosPermission": false,
           "isAccessMediaLocationEnabled": false,
           "granularPermissions": []

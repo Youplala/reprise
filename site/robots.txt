@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://youplala.github.io/reprise/sitemap.xml

@@ -39,6 +39,8 @@ import { PROJECT_LABEL, PROJECT_URL } from '@/constants/legal';
 import { PARIS_CENTER } from '@/data/archive';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
+import { historicalReferenceForFrame } from '@/services/camera-reference';
+import { buildPhotoReportDraft, launchPhotoReport } from '@/utils/photo-report';
 
 const BHVP_NAME = 'Bibliothèque historique de la Ville de Paris';
 const PARIS_1970_FUND = 'Fonds « C’était Paris en 1970 »';
@@ -122,6 +124,11 @@ export function StationScreen() {
     referenceYear === 1970
       ? `${BHVP_NAME} · ${PARIS_1970_FUND}`
       : 'Observatoire photo participatif des paysages parisiens · CAUE de Paris';
+  // Une station de 2022 n'a aucune métadonnée d'archive : son auteur est le contributeur de
+  // l'Observatoire. Créditer sa photo comme une vue de 1970 conservée par la BHVP serait une
+  // misattribution, et la notice doit suivre le millésime réel de l'image affichée.
+  const referenceCreditShort =
+    referenceYear === 1970 ? 'ARCHIVES BHVP' : 'OBSERVATOIRE · CAUE DE PARIS';
   const currentCredit = `Photo 2026 · ${currentAuthor ?? 'Contributeur·rice non renseigné·e'}`;
   const selectedViewNumber = String(selectedIndex + 1).padStart(2, '0');
   const coordinate = detail?.coordinate ?? summary?.coordinate ?? PARIS_CENTER;
@@ -199,9 +206,15 @@ export function StationScreen() {
 
   const openAlignment = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const historicalReference = historicalReferenceForFrame({
+      images,
+      recaptureImage: detail?.recaptureImage,
+      referenceImage: detail?.referenceImage,
+      requestedFrame: selectedIndex,
+    });
     router.push({
       pathname: '/align/[id]',
-      params: { id: id ?? '', frame: String(selectedIndex) },
+      params: { id: id ?? '', frame: String(historicalReference.frameIndex) },
     });
   };
 
@@ -217,18 +230,11 @@ export function StationScreen() {
   };
 
   const reportRecapture = () => {
-    const subject = `Signalement d’une photo refaite · ${title}`;
-    const body = [
-      'Bonjour,',
-      '',
-      `Je souhaite signaler un problème sur la photo actuelle associée à « ${title} » (identifiant ${id ?? 'inconnu'}).`,
-      detail?.officialUrl ? `Fiche : ${detail.officialUrl}` : '',
-      '',
-      'Problème constaté : ',
-    ]
-      .filter(Boolean)
-      .join('\n');
-    const mailto = `mailto:observatoire-photo@caue75.fr?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const draft = buildPhotoReportDraft({
+      title,
+      stationId: id,
+      officialUrl: detail?.officialUrl,
+    });
 
     Alert.alert(
       'Signaler cette photo',
@@ -238,7 +244,29 @@ export function StationScreen() {
         {
           text: 'Préparer l’email',
           onPress: () => {
-            void Linking.openURL(mailto);
+            void (async () => {
+              const result = await launchPhotoReport(draft.mailto, Linking);
+              if (result === 'opened') return;
+
+              Alert.alert(
+                'Email indisponible',
+                draft.fallbackMessage,
+                [
+                  { text: 'Fermer', style: 'cancel' },
+                  {
+                    text: 'Partager les informations',
+                    onPress: () => {
+                      void Share.share({
+                        title: draft.subject,
+                        message: draft.fallbackMessage,
+                      }).catch(() => {
+                        Alert.alert('Partage indisponible', draft.fallbackMessage);
+                      });
+                    },
+                  },
+                ],
+              );
+            })();
           },
         },
       ],
@@ -253,7 +281,7 @@ export function StationScreen() {
       if (!available) {
         await Share.share({
           title: `Avant/après · ${title}`,
-          message: `Découvrez « ${title} » avant et aujourd’hui dans Reprise.\n${referenceCreditTitle} · ${referenceCreditSource}\n${currentCredit}\n${shareUrl}`,
+          message: `Découvrez « ${title} » avant et aujourd’hui dans Paris GO.\n${referenceCreditTitle} · ${referenceCreditSource}\n${currentCredit}\n${shareUrl}`,
         });
         return;
       }
@@ -279,7 +307,7 @@ export function StationScreen() {
   };
 
   const shareRepriseLink = async () => {
-    const message = `Découvrez « ${title} » en ${referenceYear} et aujourd’hui avec Reprise.\n${referenceCreditTitle} · ${referenceCreditSource}\n${currentCredit}`;
+    const message = `Découvrez « ${title} » en ${referenceYear} et aujourd’hui avec Paris GO.\n${referenceCreditTitle} · ${referenceCreditSource}\n${currentCredit}`;
     void Haptics.selectionAsync();
     try {
       await Share.share(
@@ -288,7 +316,7 @@ export function StationScreen() {
           : { title: `Avant/après · ${title}`, message: `${message}\n${shareUrl}` },
       );
     } catch {
-      Alert.alert('Partage indisponible', 'Le lien Reprise n’a pas pu être partagé.');
+      Alert.alert('Partage indisponible', 'Le lien Paris GO n’a pas pu être partagé.');
     }
   };
 
@@ -484,9 +512,9 @@ export function StationScreen() {
                 <View style={[styles.storyCard, styles.storyCardArchive]}>
                   <View style={styles.storyCardHeader}>
                     <View style={styles.storyYearBadge}>
-                      <Text style={styles.storyYearText}>1970</Text>
+                      <Text style={styles.storyYearText}>{referenceYear}</Text>
                     </View>
-                    <Text style={styles.storyCardSource}>ARCHIVES BHVP</Text>
+                    <Text style={styles.storyCardSource}>{referenceCreditShort}</Text>
                   </View>
                   <Text style={styles.storyAuthor}>
                     {referenceAuthor ?? 'Photographe non identifié'}
@@ -600,7 +628,7 @@ export function StationScreen() {
                     </View>
                   </View>
                   <View style={styles.repriseMark}>
-                    <Text style={styles.repriseMarkName}>REPRISE</Text>
+                    <Text style={styles.repriseMarkName}>PARIS GO</Text>
                     <Text style={styles.repriseMarkUrl}>{PROJECT_LABEL}</Text>
                   </View>
                 </View>
@@ -786,7 +814,7 @@ export function StationScreen() {
                 </Text>
               </View>
               <View style={styles.repriseMark}>
-                <Text style={styles.repriseMarkName}>REPRISE</Text>
+                <Text style={styles.repriseMarkName}>PARIS GO</Text>
                 <Text style={styles.repriseMarkUrl}>{PROJECT_LABEL}</Text>
               </View>
             </View>
@@ -855,8 +883,8 @@ export function StationScreen() {
                 </Pressable>
 
                 <Pressable
-                  accessibilityHint="Partage un lien qui ouvre cette photo dans Reprise"
-                  accessibilityLabel="Partager le lien Reprise"
+                  accessibilityHint="Partage un lien qui ouvre cette photo dans Paris GO"
+                  accessibilityLabel="Partager le lien Paris GO"
                   accessibilityRole="button"
                   onPress={() => {
                     setShareMenuVisible(false);
@@ -870,7 +898,7 @@ export function StationScreen() {
                     <SymbolView name="link" size={18} tintColor={Palette.parisBlue} />
                   </View>
                   <View style={styles.shareOptionCopy}>
-                    <Text style={styles.shareOptionTitle}>Le lien Reprise</Text>
+                    <Text style={styles.shareOptionTitle}>Le lien Paris GO</Text>
                     <Text style={styles.shareOptionText}>
                       Pour ouvrir directement cette photo dans l’app.
                     </Text>

@@ -146,7 +146,7 @@ export function createFieldbookStore({ storage, files, now = () => new Date() }:
 
       if (capture.imageUri) {
         const exists = await files.exists(capture.imageUri).catch(() => false);
-        if (!exists && !capture.assetId) {
+        if (!exists) {
           changed = true;
           continue;
         }
@@ -246,5 +246,12 @@ export function createFieldbookStore({ storage, files, now = () => new Date() }:
     return true;
   };
 
-  return { list, remove, save, update };
+  const authorizeCapture = async (captureId: string, stationId: string, uri: string) => {
+    const captures = await list();
+    return captures.some((capture) => capture.id === captureId &&
+      capture.stationId === stationId && !capture.simulated &&
+      capture.imageUri === uri && files.isManaged(uri));
+  };
+
+  return { list, remove, save, update, authorizeCapture };
 }

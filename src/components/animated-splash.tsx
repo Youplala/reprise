@@ -14,8 +14,7 @@ import Animated, {
 
 import { Fonts, Palette } from '@/constants/theme';
 
-const appIcon = require('../../assets/images/reprise-app-icon.png');
-const logoGlow = require('../../assets/images/logo-glow.png');
+const appIcon = require('../../assets/images/parisgo-app-icon.png');
 
 type AnimatedSplashProps = {
   onFinish: () => void;
@@ -26,8 +25,6 @@ export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
   const markOpacity = useSharedValue(0);
   const markScale = useSharedValue(0.74);
   const markRotation = useSharedValue(-12);
-  const glowOpacity = useSharedValue(0);
-  const glowScale = useSharedValue(0.7);
   const wordOpacity = useSharedValue(0);
   const wordOffset = useSharedValue(12);
 
@@ -38,11 +35,6 @@ export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
       withSpring(1, { damping: 14, stiffness: 190 }),
     );
     markRotation.value = withSpring(0, { damping: 13, stiffness: 120 });
-    glowOpacity.value = withSequence(
-      withTiming(0.72, { duration: 420 }),
-      withDelay(350, withTiming(0.18, { duration: 360 })),
-    );
-    glowScale.value = withTiming(1.16, { duration: 980, easing: Easing.out(Easing.cubic) });
     wordOpacity.value = withDelay(230, withTiming(1, { duration: 360 }));
     wordOffset.value = withDelay(230, withSpring(0, { damping: 17, stiffness: 150 }));
     overlayOpacity.value = withDelay(
@@ -51,16 +43,12 @@ export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
         if (finished) runOnJS(onFinish)();
       }),
     );
-  }, [glowOpacity, glowScale, markOpacity, markRotation, markScale, onFinish, overlayOpacity, wordOffset, wordOpacity]);
+  }, [markOpacity, markRotation, markScale, onFinish, overlayOpacity, wordOffset, wordOpacity]);
 
   const overlayStyle = useAnimatedStyle(() => ({ opacity: overlayOpacity.value }));
   const markStyle = useAnimatedStyle(() => ({
     opacity: markOpacity.value,
     transform: [{ scale: markScale.value }, { rotate: `${markRotation.value}deg` }],
-  }));
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-    transform: [{ scale: glowScale.value }],
   }));
   const wordStyle = useAnimatedStyle(() => ({
     opacity: wordOpacity.value,
@@ -78,14 +66,10 @@ export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
         ))}
       </View>
       <View style={styles.logoStage}>
-        <Animated.View style={[styles.glow, glowStyle]}>
-          <Image source={logoGlow} style={StyleSheet.absoluteFill} contentFit="contain" />
-        </Animated.View>
         <Animated.View style={[styles.mark, markStyle]}>
           <Image source={appIcon} style={styles.markImage} contentFit="cover" />
         </Animated.View>
         <Animated.View style={[styles.wordmark, wordStyle]}>
-          <Text style={styles.brand}>REPRISE</Text>
           <Text style={styles.tagline}>PARIS · 1970 → AUJOURD’HUI</Text>
         </Animated.View>
       </View>
@@ -98,14 +82,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     inset: 0,
     zIndex: 100,
-    backgroundColor: '#0F233A',
+    backgroundColor: '#FCF6F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   grid: {
     position: 'absolute',
     inset: 0,
-    opacity: 0.14,
+    opacity: 0.08,
     transform: [{ rotate: '-8deg' }, { scale: 1.22 }],
   },
   gridVertical: {
@@ -113,23 +97,18 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: StyleSheet.hairlineWidth,
-    backgroundColor: Palette.white,
+    backgroundColor: '#0F233A',
   },
   gridHorizontal: {
     position: 'absolute',
     left: 0,
     right: 0,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: Palette.white,
+    backgroundColor: '#0F233A',
   },
   logoStage: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  glow: {
-    position: 'absolute',
-    width: 320,
-    height: 320,
   },
   mark: {
     width: 184,
@@ -150,14 +129,14 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
   brand: {
-    color: Palette.white,
+    color: '#0F233A',
     fontFamily: Fonts.display,
     fontSize: 28,
     fontWeight: '900',
     letterSpacing: 5.8,
   },
   tagline: {
-    color: Palette.blueMist,
+    color: '#163F5B',
     fontFamily: Fonts.mono,
     fontSize: 10,
     fontWeight: '700',
