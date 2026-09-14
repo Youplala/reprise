@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -26,12 +25,15 @@ import { Fonts, Palette, Radius, Shadow, Spacing, TabBarClearance } from '@/cons
 
 import { useUserLocation } from '@/hooks/use-user-location';
 import { useFeaturedMission, useStations } from '@/providers/stations-provider';
-
-
+import { PARIS_CENTER } from '@/data/archive';
+import {
+  HOME_LOCATION_CONTENT,
+  classifyLocationContext,
+} from '@/services/location-context';
 import { distanceInMeters, formatDistance } from '@/utils/distance';
 
 const STEPS = [
-  ['01', 'Choisir', 'Une photo de 1970 près de vous.'],
+  ['01', 'Choisir', 'Une photo de 1970 à Paris.'],
   ['02', 'Aligner', 'La caméra superpose la photo d’archive.'],
   ['03', 'Publier', 'Votre photo rejoint la carte.'],
 ] as const;
@@ -43,10 +45,12 @@ export function HomeScreen() {
   const { coordinate, isPrecise, loading: locating, locate } = useUserLocation({
     autoLocate: true,
   });
-  const awaitingFirstLocation = locating && !isPrecise;
+  const locationContext = classifyLocationContext({ coordinate, isPrecise });
+  const locationContent = HOME_LOCATION_CONTENT[locationContext];
+  const proximityOrigin = locationContext === 'in-paris' ? coordinate : PARIS_CENTER;
 
   // Mission mise en avant : le point de vue de 2022 le plus proche, encore à reconduire.
-  const featured = useFeaturedMission(isPrecise ? coordinate : undefined);
+  const featured = useFeaturedMission(locationContext === 'in-paris' ? coordinate : undefined);
 
   const nearby = useMemo(
     () =>
@@ -56,10 +60,13 @@ export function HomeScreen() {
             station.kind === 'archive-1970' &&
             (station.remainingCount ?? station.frameCount ?? 0) > 0,
         )
-        .map((station) => ({ station, distance: distanceInMeters(coordinate, station.coordinate) }))
+        .map((station) => ({
+          station,
+          distance: distanceInMeters(proximityOrigin, station.coordinate),
+        }))
         .sort((left, right) => left.distance - right.distance)
         .slice(0, 3),
-    [coordinate, stations],
+    [proximityOrigin, stations],
   );
 
   const featuredDistance = featured ? distanceInMeters(coordinate, featured.coordinate) : 0;
@@ -79,12 +86,10 @@ export function HomeScreen() {
     );
   };
 
-  const handleRefresh = async () => {
-    await Promise.all([refresh(), locate()]);
-  };
+  const handleRefresh = refresh;
 
   const openFeatured = () => {
-    if (!featured || awaitingFirstLocation) return;
+    if (!featured) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
     router.push({ pathname: '/station/[id]', params: { id: featured.id } });
   };
@@ -127,17 +132,11 @@ export function HomeScreen() {
           </View>
 
           <View>
-            <Text style={styles.eyebrow}>
-              {awaitingFirstLocation
-                ? 'RECHERCHE AUTOUR DE VOUS'
-                : isPrecise
-                  ? 'AUTOUR DE VOUS'
-                  : 'PARIS · 30 087 PHOTOS DE 1970'}
-            </Text>
+            <Text style={styles.eyebrow}>{locationContent.eyebrow}</Text>
             <Text style={styles.heroTitle}>Retrouvez Paris, photo après photo.</Text>
             <Text style={styles.heroCopy}>
-              Choisissez une photo de 1970, retrouvez où elle a été prise, puis refaites le même
-              cadrage aujourd’hui.
+              La consultation fonctionne partout. Pour refaire une photo, rendez-vous au point de
+              vue parisien.
             </Text>
           </View>
         </SafeAreaView>
@@ -181,52 +180,40 @@ export function HomeScreen() {
         <Animated.View entering={FadeInDown.delay(140).duration(420)}>
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ busy: awaitingFirstLocation, disabled: awaitingFirstLocation }}
-            disabled={awaitingFirstLocation}
             onPress={openFeatured}
             style={({ pressed }) => [styles.featured, pressed && styles.featuredPressed]}>
             <Image
-              source={awaitingFirstLocation ? undefined : featured?.previewImage}
+              source={featured?.previewImage}
               style={StyleSheet.absoluteFill}
               contentFit="cover"
               transition={250}
             />
             <View style={styles.featuredShade} />
-            {awaitingFirstLocation ? (
-              <View style={styles.featuredLoading}>
-                <ActivityIndicator color={Palette.white} size="small" />
-                <Text style={styles.featuredLoadingTitle}>Recherche d’une photo près de vous…</Text>
-                <Text style={styles.featuredLoadingCopy}>La mission la plus proche va apparaître ici.</Text>
+            <View style={styles.featuredTop}>
+              <SourcePill label="Photo à refaire" inverse />
+            </View>
+            <View style={styles.featuredBottom}>
+              <Text style={styles.featuredKicker}>
+                {featured?.author ? `${featured.author.toLocaleUpperCase('fr-FR')} · ` : ''}
+                {featured?.year ?? 2022}
+              </Text>
+              <Text style={styles.featuredTitle} numberOfLines={2}>
+                {featured?.name ?? 'Une photo à refaire'}
+              </Text>
+              <View style={styles.featuredMeta}>
+                <View style={styles.featuredMetaItem}>
+                  <SymbolView name="camera.viewfinder" size={15} tintColor={Palette.blueMist} />
+                  <Text style={styles.featuredMetaText}>Refaire cette photo</Text>
+                </View>
+                <Text style={styles.featuredDistance}>
+                  {locationContent.showDistances
+                    ? formatDistance(featuredDistance)
+                    : featured?.arrondissement
+                      ? `Paris ${Number(featured.arrondissement.slice(3))}e`
+                      : 'Paris'}
+                </Text>
               </View>
-            ) : (
-              <>
-                <View style={styles.featuredTop}>
-                  <SourcePill label="Photo à refaire" inverse />
-                </View>
-                <View style={styles.featuredBottom}>
-                  <Text style={styles.featuredKicker}>
-                    {featured?.author ? `${featured.author.toLocaleUpperCase('fr-FR')} · ` : ''}
-                    {featured?.year ?? 2022}
-                  </Text>
-                  <Text style={styles.featuredTitle} numberOfLines={2}>
-                    {featured?.name ?? 'Une photo à refaire'}
-                  </Text>
-                  <View style={styles.featuredMeta}>
-                    <View style={styles.featuredMetaItem}>
-                      <SymbolView name="camera.viewfinder" size={15} tintColor={Palette.blueMist} />
-                      <Text style={styles.featuredMetaText}>Refaire cette photo</Text>
-                    </View>
-                    <Text style={styles.featuredDistance}>
-                      {isPrecise
-                        ? formatDistance(featuredDistance)
-                        : featured?.arrondissement
-                          ? `Paris ${Number(featured.arrondissement.slice(3))}e`
-                          : 'Paris'}
-                    </Text>
-                  </View>
-                </View>
-              </>
-            )}
+            </View>
           </Pressable>
         </Animated.View>
 
@@ -235,7 +222,7 @@ export function HomeScreen() {
             <Text style={styles.sectionKicker}>
               ARCHIVES DE 1970
             </Text>
-            <Text style={styles.sectionTitle}>Photos près de vous</Text>
+            <Text style={styles.sectionTitle}>{locationContent.sectionTitle}</Text>
             <Text style={styles.sectionCopy}>
               Choisissez un secteur, puis une photo à retrouver.
             </Text>
@@ -254,7 +241,12 @@ export function HomeScreen() {
 
         <View style={styles.cardList}>
           {nearby.map(({ station, distance }) => (
-            <StationCard key={station.id} station={station} distance={distance} wide />
+            <StationCard
+              key={station.id}
+              station={station}
+              distance={locationContent.showDistances ? distance : undefined}
+              wide
+            />
           ))}
         </View>
 
@@ -459,27 +451,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     inset: 0,
     backgroundColor: 'rgba(8, 17, 22, 0.2)',
-  },
-  featuredLoading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-  },
-  featuredLoadingTitle: {
-    marginTop: Spacing.three,
-    color: Palette.white,
-    fontFamily: Fonts.display,
-    fontSize: 20,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  featuredLoadingCopy: {
-    marginTop: Spacing.two,
-    color: Palette.blueMist,
-    fontFamily: Fonts.sans,
-    fontSize: 12,
-    textAlign: 'center',
   },
   featuredTop: {
     padding: Spacing.three,

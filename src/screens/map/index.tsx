@@ -28,7 +28,12 @@ import { useStationDetail } from '@/hooks/use-station-detail';
 
 import { useUserLocation } from '@/hooks/use-user-location';
 import { useFeaturedMission, useStations } from '@/providers/stations-provider';
-import type { StationSummary } from '@/types/station';
+import {
+  PARIS_INITIAL_REGION,
+  classifyLocationContext,
+  updateReturnToParisVisibility,
+} from '@/services/location-context';
+import type { Coordinate, StationSummary } from '@/types/station';
 import { distanceInMeters, formatDistance } from '@/utils/distance';
 import { retainExplicitMapSelection } from '@/utils/map-selection';
 import {
@@ -38,13 +43,6 @@ import {
   type MapFilter,
   cellsWithinViewport,
 } from '@/utils/mapping-coverage';
-
-const INITIAL_REGION: Region = {
-  latitude: 48.8607,
-  longitude: 2.3476,
-  latitudeDelta: 0.15,
-  longitudeDelta: 0.14,
-};
 
 const POINT_ZOOM_THRESHOLD = 0.047;
 const FOCUSED_CELL_ZOOM_PADDING = 2.6;
@@ -351,17 +349,19 @@ export function MapScreen() {
   const { stations, coverage, grid } = useStations();
   const featuredMission = useFeaturedMission();
   const { coordinate, isPrecise, loading, locate } = useUserLocation();
+  const locationContext = classifyLocationContext({ coordinate, isPrecise });
   const [query, setQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [filter, setFilter] = useState<MapFilter>('all');
-  const [region, setRegion] = useState<Region>(INITIAL_REGION);
+  const [region, setRegion] = useState<Region>(PARIS_INITIAL_REGION);
   const [selected, setSelected] = useState<StationSummary | undefined>();
   const [selectedCell, setSelectedCell] = useState<CoverageCell>();
   const [focusedCell, setFocusedCell] = useState<CoverageCell>();
   const [userMovedMap, setUserMovedMap] = useState(false);
-  const [browseOrigin, setBrowseOrigin] = useState({
-    latitude: INITIAL_REGION.latitude,
-    longitude: INITIAL_REGION.longitude,
+  const [recenteredOutsideParis, setRecenteredOutsideParis] = useState(false);
+  const [browseOrigin, setBrowseOrigin] = useState<Coordinate>({
+    latitude: PARIS_INITIAL_REGION.latitude,
+    longitude: PARIS_INITIAL_REGION.longitude,
   });
   const [mapTarget, setMapTarget] = useState<{
     latitude: number;
@@ -583,6 +583,10 @@ export function MapScreen() {
     setSelectedCell(undefined);
     setFocusedCell(undefined);
     setBrowseOrigin(nextCoordinate);
+    setRecenteredOutsideParis(
+      classifyLocationContext({ coordinate: nextCoordinate, isPrecise: true }) ===
+        'outside-paris',
+    );
     const nearestStation = statusFilteredStations.reduce<StationSummary | undefined>(
       (closest, station) => {
         if (station.approximate) return closest;
@@ -600,7 +604,17 @@ export function MapScreen() {
       latitudeDelta: 0.025,
       longitudeDelta: 0.02,
     });
-  }, [locate, statusFilteredStations]);
+  }, [locate, setFocusedCell, statusFilteredStations]);
+
+  const handleReturnToParis = useCallback(() => {
+    setRecenteredOutsideParis(false);
+    setBrowseOrigin({
+      latitude: PARIS_INITIAL_REGION.latitude,
+      longitude: PARIS_INITIAL_REGION.longitude,
+    });
+    setMapTarget({ ...PARIS_INITIAL_REGION });
+    void Haptics.selectionAsync();
+  }, []);
 
   const handleSelect = useCallback((station: StationSummary) => {
     Keyboard.dismiss();
@@ -608,7 +622,7 @@ export function MapScreen() {
     setFocusedCell(undefined);
     setSelected(station);
     void Haptics.selectionAsync();
-  }, []);
+  }, [setFocusedCell]);
 
   const handleChooseSearchResult = useCallback(
     (station: StationSummary) => {
@@ -621,6 +635,9 @@ export function MapScreen() {
       const target =
         station.approximate && stationCell ? stationCell.center : station.coordinate;
       setBrowseOrigin(target);
+      setRecenteredOutsideParis((visible) =>
+        updateReturnToParisVisibility(visible, target),
+      );
       if (station.approximate && stationCell) {
         const latitudeDelta =
           Math.abs(stationCell.coordinates[1].latitude - stationCell.coordinates[0].latitude) *
@@ -640,7 +657,7 @@ export function MapScreen() {
       Keyboard.dismiss();
       void Haptics.selectionAsync();
     },
-    [grid],
+    [grid, setFocusedCell],
   );
 
   useEffect(() => {
@@ -695,6 +712,9 @@ export function MapScreen() {
     setSelectedCell(undefined);
     setFocusedCell(cell);
     setBrowseOrigin(cell.center);
+    setRecenteredOutsideParis((visible) =>
+      updateReturnToParisVisibility(visible, cell.center),
+    );
 
     const latitudeDelta =
       Math.abs(cell.coordinates[1].latitude - cell.coordinates[0].latitude) *
@@ -708,7 +728,7 @@ export function MapScreen() {
       longitudeDelta,
       avoidBottomOverlay: true,
     });
-  }, [filter, filteredStations]);
+  }, [filter, filteredStations, setFocusedCell]);
 
   const handleResetNorth = useCallback(() => {
     mapRef.current?.animateCamera({ heading: 0 }, { duration: 300 });
@@ -720,6 +740,9 @@ export function MapScreen() {
         region.latitudeDelta > POINT_ZOOM_THRESHOLD &&
         nextRegion.latitudeDelta <= POINT_ZOOM_THRESHOLD;
       setRegion(nextRegion);
+      setRecenteredOutsideParis((visible) =>
+        updateReturnToParisVisibility(visible, nextRegion),
+      );
       if (userMovedMap || enteredPointView) {
         setBrowseOrigin({
           latitude: nextRegion.latitude,
@@ -737,6 +760,9 @@ export function MapScreen() {
       if (!station || station.id === activeSelected.id) return;
       setSelectedCell(undefined);
       setSelected(station);
+      setRecenteredOutsideParis((visible) =>
+        updateReturnToParisVisibility(visible, station.coordinate),
+      );
       setMapTarget({ ...station.coordinate });
       void Haptics.selectionAsync();
     },
@@ -749,7 +775,7 @@ export function MapScreen() {
         ref={mapRef}
         provider={PROVIDER_DEFAULT}
         style={StyleSheet.absoluteFill}
-        initialRegion={INITIAL_REGION}
+        initialRegion={PARIS_INITIAL_REGION}
         mapType="mutedStandard"
         showsCompass={false}
         showsUserLocation={false}
@@ -1107,6 +1133,16 @@ export function MapScreen() {
                 : 238,
           },
         ]}>
+        {recenteredOutsideParis ? (
+          <Pressable
+            accessibilityLabel="Revenir à la carte de Paris"
+            accessibilityRole="button"
+            onPress={handleReturnToParis}
+            style={({ pressed }) => [styles.returnToParisButton, pressed && styles.pressed]}>
+            <SymbolView name="map" size={16} tintColor={Palette.parisBlue} />
+            <Text style={styles.returnToParisText}>Revenir à Paris</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           accessibilityLabel="Revenir au nord"
           onPress={handleResetNorth}
@@ -1273,7 +1309,7 @@ export function MapScreen() {
                   width={carouselCardWidth}
                   height={previewCardHeight}
                   meta={
-                    isPrecise
+                    locationContext === 'in-paris'
                       ? formatDistance(distanceInMeters(coordinate, item.coordinate))
                       : item.arrondissement ?? 'Paris'
                   }
@@ -1704,7 +1740,24 @@ const styles = StyleSheet.create({
   mapControls: {
     position: 'absolute',
     right: Spacing.three,
+    alignItems: 'flex-end',
     gap: Spacing.two,
+  },
+  returnToParisButton: {
+    minHeight: 44,
+    paddingHorizontal: Spacing.twoHalf,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    ...Shadow.card,
+  },
+  returnToParisText: {
+    color: Palette.parisBlue,
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '800',
   },
   mapButton: {
     width: 46,
