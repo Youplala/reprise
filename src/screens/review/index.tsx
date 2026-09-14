@@ -29,14 +29,13 @@ import { getReviewStatusRows, type CaptureLocation } from '@/services/review-sta
 
 export function ReviewScreen() {
   const router = useRouter();
-  const { id, frame, referenceUri, uri, simulated, roll, pitch, latitude, longitude, locationPrecision } = useLocalSearchParams<{
+  const { id, frame, referenceUri, uri, simulated, latitude, longitude, locationPrecision } = useLocalSearchParams<{
     id: string;
     frame?: string;
     referenceUri?: string;
     uri?: string;
     simulated?: string;
-    roll?: string;
-    pitch?: string;
+
     latitude?: string;
     longitude?: string;
     locationPrecision?: string;
@@ -78,12 +77,6 @@ export function ReviewScreen() {
     : isSimulated
       ? SIMULATED_CAMERA_IMAGE
       : detail?.recaptureImage;
-  // Inclinaisons relevées au moment du déclenchement. Ce ne sont pas des scores de
-  // ressemblance : l'app ne compare aucune image, elle rapporte ce que les capteurs ont mesuré.
-  const rollDegrees = Number(roll);
-  const pitchDegrees = Number(pitch);
-  const hasTilt = Number.isFinite(rollDegrees) && Number.isFinite(pitchDegrees);
-  const isUpright = hasTilt && Math.abs(rollDegrees) <= 2 && Math.abs(pitchDegrees) <= 8;
   const latitudeValue = Number(latitude);
   const longitudeValue = Number(longitude);
   const captureLocation: CaptureLocation | undefined =
@@ -107,8 +100,7 @@ export function ReviewScreen() {
         stationId: id,
         imageUri: uri || undefined,
         simulated: isSimulated,
-        roll: hasTilt ? rollDegrees : undefined,
-        pitch: hasTilt ? pitchDegrees : undefined,
+
         coordinate: captureLocation
           ? { latitude: captureLocation.latitude, longitude: captureLocation.longitude }
           : undefined,
@@ -173,18 +165,7 @@ export function ReviewScreen() {
             <Text style={styles.kicker}>{isSimulated ? 'APERÇU SIMULATEUR' : 'PHOTO TERMINÉE'}</Text>
             <Text style={styles.title}>Le même lieu,{'\n'}deux époques.</Text>
           </View>
-          {hasTilt ? (
-            <View style={styles.score}>
-              <SymbolView
-                name={isUpright ? 'checkmark.circle.fill' : 'exclamationmark.triangle.fill'}
-                size={22}
-                tintColor={isUpright ? Palette.lichen : Palette.brass}
-              />
-              <Text style={styles.scoreLabel}>
-                {isUpright ? 'APPAREIL DROIT' : `${Math.abs(rollDegrees).toFixed(0)}° PENCHÉ`}
-              </Text>
-            </View>
-          ) : null}
+
         </View>
 
         {referenceImage && currentImage ? (
@@ -224,18 +205,7 @@ export function ReviewScreen() {
 
         <View style={styles.checklist}>
           <Text style={styles.checklistKicker}>CONTRÔLE AVANT DÉPÔT</Text>
-          {[
-            ...reviewStatusRows.map(({ icon, title, copy }) => [icon, title, copy] as const),
-            [
-              !hasTilt || isUpright ? 'checkmark.circle.fill' : 'exclamationmark.circle.fill',
-              'Tenue de l’appareil',
-              !hasTilt
-                ? 'Non mesurée'
-                : isUpright
-                  ? 'Appareil droit à la prise de vue'
-                  : 'L’appareil penchait, un nouvel essai est conseillé',
-            ],
-          ].map(([icon, title, copy]) => (
+          {reviewStatusRows.map(({ icon, title, copy }) => (
             <View key={title} style={styles.checkRow}>
               <SymbolView
                 name={icon as 'checkmark.circle.fill'}
@@ -336,28 +306,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.7,
   },
-  score: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: Palette.brass,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scoreNumber: {
-    color: Palette.blueDeep,
-    fontFamily: Fonts.display,
-    fontSize: 30,
-    lineHeight: 31,
-    fontWeight: '900',
-  },
-  scoreLabel: {
-    color: Palette.blueDeep,
-    fontFamily: Fonts.mono,
-    fontSize: 7,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
+
   comparison: {
     marginTop: Spacing.four,
   },
