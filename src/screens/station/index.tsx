@@ -40,6 +40,8 @@ import { PROJECT_URL } from '@/constants/legal';
 import { PARIS_CENTER } from '@/data/archive';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
+import { archiveLinkForImage } from '@/services/bhvp-images';
+import { formatSnapshotDate } from '@/services/collective-content';
 import { historicalReferenceForFrame } from '@/services/camera-reference';
 import { formatContributorName } from '@/utils/community-stats';
 import { buildPhotoReportDraft, launchPhotoReport } from '@/utils/photo-report';
@@ -91,9 +93,17 @@ export function StationScreen() {
       ? archiveImages
       : detail?.images ?? (summary?.previewImage ? [summary.previewImage] : []);
   const selectedImage = (images[selectedIndex] ?? images[0]) as ImageSource | undefined;
+  const selectedArchiveLink = archiveLinkForImage(selectedImage);
+  const selectedArchiveIndex = selectedArchiveLink ? detail?.archiveLinks.indexOf(selectedArchiveLink) ?? -1 : -1;
   const selectedArchiveMetadata = isArchive
-    ? detail?.archiveMetadata[selectedIndex]
+    ? detail?.archiveMetadata[selectedArchiveIndex]
     : detail?.referenceMetadata;
+  const selectedRecaptures = (selectedArchiveLink && detail?.archiveRecaptures?.[selectedArchiveLink]) || [];
+  const latestRecapture = selectedRecaptures[0];
+  const frameRecaptureCounts = isArchive ? images.map(image => {
+    const link = archiveLinkForImage(image);
+    return link ? detail?.archiveRecaptures?.[link]?.length ?? 0 : 0;
+  }) : undefined;
   // Un carré de 1970 couvre une maille de 250 m : on trace son emprise réelle plutôt qu'un point.
   const squareBounds = detail?.bounds ?? summary?.bounds;
   const referenceYear = detail?.year ?? summary?.year ?? 1970;
@@ -171,7 +181,7 @@ export function StationScreen() {
 
   const openOfficial = async () => {
     const url = isArchive
-      ? detail?.archiveLinks[selectedIndex] ?? detail?.officialUrl
+      ? selectedArchiveLink ?? detail?.officialUrl
       : detail?.officialUrl;
     const sourceUrl = url ?? 'https://observatoire-photo.paris/map';
     try {
@@ -419,10 +429,14 @@ export function StationScreen() {
 
         {images.length > 1 && !hasComparison ? (
           <View style={styles.filmstripWrap}>
+            {isArchive ? <Text style={styles.archiveProgress}>
+              {detail?.publishedCount ?? 0} {detail?.publishedCount === 1 ? 'vue refaite identifiée' : 'vues refaites identifiées'} sur {archiveCount}
+            </Text> : null}
             <ArchiveFilmstrip
               images={images}
               selectedIndex={selectedIndex}
               onSelect={selectFrame}
+              recaptureCounts={frameRecaptureCounts}
             />
           </View>
         ) : null}
@@ -438,6 +452,40 @@ export function StationScreen() {
           <Text style={[styles.title, isArchive && styles.archiveTitle]}>
             {isArchive ? `Photo ${selectedViewNumber}` : title}
           </Text>
+
+          {isArchive && selectedImage ? (
+            <View style={styles.archiveStatusBlock}>
+              <View style={styles.archiveStatusRow}>
+                <SymbolView name={latestRecapture ? 'checkmark.circle.fill' : 'camera'} size={18}
+                  tintColor={latestRecapture ? Palette.parisBlue : Palette.inkSoft} />
+                <Text style={styles.archiveStatusText}>
+                  {latestRecapture ? 'Déjà refaite' : 'Aucune reprise identifiée'}
+                </Text>
+              </View>
+              {latestRecapture?.recaptureImage ? (
+                <>
+                  <BeforeAfterSlider key={`${selectedArchiveLink}:${latestRecapture.id}`}
+                    before={selectedImage} after={latestRecapture.recaptureImage}
+                    beforeLabel="1970" afterLabel={latestRecapture.recaptureDate?.slice(0, 4) || 'Aujourd’hui'}
+                    height={220} borderRadius={Radius.medium} onInteractionChange={setComparisonActive} />
+                  {selectedRecaptures.map(recapture => (
+                    <Pressable key={recapture.id} accessibilityRole="button"
+                      accessibilityLabel={`Voir la reprise de ${recapture.currentAuthor ? formatContributorName(recapture.currentAuthor) : 'ce contributeur'}`}
+                      onPress={() => router.push({ pathname: '/station/[id]', params: { id: recapture.id } })}
+                      style={({ pressed }) => [styles.archiveRecaptureLink, pressed && styles.shareButtonPressed]}>
+                      <Text style={styles.archiveRecaptureLinkText}>
+                        {recapture.currentAuthor ? formatContributorName(recapture.currentAuthor) : 'Voir la reprise'}
+                        {recapture.recaptureDate ? ` · ${formatSnapshotDate(recapture.recaptureDate)}` : ''}
+                      </Text>
+                      <SymbolView name="arrow.right" size={15} tintColor={Palette.parisBlue} />
+                    </Pressable>
+                  ))}
+                </>
+              ) : <Text style={styles.storyText}>
+                Les reprises sans référence d’archive ne peuvent pas être identifiées ici.
+              </Text>}
+            </View>
+          ) : null}
 
           {/* Crédit et métadonnées de l'archive : une légende posée sous le titre, jamais une
               carte encadrée. */}
@@ -798,7 +846,7 @@ export function StationScreen() {
               pressed && styles.stickyActionPressed,
             ]}>
             <SymbolView name="camera.fill" size={20} tintColor={Palette.white} />
-            <Text style={styles.stickyActionText}>Refaire cette photo</Text>
+            <Text style={styles.stickyActionText}>{isArchive && latestRecapture ? 'Refaire à mon tour' : 'Refaire cette photo'}</Text>
             <SymbolView name="arrow.right" size={16} tintColor={Palette.white} />
           </Pressable>
         </View>
@@ -815,6 +863,12 @@ export function StationScreen() {
 }
 
 const styles = StyleSheet.create({
+  archiveProgress: { ...Typography.caption, fontFamily: Fonts.sans, color: Palette.white, marginHorizontal: Spacing.three, marginBottom: Spacing.two },
+  archiveStatusBlock: { marginTop: Spacing.twoHalf, marginBottom: Spacing.three, gap: Spacing.two },
+  archiveStatusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  archiveStatusText: { ...Typography.body, fontFamily: Fonts.sans, fontWeight: '600', color: Palette.parisBlue },
+  archiveRecaptureLink: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  archiveRecaptureLinkText: { ...Typography.body, flex: 1, fontFamily: Fonts.sans, color: Palette.parisBlue },
   screen: {
     flex: 1,
     backgroundColor: Palette.fog,

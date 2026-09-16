@@ -15,6 +15,8 @@ it('ouvre les destinations publiques du développeur et du projet depuis À prop
   await act(async () => { renderer = create(<AboutScreen />); });
   for (const [label, url] of [
     ['Contacter Élie', 'mailto:parisgo@eliebrosset.com'],
+    ['GitHub d’Élie Brosset', 'https://github.com/Youplala'],
+    ['LinkedIn d’Élie Brosset', 'https://www.linkedin.com/in/eliebrosset/'],
     ['Le site de Paris GO', 'https://youplala.github.io/reprise/'],
     ['Le code sur GitHub', 'https://github.com/Youplala/reprise'],
     ['Confidentialité', 'https://youplala.github.io/reprise/confidentialite/'],

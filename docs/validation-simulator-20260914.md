@@ -94,3 +94,26 @@ aucune mise à niveau automatique hors périmètre n'a été effectuée.
 - Tests comportementaux des quatre liens et du retour d’erreur : cycle rouge/vert,
   notamment pour l’adresse `mailto:` demandée. TypeScript, lint, 161 tests Node,
   24 tests Jest et export JS iOS réussis. Aucun nouveau build TestFlight publié.
+
+## Statut de chaque archive et retrait des suggestions de 2022
+
+- À retrouver et Autour ne proposent plus la collection de 2022. La sélection de la carte
+  reste dans les résultats du filtre actif, sans repli sur une photo de 2022.
+- Autour retrouve ses photos pleine largeur avec légendes dessous, sans superposition bleue.
+- Les reprises sont reliées aux archives par identité ARK complète (fonds, document, vue)
+  extraite de la référence publique. Pas de rapprochement par GPS ni par document seul.
+  Sur l'instantané actuel, 1 973 reprises correspondent à une vue présente au catalogue.
+- Chaque secteur conserve toutes ses archives. La pellicule indique les vues refaites ;
+  la fiche affiche un avant/après et les liens vers leurs reprises, puis « Refaire à mon tour ».
+  Sans lien fiable, elle indique « Aucune reprise identifiée », et non une absence certaine.
+- Les compteurs par secteur comptent les vues distinctes identifiées, sans compter deux fois
+  plusieurs reprises d'une même archive. La statistique globale des publications reste inchangée.
+- Le résolveur BHVP conserve le lien ARK de chaque image et sélectionne uniquement les vues
+  demandées. Une image manquante ne décale plus l'identité des vues suivantes.
+- Vérifié dans ParisGO-Dev : secteur de 19 vues avec 10 reprises identifiées, états refait et
+  non identifié, comparaison, ouverture de la contribution puis de son point sur la carte.
+  Après effacement de la recherche et retour à À retrouver, aucune carte de 2022 affichée.
+- Vérification locale : 161 tests Node et 30 tests Jest, TypeScript, lint, export JS iOS.
+  Aucun nouveau binaire ni publication TestFlight.
+- À propos : bloc de marque retiré, présentation du développeur solo sur son temps libre,
+  invitation aux suggestions et signalements, icônes GitHub et LinkedIn personnels ajoutées.

@@ -31,7 +31,7 @@ import {
 } from '@/constants/theme';
 
 import { useUserLocation } from '@/hooks/use-user-location';
-import { useFeaturedMission, useStations } from '@/providers/stations-provider';
+import { useStations } from '@/providers/stations-provider';
 
 import { distanceInMeters } from '@/utils/distance';
 import { nearestArrondissement } from '@/utils/place-name';
@@ -50,8 +50,7 @@ export function HomeScreen() {
   const proximityOrigin = locationContext === 'in-paris' ? coordinate : PARIS_CENTER;
 
 
-  // Les archives de 1970 sont le cœur du sujet : on met en avant les secteurs les plus proches,
-  // triés par distance. Les points de vue de 2022 restent accessibles, mais en dernier de liste.
+  // La campagne porte sur les archives de 1970, classées par proximité.
   const nearby = useMemo(
     () =>
       stations
@@ -78,11 +77,6 @@ export function HomeScreen() {
         })),
     [proximityOrigin, stations],
   );
-
-  const featured2022 = useFeaturedMission(locationContext === 'in-paris' ? coordinate : undefined);
-  const featured2022Distance = featured2022
-    ? distanceInMeters(coordinate, featured2022.coordinate)
-    : 0;
 
   const lastMonth = stats.monthlyActivity[stats.monthlyActivity.length - 1];
 
@@ -147,21 +141,11 @@ export function HomeScreen() {
 
         </SafeAreaView>
 
-        {/* Les archives de 1970 restent en tête, la vue de 2022 ferme la liste : c'est le fonds
-            historique qui est le sujet de l'application. Les photos vont à fond perdu — c'est
-            elles qu'on vient voir. */}
+        {/* Les archives de 1970, avec leurs photos à fond perdu. */}
         <View style={styles.cardList}>
           {nearby.map(({ station, distance }) => (
             <StationCard key={station.id} station={station} distance={locationContent.showDistances ? distance : undefined} wide />
           ))}
-          {featured2022 ? (
-            <StationCard
-              key={featured2022.id}
-              station={featured2022}
-              distance={locationContent.showDistances ? featured2022Distance : undefined}
-              wide
-            />
-          ) : null}
         </View>
 
         <Animated.View entering={FadeInDown.delay(80).duration(420)} style={styles.pulseWrapper}>

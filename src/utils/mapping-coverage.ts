@@ -2,8 +2,7 @@ import type { Snapshot, SquareBounds } from '@/data/snapshot';
 import type { Coordinate, StationSummary } from '@/types/station';
 
 export type MappingStatus = 'to-reprise' | 'published-reprise' | 'collection-2022';
-// Le filtre de la carte n'a plus que deux positions : les photos de 2022 rejoignent
-// « à retrouver », elles n'ont pas de statut de filtre à elles.
+// Les deux filtres sont réservés à la campagne de reconduction du fonds 1970.
 export type MapFilter = 'to-reprise' | 'published-reprise';
 
 export type MappingCoverage = {
@@ -49,8 +48,7 @@ export function stationMatchesFilter(station: StationSummary, filter: MapFilter)
     if (filter === 'to-reprise') return (station.remainingCount ?? station.frameCount ?? 0) > 0;
     return (station.publishedCount ?? 0) > 0;
   }
-  // Une photo de 2022 reste un point de vue à reprendre : elle rejoint « à retrouver ».
-  if (station.kind === 'station-2022') return filter === 'to-reprise';
+  if (station.kind === 'station-2022') return false;
   return filter === 'published-reprise';
 }
 
@@ -103,6 +101,7 @@ function containsCoordinate(
  */
 export function buildCoverageGrid(snapshot: Snapshot, stations: StationSummary[]): CoverageCell[] {
   const stations2022 = stations.filter((station) => station.kind === 'station-2022');
+  const squaresById = new Map(stations.filter(station => station.kind === 'archive-1970').map(station => [station.id, station]));
 
   return snapshot.squares.map((square) => {
     const bounds = square.bounds;
@@ -110,7 +109,7 @@ export function buildCoverageGrid(snapshot: Snapshot, stations: StationSummary[]
       containsCoordinate(bounds, station.coordinate),
     ).length;
 
-    const published1970 = square.recaptureCount;
+    const published1970 = squaresById.get(square.id)?.publishedCount ?? square.recaptureCount;
     const total1970 = square.photoCount;
 
     return {

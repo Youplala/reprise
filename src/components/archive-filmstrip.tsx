@@ -1,4 +1,5 @@
 import type { ImageSource } from 'expo-image';
+import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -9,6 +10,7 @@ type ArchiveFilmstripProps = {
   images: readonly ImageSource[];
   selectedIndex: number;
   onSelect: (index: number) => void;
+  recaptureCounts?: readonly number[];
 };
 
 // Des vignettes agrandies : la pellicule est la promesse d'autres vues à reprendre au même
@@ -16,7 +18,7 @@ type ArchiveFilmstripProps = {
 const FRAME_WIDTH = 148;
 const FRAME_HEIGHT = 104;
 
-export function ArchiveFilmstrip({ images, selectedIndex, onSelect }: ArchiveFilmstripProps) {
+export function ArchiveFilmstrip({ images, selectedIndex, onSelect, recaptureCounts }: ArchiveFilmstripProps) {
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -38,11 +40,18 @@ export function ArchiveFilmstrip({ images, selectedIndex, onSelect }: ArchiveFil
       {images.map((image, index) => (
         <Pressable
           key={index}
-          accessibilityLabel={`Voir la photo ${index + 1} du secteur`}
+          accessibilityLabel={`Voir la photo ${index + 1} du secteur${recaptureCounts ? (recaptureCounts[index] > 0 ? ', déjà refaite' : ', aucune reprise identifiée') : ''}`}
+          accessibilityState={{ selected: selectedIndex === index }}
           accessibilityRole="button"
           onPress={() => onSelect(index)}
           style={[styles.frame, selectedIndex === index && styles.selectedFrame]}>
           <AdaptivePhoto source={image} style={styles.image} blurRadius={10} />
+          {recaptureCounts ? (
+            <View style={[styles.status, recaptureCounts[index] > 0 && styles.statusDone]}>
+              {recaptureCounts[index] > 0 ? <SymbolView name="checkmark.circle.fill" size={12} tintColor={Palette.brass} /> : null}
+              <Text style={styles.statusText}>{recaptureCounts[index] > 0 ? 'Refaite' : 'À retrouver'}</Text>
+            </View>
+          ) : null}
           <View style={styles.number}>
             <Text style={styles.numberText}>{String(index + 1).padStart(2, '0')}</Text>
           </View>
@@ -53,6 +62,11 @@ export function ArchiveFilmstrip({ images, selectedIndex, onSelect }: ArchiveFil
 }
 
 const styles = StyleSheet.create({
+  status: { position: 'absolute', top: Spacing.one, right: Spacing.one, paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one, borderRadius: Radius.pill, backgroundColor: 'rgba(8, 17, 22, 0.86)',
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
+  statusDone: { backgroundColor: Palette.parisBlue },
+  statusText: { ...Typography.caption, color: Palette.white, fontFamily: Fonts.sans, fontWeight: '600' },
   content: {
     gap: Spacing.two,
     paddingHorizontal: Spacing.two,

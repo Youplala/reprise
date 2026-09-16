@@ -29,7 +29,7 @@ import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 
 import { useUserLocation } from '@/hooks/use-user-location';
-import { useFeaturedMission, useStations } from '@/providers/stations-provider';
+import { useStations } from '@/providers/stations-provider';
 import {
   PARIS_INITIAL_REGION,
   classifyLocationContext,
@@ -315,7 +315,6 @@ export function MapScreen() {
   const carouselRef = useRef<FlatList<StationSummary>>(null);
   const handledFocusRequest = useRef<string | undefined>(undefined);
   const { stations, coverage, grid } = useStations();
-  const featuredMission = useFeaturedMission();
   // La position s'affiche par défaut dès qu'elle est disponible, sans attendre un appui sur le
   // bouton de localisation — `autoLocate` respecte la préférence « manuel » déjà proposée ailleurs
   // dans l'app.
@@ -455,13 +454,9 @@ export function MapScreen() {
     );
   }, [browseOrigin, filteredStations, focusedCell, selected?.id, statusFilteredStations]);
 
-  // La sélection initiale suit la mission mise en avant, le temps que le relevé actif se charge.
-  const currentSelection = selected ?? featuredMission;
+  // Aucun repli vers la collection 2022 : une sélection doit appartenir au filtre actif.
   const activeSelected =
-    visibleStations.find((station) => station.id === currentSelection?.id) ??
-    visibleStations[0] ??
-    filteredStations.find((station) => !station.approximate) ??
-    currentSelection;
+    visibleStations.find((station) => station.id === selected?.id) ?? visibleStations[0];
 
   const focusedArchiveStations = useMemo(() => {
     if (!focusedCell || focusedCell.remaining1970 === 0 || filter !== 'to-reprise') {
@@ -511,8 +506,8 @@ export function MapScreen() {
   ]);
 
   const hasSelectedExactStation =
-    !activeSelected.approximate &&
-    visibleStations.some((station) => station.id === activeSelected.id);
+    Boolean(activeSelected) && !activeSelected?.approximate &&
+    visibleStations.some((station) => station.id === activeSelected?.id);
   const hasPreview = Boolean(selectedCell || focusedCell || hasNoFilteredSearchResults ||
     (showIndividualPoints && hasSelectedExactStation));
 
@@ -548,14 +543,14 @@ export function MapScreen() {
 
   useEffect(() => {
     const selectedIndex = visibleStations.findIndex(
-      (station) => station.id === activeSelected.id,
+      (station) => station.id === activeSelected?.id,
     );
     if (selectedIndex < 0) return;
     carouselRef.current?.scrollToOffset({
       offset: selectedIndex * carouselStep,
       animated: true,
     });
-  }, [activeSelected.id, carouselStep, visibleStations]);
+  }, [activeSelected?.id, carouselStep, visibleStations]);
 
   const handleLocate = useCallback(async () => {
     void Haptics.selectionAsync();
@@ -749,7 +744,7 @@ export function MapScreen() {
   const focusCarouselIndex = useCallback(
     (index: number) => {
       const station = visibleStations[index];
-      if (!station || station.id === activeSelected.id) return;
+      if (!station || station.id === activeSelected?.id) return;
       setSelectedCell(undefined);
       setSelected(station);
       setRecenteredOutsideParis((visible) =>
@@ -758,7 +753,7 @@ export function MapScreen() {
       setMapTarget({ ...station.coordinate });
       void Haptics.selectionAsync();
     },
-    [activeSelected.id, setMapTarget, visibleStations],
+    [activeSelected?.id, setMapTarget, visibleStations],
   );
 
   return (
@@ -838,7 +833,7 @@ export function MapScreen() {
                 pinColor={pinColor(station)}
                 opacity={(isExploringArchiveCell ? 0.48 : 0.9) * pointsBlend}
                 zIndex={
-                  activeSelected.id === station.id && !isExploringArchiveCell
+                  activeSelected?.id === station.id && !isExploringArchiveCell
                     ? 50
                     : 1
                 }
@@ -847,7 +842,7 @@ export function MapScreen() {
             ))
           : null}
 
-        {showIndividualPoints && hasSelectedExactStation && !isExploringArchiveCell ? (
+        {activeSelected && showIndividualPoints && hasSelectedExactStation && !isExploringArchiveCell ? (
           <Marker
             coordinate={activeSelected.coordinate}
             anchor={{ x: 0.5, y: 0.5 }}
