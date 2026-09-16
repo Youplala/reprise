@@ -105,8 +105,47 @@ test('préremplit le contrat live représentatif sans toucher aux données perso
     'latitude',
     'longitude',
     'title',
-  ]);
+  ].sort());
   assert.equal(prefill.count, 8);
+});
+
+test('la signature est ajoutée seulement à l’envoi, préserve le texte et ne se duplique pas', () => {
+  const { document, window } = runBridge(OFFICIAL_SUBMISSION_FIXTURE_HTML);
+  const comment = document.querySelector('[name="data[fixture_observations]"]');
+  assert.equal(comment.value, '');
+  comment.value = 'Mon propre commentaire';
+  injectBridge(window, document, payload);
+  assert.equal(comment.value, 'Mon propre commentaire');
+  document.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  assert.equal(comment.value, 'Mon propre commentaire\n\nPhoto refaite avec Paris GO.');
+  injectBridge(window, document, payload);
+  document.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  assert.equal(comment.value, 'Mon propre commentaire\n\nPhoto refaite avec Paris GO.');
+});
+
+test('un envoi sans commentaire ajoute la signature et ignore les autres formulaires', () => {
+  const { document, window } = runBridge(OFFICIAL_SUBMISSION_FIXTURE_HTML);
+  const comment = document.querySelector('[name="data[fixture_observations]"]');
+  const unrelated = document.createElement('form');
+  document.body.appendChild(unrelated);
+  unrelated.dispatchEvent(new window.Event('submit', { bubbles: true }));
+  assert.equal(comment.value, '');
+  document.querySelector('#fixture-form').dispatchEvent(new window.Event('submit', { bubbles: true }));
+  assert.equal(comment.value, 'Photo refaite avec Paris GO.');
+});
+
+test('une mention existante est conservée telle quelle à l’envoi', () => {
+  const { document, window } = runBridge(OFFICIAL_SUBMISSION_FIXTURE_HTML);
+  const comment = document.querySelector('[name="data[fixture_observations]"]');
+  comment.value = 'Fait avec paris GO, ce matin.';
+  document.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true }));
+  assert.equal(comment.value, 'Fait avec paris GO, ce matin.');
+});
+
+test('ne remplace pas un commentaire préexistant', () => {
+  const html = OFFICIAL_SUBMISSION_FIXTURE_HTML.replace('</textarea>', 'Texte personnel</textarea>');
+  const { document } = runBridge(html);
+  assert.equal(document.querySelector('[name="data[fixture_observations]"]').value, 'Texte personnel');
 });
 
 test('ne remplace ni un contrôle renseigné ni un choix radio existant', () => {

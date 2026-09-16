@@ -8,7 +8,14 @@ type PictureRecord = {
   thumb?: string;
 };
 
-const requestCache = new Map<string, Promise<ImageSource[]>>();
+const requestCache = new Map<string, Promise<(ImageSource | undefined)[]>>();
+
+export type ArchiveImageSource = ImageSource & { archiveLink: string };
+
+export function archiveLinkForImage(image?: ImageSource): string | undefined {
+  return image && typeof image === 'object' && 'archiveLink' in image && typeof image.archiveLink === 'string'
+    ? image.archiveLink : undefined;
+}
 
 /**
  * Les images restent servies par la visionneuse de la BHVP : Paris GO ne duplique pas le fonds.
@@ -27,7 +34,8 @@ function requestForArchiveLink(link: string) {
   const cleanPath = source.pathname.replace(/\.simple\.selectedTab=record.*$/, '');
   const parts = cleanPath.split('/').filter(Boolean);
 
-  if (parts.length < 2) return undefined;
+  const view = parts.at(-1)?.match(/^v(\d+)$/);
+  if (parts.length < 2 || !view || Number(view[1]) < 1) return undefined;
 
   const documentId = parts.slice(0, -1).join('/');
   const ark = `/${parts.join('/')}.simple.selectedTab=record`;
@@ -36,7 +44,7 @@ function requestForArchiveLink(link: string) {
   endpoint.searchParams.set('ark', ark);
   endpoint.searchParams.set('selectedTab', 'record');
 
-  return { documentId, endpoint: endpoint.toString() };
+  return { documentId, endpoint: endpoint.toString(), viewIndex: Number(view[1]) - 1 };
 }
 
 function absoluteImageUrl(path?: string) {
@@ -47,7 +55,7 @@ function absoluteImageUrl(path?: string) {
 async function picturesForRequest(
   key: string,
   endpoint: string,
-): Promise<ImageSource[]> {
+): Promise<(ImageSource | undefined)[]> {
   const cached = requestCache.get(key);
   if (cached) return cached;
 
@@ -68,8 +76,8 @@ async function picturesForRequest(
         // L'aperçu intermédiaire suffit à l'alignement et s'affiche beaucoup plus vite que
         // l'original haute définition sur le terrain.
         .map((record) => absoluteImageUrl(record.image ?? record.hiResimage ?? record.thumb))
-        .filter((uri): uri is string => Boolean(uri))
-        .map((uri) => ({ uri }));
+        // Ne pas filtrer les trous : v0003 doit rester la troisième vue du dossier.
+        .map((uri) => uri ? { uri } : undefined);
     })
     .catch(() => {
       // Une coupure réseau ne doit pas empoisonner le cache jusqu'au prochain redémarrage.
@@ -86,8 +94,8 @@ async function picturesForRequest(
 export async function loadBhvpImages(
   archiveLinks: readonly string[],
   limit = Number.POSITIVE_INFINITY,
-): Promise<ImageSource[]> {
-  if (!BHVP_PREVIEWS_ENABLED || archiveLinks.length === 0) return [];
+): Promise<ArchiveImageSource[]> {
+  if (!BHVP_PREVIEWS_ENABLED || archiveLinks.length === 0 || limit <= 0) return [];
 
   const requests = new Map<string, string>();
   for (const link of archiveLinks) {
@@ -97,25 +105,29 @@ export async function loadBhvpImages(
     }
   }
 
-  const seen = new Set<string>();
-  const images: ImageSource[] = [];
-  const entries = [...requests];
-  const groups = Number.isFinite(limit)
-    ? undefined
-    : await Promise.all(entries.map(([key, endpoint]) => picturesForRequest(key, endpoint)));
-
-  for (let index = 0; index < entries.length; index += 1) {
-    // Pour une carte, on s'arrête dès que la planche-contact est pleine. La fiche détaillée,
-    // elle, résout tous les dossiers en parallèle.
-    const group =
-      groups?.[index] ?? (await picturesForRequest(entries[index][0], entries[index][1]));
-    for (const image of group) {
-      const uri = typeof image === 'object' && image ? image.uri : undefined;
-      if (!uri || seen.has(uri)) continue;
-      seen.add(uri);
-      images.push(image);
-      if (images.length >= limit) return images;
+  // Une erreur est mémorisée pour cet appel, mais pas pour le prochain essai utilisateur.
+  const groups = new Map<string, Promise<(ImageSource | undefined)[]>>();
+  const groupFor = (key: string, endpoint: string) => {
+    let group = groups.get(key);
+    if (!group) {
+      group = picturesForRequest(key, endpoint);
+      groups.set(key, group);
     }
+    return group;
+  };
+  if (!Number.isFinite(limit)) await Promise.all([...requests].map(([key, endpoint]) => groupFor(key, endpoint)));
+  const seen = new Set<string>();
+  const images: ArchiveImageSource[] = [];
+  for (const archiveLink of archiveLinks) {
+    if (seen.has(archiveLink)) continue;
+    seen.add(archiveLink);
+    const request = requestForArchiveLink(archiveLink);
+    if (!request) continue;
+    const group = await groupFor(request.documentId, request.endpoint);
+    const image = group[request.viewIndex];
+    if (!image) continue;
+    images.push({ ...image, archiveLink });
+    if (images.length >= limit) break;
   }
 
   return images;

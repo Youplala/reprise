@@ -98,3 +98,24 @@ export const Shadow = {
     elevation: 4,
   },
 } as const;
+
+/**
+ * Échelle typographique — trois niveaux de hiérarchie au maximum par écran.
+ *
+ * Avant cette échelle, l'application déclarait 36 tailles de police distinctes sur
+ * 312 usages, dont une majorité entre 7 et 10 px : le texte était illisible et la
+ * hiérarchie indéchiffrable. Toute nouvelle taille doit passer par ce barème.
+ *
+ * - `display` : le titre d'un écran, une seule fois par vue, jamais avec `title`.
+ * - `title`   : les têtes de section et les noms de lieux.
+ * - `body`    : le texte courant. C'est la taille par défaut.
+ * - `caption` : les métadonnées et les crédits, jamais pour une information nécessaire.
+ */
+export const Typography = {
+  display: { fontSize: 30, lineHeight: 34, fontWeight: '700' },
+  title: { fontSize: 20, lineHeight: 26, fontWeight: '700' },
+  body: { fontSize: 16, lineHeight: 22, fontWeight: '400' },
+  caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
+} as const;
+
+export type TypographyLevel = keyof typeof Typography;

@@ -1,7 +1,7 @@
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
 import { OFFICIAL_CONTRIBUTION_GUIDE } from '@/services/official-contribution-guide';
@@ -13,6 +13,10 @@ export function OfficialContributionGuide({
   onComplete: () => void;
   visible: boolean;
 }) {
+  // Une Modal est une fenêtre à part : le SafeAreaView qu'on y place mesure des marges nulles et
+  // le guide passait sous l'horloge, « Passer » se retrouvant sous les icônes d'état, intouchable.
+  // Les marges du provider racine, elles, restent justes ici.
+  const insets = useSafeAreaInsets();
   const [index, setIndex] = useState(0);
   const slide = OFFICIAL_CONTRIBUTION_GUIDE[index];
   const isLast = index === OFFICIAL_CONTRIBUTION_GUIDE.length - 1;
@@ -38,7 +42,8 @@ export function OfficialContributionGuide({
       transparent
       visible={visible}>
       <View style={styles.backdrop}>
-        <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+        <View
+          style={[styles.safeArea, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
           <ScrollView
             contentContainerStyle={styles.sheetContent}
             showsVerticalScrollIndicator={false}
@@ -91,7 +96,7 @@ export function OfficialContributionGuide({
               </Pressable>
             </View>
           </ScrollView>
-        </SafeAreaView>
+        </View>
       </View>
     </Modal>
   );

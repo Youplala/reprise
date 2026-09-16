@@ -61,7 +61,7 @@ export function contributorKey(name: string) {
  * d'une base mal tenue. Les particules restent en minuscules, les noms déjà en capitales sont
  * laissés tels quels.
  */
-export function formatContributorName(name: string) {
+function normalizeContributorCase(name: string) {
   return name
     .split(' ')
     .map((word) => {
@@ -78,6 +78,66 @@ export function formatContributorName(name: string) {
         .join('-');
     })
     .join(' ');
+}
+
+/**
+ * Nom d'affichage d'un contributeur : prénom entier, nom de famille réduit à son initiale.
+ *
+ * Le relevé mêle deux écritures — « Ahrweiller, Maurice » (majoritaire, hérité des notices) et
+ * « Anabelle Ravier ». La virgule sépare le nom du prénom ; sans elle, le premier mot est le
+ * prénom. Les particules ne comptent pas comme initiale : « Martin de Pressensé » devient
+ * « Martin de P. ». Un prénom déjà abrégé dans la source (« Auffret, J.L. ») est laissé tel quel.
+ */
+export function formatContributorName(name: string) {
+  const normalized = normalizeContributorCase(name.trim().replace(/\s+/g, ' '));
+  if (!normalized) return normalized;
+
+  const [rawFamily, rawGiven] = normalized.includes(',')
+    ? normalized.split(',').map((part) => part.trim())
+    : [null, null];
+
+  let given: string;
+  let family: string[];
+
+  if (rawFamily !== null && rawGiven) {
+    given = rawGiven;
+    family = rawFamily.split(' ').filter(Boolean);
+  } else {
+    const words = normalized.split(' ').filter(Boolean);
+    if (words.length < 2) return normalized;
+    given = words[0];
+    family = words.slice(1);
+  }
+
+  // La particule accompagne le nom sans jamais en tenir lieu : on cherche le premier mot réel.
+  const particles: string[] = [];
+  let head: string | undefined;
+  for (const word of family) {
+    if (head === undefined && PARTICLES.has(word.toLocaleLowerCase('fr-FR'))) {
+      particles.push(word.toLocaleLowerCase('fr-FR'));
+      continue;
+    }
+    if (head === undefined) head = word;
+  }
+
+  if (!given || head === undefined) return normalized;
+
+  const initial = `${head[0].toLocaleUpperCase('fr-FR')}.`;
+  return [given, ...particles, initial].join(' ');
+}
+
+/** Annuaire complet, recherché par le nom public abrégé ; la clé originale ouvre le profil. */
+export function searchContributors(contributors: Contributor[], query: string): Contributor[] {
+  const terms = contributorKey(query).split(' ').filter(Boolean);
+  return contributors
+    .filter(({ name }) => {
+      const label = contributorKey(formatContributorName(name));
+      return terms.every((term) => label.includes(term));
+    })
+    .sort((left, right) =>
+      formatContributorName(left.name).localeCompare(formatContributorName(right.name), 'fr-FR') ||
+      left.name.localeCompare(right.name, 'fr-FR'),
+    );
 }
 
 export function buildCommunityStats(snapshot: Snapshot): CommunityStats {

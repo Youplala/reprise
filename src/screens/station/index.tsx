@@ -19,13 +19,14 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import MapView, { Circle, Marker, Polygon, UrlTile } from 'react-native-maps';
+import MapView, { Circle, Marker, Polygon } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
 import { AdaptivePhoto } from '@/components/adaptive-photo';
 import { ArchiveFilmstrip } from '@/components/archive-filmstrip';
 import { BeforeAfterSlider } from '@/components/before-after-slider';
+import { ParisGoBadge } from '@/components/paris-go-badge';
 import { GlassSurface } from '@/components/glass-surface';
 import { PhotoViewer } from '@/components/photo-viewer';
 import { PrimaryButton } from '@/components/primary-button';
@@ -34,33 +35,33 @@ import {
   TimeTravelSlider,
   type TimelineYear,
 } from '@/components/time-travel-slider';
-import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
-import { PROJECT_LABEL, PROJECT_URL } from '@/constants/legal';
+import { Fonts, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { PROJECT_URL } from '@/constants/legal';
 import { PARIS_CENTER } from '@/data/archive';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
+import { archiveLinkForImage } from '@/services/bhvp-images';
+import { formatSnapshotDate } from '@/services/collective-content';
 import { historicalReferenceForFrame } from '@/services/camera-reference';
+import { formatContributorName } from '@/utils/community-stats';
 import { buildPhotoReportDraft, launchPhotoReport } from '@/utils/photo-report';
 
 const BHVP_NAME = 'Bibliothèque historique de la Ville de Paris';
 const PARIS_1970_FUND = 'Fonds « C’était Paris en 1970 »';
 
-function formatContributionDate(value?: string) {
-  if (!value) return undefined;
-  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(date);
+/**
+ * Le relevé date tout à « 22:00 (GMT) » : c'est minuit à Paris ramené en UTC, pas une heure de
+ * prise de vue. L'afficher rognait la colonne et laissait croire à une précision inexistante.
+ */
+function dayOnly(label: string) {
+  return label.replace(/\s+\d{1,2}:\d{2}.*$/, '');
 }
 
 function MetadataInlineItem({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.metadataInlineItem}>
       <Text style={styles.metadataLabel}>{label}</Text>
-      <Text style={styles.metadataValue} numberOfLines={1}>
+      <Text style={styles.metadataValue} numberOfLines={2}>
         {value}
       </Text>
     </View>
@@ -83,10 +84,6 @@ export function StationScreen() {
   const [sharingCard, setSharingCard] = useState(false);
   const [shareMenuVisible, setShareMenuVisible] = useState(false);
   const isArchive = (detail?.kind ?? summary?.kind) === 'archive-1970';
-  const remainingArchiveCount =
-    detail?.remainingCount ?? summary?.remainingCount ?? archiveCount;
-  const publishedArchiveCount =
-    detail?.publishedCount ?? summary?.publishedCount ?? 0;
   const { images: archiveImages, loading: archiveImagesLoading } = useBhvpImages(
     isArchive ? detail?.archiveLinks : undefined,
   );
@@ -96,40 +93,41 @@ export function StationScreen() {
       ? archiveImages
       : detail?.images ?? (summary?.previewImage ? [summary.previewImage] : []);
   const selectedImage = (images[selectedIndex] ?? images[0]) as ImageSource | undefined;
+  const selectedArchiveLink = archiveLinkForImage(selectedImage);
+  const selectedArchiveIndex = selectedArchiveLink ? detail?.archiveLinks.indexOf(selectedArchiveLink) ?? -1 : -1;
   const selectedArchiveMetadata = isArchive
-    ? detail?.archiveMetadata[selectedIndex]
+    ? detail?.archiveMetadata[selectedArchiveIndex]
     : detail?.referenceMetadata;
+  const selectedRecaptures = (selectedArchiveLink && detail?.archiveRecaptures?.[selectedArchiveLink]) || [];
+  const latestRecapture = selectedRecaptures[0];
+  const frameRecaptureCounts = isArchive ? images.map(image => {
+    const link = archiveLinkForImage(image);
+    return link ? detail?.archiveRecaptures?.[link]?.length ?? 0 : 0;
+  }) : undefined;
   // Un carré de 1970 couvre une maille de 250 m : on trace son emprise réelle plutôt qu'un point.
   const squareBounds = detail?.bounds ?? summary?.bounds;
   const referenceYear = detail?.year ?? summary?.year ?? 1970;
   const title = detail?.name ?? summary?.name ?? 'Point de vue';
   const referenceAuthor = (selectedArchiveMetadata?.author ?? detail?.author)?.trim();
+  const referenceAuthorDisplay = referenceAuthor ? formatContributorName(referenceAuthor) : undefined;
   const referenceLocations = selectedArchiveMetadata?.locations ?? [];
-  const archiveCandidateNumber = selectedArchiveMetadata?.candidateNumber;
   const currentAuthor = detail?.currentAuthor?.trim();
+  const currentAuthorDisplay = currentAuthor ? formatContributorName(currentAuthor) : undefined;
   const currentDescription = detail?.description?.trim();
-  const currentDate = formatContributionDate(detail?.recaptureDate);
   const referenceImage = detail?.referenceImage;
   const recaptureImage = detail?.recaptureImage;
   const hasComparison = Boolean(detail?.hasRecapture && referenceImage && recaptureImage);
+  // La notice ne s'affiche que hors comparaison : le bandeau avant/après porte déjà ses propres
+  // crédits, la répéter juste au-dessus serait la même information deux fois.
   const hasHistoricalNotice = Boolean(
-    referenceAuthor || referenceLocations.length || archiveCandidateNumber,
+    !hasComparison && (referenceAuthor || referenceLocations.length),
   );
-  const hasCurrentNotice = Boolean(
-    hasComparison &&
-      (currentAuthor || currentDescription || currentDate || detail?.currentDevice),
-  );
-  const referenceCreditTitle = `${referenceYear} · ${referenceAuthor ?? 'Auteur non renseigné'}`;
+  const referenceCreditTitle = `${referenceYear} · ${referenceAuthorDisplay ?? 'Auteur non renseigné'}`;
   const referenceCreditSource =
     referenceYear === 1970
       ? `${BHVP_NAME} · ${PARIS_1970_FUND}`
       : 'Observatoire photo participatif des paysages parisiens · CAUE de Paris';
-  // Une station de 2022 n'a aucune métadonnée d'archive : son auteur est le contributeur de
-  // l'Observatoire. Créditer sa photo comme une vue de 1970 conservée par la BHVP serait une
-  // misattribution, et la notice doit suivre le millésime réel de l'image affichée.
-  const referenceCreditShort =
-    referenceYear === 1970 ? 'ARCHIVES BHVP' : 'OBSERVATOIRE · CAUE DE PARIS';
-  const currentCredit = `Photo 2026 · ${currentAuthor ?? 'Contributeur·rice non renseigné·e'}`;
+  const currentCredit = `Photo 2026 · ${currentAuthorDisplay ?? 'Contributeur·rice non renseigné·e'}`;
   const selectedViewNumber = String(selectedIndex + 1).padStart(2, '0');
   const coordinate = detail?.coordinate ?? summary?.coordinate ?? PARIS_CENTER;
   const recaptureIndex =
@@ -183,7 +181,7 @@ export function StationScreen() {
 
   const openOfficial = async () => {
     const url = isArchive
-      ? detail?.archiveLinks[selectedIndex] ?? detail?.officialUrl
+      ? selectedArchiveLink ?? detail?.officialUrl
       : detail?.officialUrl;
     const sourceUrl = url ?? 'https://observatoire-photo.paris/map';
     try {
@@ -386,7 +384,7 @@ export function StationScreen() {
               <Text style={styles.heroPlaceholderCopy}>
                 {archiveImagesLoading
                   ? 'Les aperçus sont chargés depuis la Bibliothèque historique de la Ville de Paris.'
-                  : 'Elles sont conservées par la Bibliothèque historique de la Ville de Paris. Ouvrez-les pour reconnaître le lieu, puis revenez ici.'}
+                  : 'Conservées par la Bibliothèque historique de la Ville de Paris. Ouvrez-les pour repérer le lieu.'}
               </Text>
             </View>
           )}
@@ -406,7 +404,7 @@ export function StationScreen() {
             </Pressable>
           </SafeAreaView>
           <View style={styles.heroCaption}>
-            <SourcePill label={detail?.sourceLabel ?? 'Observatoire de Paris'} inverse />
+            <SourcePill label={isArchive ? 'Archives BHVP · 1970' : detail?.sourceLabel ?? 'Observatoire de Paris'} inverse />
             <Pressable
               accessibilityLabel="Afficher la photo en plein écran"
               accessibilityRole="button"
@@ -431,176 +429,111 @@ export function StationScreen() {
 
         {images.length > 1 && !hasComparison ? (
           <View style={styles.filmstripWrap}>
+            {isArchive ? <Text style={styles.archiveProgress}>
+              {detail?.publishedCount ?? 0} {detail?.publishedCount === 1 ? 'vue refaite identifiée' : 'vues refaites identifiées'} sur {archiveCount}
+            </Text> : null}
             <ArchiveFilmstrip
               images={images}
               selectedIndex={selectedIndex}
               onSelect={selectFrame}
+              recaptureCounts={frameRecaptureCounts}
             />
           </View>
         ) : null}
 
         <View style={styles.content}>
-          <Text style={styles.kicker}>
-            {isArchive
-              ? `ARCHIVE DE ${referenceYear}`
-              : detail?.hasRecapture
+          {!isArchive ? <Text style={styles.kicker}>
+            {detail?.hasRecapture
                 ? 'PHOTO REFAITE'
                 : detail?.approximate ?? summary?.approximate
                   ? 'MISSION À LOCALISER'
                   : 'POINT DE VUE GÉOLOCALISÉ'}
-          </Text>
-          <Text style={styles.title}>
+          </Text> : null}
+          <Text style={[styles.title, isArchive && styles.archiveTitle]}>
             {isArchive ? `Photo ${selectedViewNumber}` : title}
           </Text>
 
-          {isArchive ? (
-            <View style={styles.archiveCreditCard}>
-              <Text style={styles.archiveCreditAuthor}>
-                Auteur de la photographie · {referenceAuthor ?? 'non indiqué dans les données publiques'}
-              </Text>
-              <Text style={styles.archiveCreditSource}>
-                {BHVP_NAME} · {PARIS_1970_FUND}
-              </Text>
+          {isArchive && selectedImage ? (
+            <View style={styles.archiveStatusBlock}>
+              <View style={styles.archiveStatusRow}>
+                <SymbolView name={latestRecapture ? 'checkmark.circle.fill' : 'camera'} size={18}
+                  tintColor={latestRecapture ? Palette.parisBlue : Palette.inkSoft} />
+                <Text style={styles.archiveStatusText}>
+                  {latestRecapture ? 'Déjà refaite' : 'Aucune reprise identifiée'}
+                </Text>
+              </View>
+              {latestRecapture?.recaptureImage ? (
+                <>
+                  <BeforeAfterSlider key={`${selectedArchiveLink}:${latestRecapture.id}`}
+                    before={selectedImage} after={latestRecapture.recaptureImage}
+                    beforeLabel="1970" afterLabel={latestRecapture.recaptureDate?.slice(0, 4) || 'Aujourd’hui'}
+                    height={220} borderRadius={Radius.medium} onInteractionChange={setComparisonActive} />
+                  {selectedRecaptures.map(recapture => (
+                    <Pressable key={recapture.id} accessibilityRole="button"
+                      accessibilityLabel={`Voir la reprise de ${recapture.currentAuthor ? formatContributorName(recapture.currentAuthor) : 'ce contributeur'}`}
+                      onPress={() => router.push({ pathname: '/station/[id]', params: { id: recapture.id } })}
+                      style={({ pressed }) => [styles.archiveRecaptureLink, pressed && styles.shareButtonPressed]}>
+                      <Text style={styles.archiveRecaptureLinkText}>
+                        {recapture.currentAuthor ? formatContributorName(recapture.currentAuthor) : 'Voir la reprise'}
+                        {recapture.recaptureDate ? ` · ${formatSnapshotDate(recapture.recaptureDate)}` : ''}
+                      </Text>
+                      <SymbolView name="arrow.right" size={15} tintColor={Palette.parisBlue} />
+                    </Pressable>
+                  ))}
+                </>
+              ) : <Text style={styles.storyText}>
+                Les reprises sans référence d’archive ne peuvent pas être identifiées ici.
+              </Text>}
             </View>
           ) : null}
 
-          {isArchive ? (
-            <Pressable
-              accessibilityLabel={`Voir le secteur ${title} sur la carte`}
-              accessibilityRole="button"
-              onPress={openOnMap}
-              style={({ pressed }) => [
-                styles.sectorLink,
-                pressed && styles.sectorLinkPressed,
-              ]}>
-              <View style={styles.sectorLinkIcon}>
-                <SymbolView
-                  name="square.grid.3x3"
-                  size={18}
-                  tintColor={Palette.parisBlue}
-                />
-              </View>
-              <View style={styles.sectorLinkCopy}>
-                <Text style={styles.sectorLinkTitle}>Secteur {title} · zone de 250 m</Text>
-                <Text style={styles.sectorLinkAction}>Voir le secteur sur la carte</Text>
-              </View>
-              <SymbolView name="chevron.right" size={14} tintColor={Palette.parisBlue} />
-            </Pressable>
+          {/* Crédit et métadonnées de l'archive : une légende posée sous le titre, jamais une
+              carte encadrée. */}
+          {isArchive && !hasHistoricalNotice ? (
+            <Text style={styles.storyCredit}>
+              {referenceYear} · Photographe non identifié · {BHVP_NAME}
+            </Text>
           ) : null}
 
-          <Text style={styles.description}>
-            {isArchive
-              ? remainingArchiveCount === 0
-                ? `Les ${archiveCount} ${archiveCount > 1 ? 'photos de ce secteur ont' : 'photo de ce secteur a'} déjà été refaites. Vous pouvez proposer un cadrage encore plus fidèle.`
-                : `${remainingArchiveCount} ${remainingArchiveCount > 1 ? 'photos restent' : 'photo reste'} à retrouver dans ce secteur${publishedArchiveCount > 0 ? `, et ${publishedArchiveCount} ${publishedArchiveCount > 1 ? 'photos ont déjà été refaites' : 'photo a déjà été refaite'}` : ''}. Choisissez cette photo, puis retrouvez son point de vue sur place.`
-              : hasComparison
-                ? 'La photographie historique a été reprise depuis le même point de vue. Comparez les deux époques et découvrez les informations transmises avec chaque image.'
-                : detail?.description ??
-                (detail?.approximate ?? summary?.approximate
-                  ? 'Le point de vue exact reste à retrouver dans cette zone.'
-                  : 'Un point de vue de référence de l’Observatoire photo participatif des paysages parisiens.')}
-          </Text>
-
-          {hasHistoricalNotice || hasCurrentNotice ? (
+          {hasHistoricalNotice ? (
             <View style={styles.storySection}>
-              <Text style={styles.storySectionKicker}>HISTOIRE DES IMAGES</Text>
-              <Text style={styles.storySectionTitle}>
-                {hasCurrentNotice ? 'Deux regards, un même lieu' : 'Ce que raconte la notice'}
+              <Text style={styles.storyCredit}>
+                {referenceCreditTitle}
               </Text>
-
-              {hasHistoricalNotice ? (
-                <View style={[styles.storyCard, styles.storyCardArchive]}>
-                  <View style={styles.storyCardHeader}>
-                    <View style={styles.storyYearBadge}>
-                      <Text style={styles.storyYearText}>{referenceYear}</Text>
-                    </View>
-                    <Text style={styles.storyCardSource}>{referenceCreditShort}</Text>
-                  </View>
-                  <Text style={styles.storyAuthor}>
-                    {referenceAuthor ?? 'Photographe non identifié'}
-                  </Text>
-                  {referenceLocations.length ? (
-                    <>
-                      <Text style={styles.storyLabel}>LIEUX INDIQUÉS DANS LES LÉGENDES</Text>
-                      <Text style={styles.storyText}>{referenceLocations.join(' · ')}</Text>
-                      <Text style={styles.storyFinePrint}>
-                        Lieux relevés par la BHVP dans les légendes du dossier du photographe ; ils peuvent concerner plusieurs vues de la série.
-                      </Text>
-                    </>
-                  ) : null}
-                  {selectedArchiveMetadata?.notes?.length ? (
-                    <>
-                      <Text style={styles.storyLabel}>NOTE DU CATALOGUE</Text>
-                      <Text style={styles.storyText}>
-                        {selectedArchiveMetadata.notes.join('\n')}
-                      </Text>
-                    </>
-                  ) : null}
-                  {selectedArchiveMetadata?.technique ||
-                  selectedArchiveMetadata?.extent ||
-                  selectedArchiveMetadata?.dimensions ? (
-                    <View style={styles.storyFacts}>
-                      {selectedArchiveMetadata?.technique ? (
-                        <Text style={styles.storyFact}>{selectedArchiveMetadata?.technique}</Text>
-                      ) : null}
-                      {selectedArchiveMetadata?.extent ? (
-                        <Text style={styles.storyFact}>{selectedArchiveMetadata?.extent}</Text>
-                      ) : null}
-                      {selectedArchiveMetadata?.dimensions ? (
-                        <Text style={styles.storyFact}>{selectedArchiveMetadata?.dimensions}</Text>
-                      ) : null}
-                    </View>
-                  ) : null}
-                  {archiveCandidateNumber ? (
-                    <Text style={styles.storyReference}>
-                      Candidat au concours n° {archiveCandidateNumber}
-                    </Text>
-                  ) : null}
-                  {selectedArchiveMetadata?.callNumber ? (
-                    <Text style={styles.storyReference}>
-                      Cote BHVP · {selectedArchiveMetadata.callNumber}
-                    </Text>
-                  ) : null}
-                </View>
+              <Text style={styles.storyText}>{referenceCreditSource}</Text>
+              {referenceLocations.length ? (
+                <Text style={styles.storyText}>
+                  Dans la légende : {referenceLocations.join(' · ')}
+                </Text>
               ) : null}
-
-              {hasCurrentNotice ? (
-                <View style={[styles.storyCard, styles.storyCardCurrent]}>
-                  <View style={styles.storyCardHeader}>
-                    <View style={[styles.storyYearBadge, styles.storyYearBadgeCurrent]}>
-                      <Text style={[styles.storyYearText, styles.storyYearTextCurrent]}>2026</Text>
-                    </View>
-                    <Text style={styles.storyCardSource}>NOUVELLE CONTRIBUTION</Text>
-                  </View>
-                  <Text style={styles.storyAuthor}>
-                    {currentAuthor ?? 'Contributeur·rice non renseigné·e'}
-                  </Text>
-                  {currentDescription ? (
-                    <>
-                      <Text style={styles.storyLabel}>OBSERVATION</Text>
-                      <Text style={styles.storyText}>{currentDescription}</Text>
-                    </>
-                  ) : null}
-                  <View style={styles.storyFacts}>
-                    {currentDate ? <Text style={styles.storyFact}>{currentDate}</Text> : null}
-                    {detail?.currentDevice ? (
-                      <Text style={styles.storyFact}>{detail.currentDevice}</Text>
-                    ) : null}
-                  </View>
-                </View>
+              {selectedArchiveMetadata?.notes?.length ? (
+                <Text style={styles.storyText}>{selectedArchiveMetadata.notes.join(' ')}</Text>
               ) : null}
             </View>
+          ) : null}
+
+          {!hasComparison && !isArchive ? (
+            <Text style={styles.description}>
+              {detail?.description ??
+                  (detail?.approximate ?? summary?.approximate
+                    ? 'Le point de vue exact reste à retrouver dans cette zone.'
+                    : 'Un point de vue de référence de l’Observatoire photo participatif des paysages parisiens.')}
+            </Text>
           ) : null}
 
           {hasComparison && referenceImage && recaptureImage ? (
             <View style={styles.recaptureBlock}>
               <View style={styles.recaptureCard}>
                 <View style={styles.recaptureBody}>
+                  {detail ? <ParisGoBadge photo={detail} /> : null}
                   <Text style={styles.recaptureKicker}>{referenceYear} → AUJOURD’HUI</Text>
                   <Text style={styles.recaptureTitle}>Même lieu, deux époques</Text>
                   <Text style={styles.recaptureHint}>
                     Faites glisser la poignée pour comparer les cadrages.
                   </Text>
+                  {currentDescription ? (
+                    <Text style={styles.recaptureObservation}>{currentDescription}</Text>
+                  ) : null}
                 </View>
                 <BeforeAfterSlider
                   before={referenceImage}
@@ -627,10 +560,7 @@ export function StationScreen() {
                       </Text>
                     </View>
                   </View>
-                  <View style={styles.repriseMark}>
-                    <Text style={styles.repriseMarkName}>PARIS GO</Text>
-                    <Text style={styles.repriseMarkUrl}>{PROJECT_LABEL}</Text>
-                  </View>
+                  <Text style={styles.parisGoSignature}>Paris GO</Text>
                 </View>
               </View>
 
@@ -662,7 +592,7 @@ export function StationScreen() {
                 <SymbolView
                   name="exclamationmark.bubble"
                   size={14}
-                  tintColor={Palette.copper}
+                  tintColor={Palette.inkSoft}
                 />
                 <Text style={styles.reportText}>Signaler un problème avec cette photo</Text>
               </Pressable>
@@ -672,7 +602,11 @@ export function StationScreen() {
           <View style={styles.metadataStrip}>
             <MetadataInlineItem
               label="Date"
-              value={detail?.dateLabel ?? String(detail?.year ?? summary?.year ?? 1970)}
+              value={
+                detail?.dateLabel
+                  ? dayOnly(detail.dateLabel)
+                  : String(detail?.year ?? summary?.year ?? 1970)
+              }
             />
             <View style={styles.metadataDivider} />
             <MetadataInlineItem
@@ -682,20 +616,17 @@ export function StationScreen() {
             <View style={styles.metadataDivider} />
             <MetadataInlineItem
               label="Précision"
-              value={detail?.approximate ?? summary?.approximate ? 'Secteur de 250 m' : 'Point exact'}
+              value={detail?.approximate ?? summary?.approximate ? 'À 250 m près' : 'Point exact'}
             />
           </View>
 
-          <View style={styles.sectionHeading}>
-            <View>
-              <Text style={styles.sectionKicker}>OÙ CHERCHER</Text>
-              <Text style={styles.sectionTitle}>
-                {detail?.approximate ?? summary?.approximate
-                  ? 'Explorer ce secteur'
-                  : 'Repérer ce point'}
-              </Text>
-            </View>
-          </View>
+          {/* Un seul kicker orange par écran (celui du haut) : cette tête de section se
+              contente de son titre. */}
+          <Text style={styles.sectionTitle}>
+            {detail?.approximate ?? summary?.approximate
+              ? 'Explorer ce secteur'
+              : 'Repérer ce point'}
+          </Text>
 
           <Pressable
             accessibilityHint="Ouvre la carte complète centrée sur cette photo"
@@ -707,7 +638,7 @@ export function StationScreen() {
               key={`${id}-${coordinate.latitude}-${coordinate.longitude}`}
               style={StyleSheet.absoluteFill}
               initialRegion={region}
-              mapType={Platform.OS === 'android' ? 'none' : 'standard'}
+              mapType="mutedStandard"
               loadingEnabled
               loadingBackgroundColor={Palette.blueMist}
               pitchEnabled={false}
@@ -715,12 +646,6 @@ export function StationScreen() {
               scrollEnabled={false}
               zoomEnabled={false}
               pointerEvents="none">
-              <UrlTile
-                urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                maximumZ={19}
-                shouldReplaceMapContent={Platform.OS === 'ios'}
-                tileCacheMaxAge={604800}
-              />
               {squareBounds ? (
                 <Polygon
                   coordinates={[
@@ -747,16 +672,13 @@ export function StationScreen() {
             <View pointerEvents="none" style={styles.mapLegend}>
               <Text style={styles.mapLegendText}>
                 {squareBounds
-                  ? `SECTEUR ${detail?.name ?? summary?.name ?? ''} · ZONE APPROXIMATIVE`
+                  ? 'ZONE APPROXIMATIVE'
                   : 'POSITION OBSERVATOIRE'}
               </Text>
             </View>
             <View pointerEvents="none" style={styles.mapAction}>
               <Text style={styles.mapActionText}>Ouvrir la carte</Text>
               <SymbolView name="arrow.up.right" size={11} tintColor={Palette.parisBlue} />
-            </View>
-            <View pointerEvents="none" style={styles.mapAttribution}>
-              <Text style={styles.mapAttributionText}>© OPENSTREETMAP</Text>
             </View>
           </Pressable>
 
@@ -813,10 +735,7 @@ export function StationScreen() {
                   {currentCredit}
                 </Text>
               </View>
-              <View style={styles.repriseMark}>
-                <Text style={styles.repriseMarkName}>PARIS GO</Text>
-                <Text style={styles.repriseMarkUrl}>{PROJECT_LABEL}</Text>
-              </View>
+              <Text style={styles.parisGoSignature}>Paris GO</Text>
             </View>
           </View>
         </View>
@@ -927,7 +846,7 @@ export function StationScreen() {
               pressed && styles.stickyActionPressed,
             ]}>
             <SymbolView name="camera.fill" size={20} tintColor={Palette.white} />
-            <Text style={styles.stickyActionText}>Refaire cette photo</Text>
+            <Text style={styles.stickyActionText}>{isArchive && latestRecapture ? 'Refaire à mon tour' : 'Refaire cette photo'}</Text>
             <SymbolView name="arrow.right" size={16} tintColor={Palette.white} />
           </Pressable>
         </View>
@@ -944,6 +863,12 @@ export function StationScreen() {
 }
 
 const styles = StyleSheet.create({
+  archiveProgress: { ...Typography.caption, fontFamily: Fonts.sans, color: Palette.white, marginHorizontal: Spacing.three, marginBottom: Spacing.two },
+  archiveStatusBlock: { marginTop: Spacing.twoHalf, marginBottom: Spacing.three, gap: Spacing.two },
+  archiveStatusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  archiveStatusText: { ...Typography.body, fontFamily: Fonts.sans, fontWeight: '600', color: Palette.parisBlue },
+  archiveRecaptureLink: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  archiveRecaptureLinkText: { ...Typography.body, flex: 1, fontFamily: Fonts.sans, color: Palette.parisBlue },
   screen: {
     flex: 1,
     backgroundColor: Palette.fog,
@@ -959,17 +884,17 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   loadingText: {
+    ...Typography.caption,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 13,
   },
   hero: {
-    height: 440,
+    height: 480,
     backgroundColor: Palette.blueMist,
     overflow: 'hidden',
   },
   heroPage: {
-    height: 440,
+    height: 480,
     backgroundColor: Palette.blueMist,
   },
   heroPlaceholder: {
@@ -988,20 +913,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(185, 95, 62, 0.14)',
   },
   heroPlaceholderTitle: {
+    ...Typography.body,
     marginTop: Spacing.three,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontWeight: '800',
-    fontSize: 26,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   heroPlaceholderCopy: {
+    ...Typography.caption,
     marginTop: Spacing.two,
     maxWidth: 300,
     textAlign: 'center',
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 14,
-    lineHeight: 20,
   },
   heroShade: {
     position: 'absolute',
@@ -1036,14 +961,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
+    gap: Spacing.two,
     ...Shadow.card,
   },
   sourceButtonText: {
+    ...Typography.caption,
     color: Palette.ink,
     fontFamily: Fonts.sans,
-    fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   heroCaption: {
     position: 'absolute',
@@ -1055,10 +980,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   heroFrame: {
+    ...Typography.caption,
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     textShadowColor: Palette.black,
     textShadowRadius: 5,
   },
@@ -1068,7 +993,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: Spacing.two,
     backgroundColor: 'rgba(8, 17, 22, 0.68)',
   },
   filmstripWrap: {
@@ -1080,223 +1005,49 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   kicker: {
+    ...Typography.caption,
     color: Palette.copper,
     fontFamily: Fonts.mono,
-    fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '700',
     letterSpacing: 0.8,
     marginTop: Spacing.two,
   },
   title: {
-    marginTop: Spacing.two,
-    marginHorizontal: -2,
-    paddingHorizontal: 2,
-    paddingTop: 2,
-    paddingBottom: 4,
-    color: Palette.ink,
-    fontFamily: Fonts.display,
-    fontSize: 40,
-    lineHeight: 47,
-    fontWeight: '800',
-    letterSpacing: -0.45,
-  },
-  archiveCreditCard: {
-    marginTop: Spacing.one,
-    paddingHorizontal: Spacing.twoHalf,
-    paddingVertical: Spacing.two,
-    borderRadius: Radius.medium,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(185, 95, 62, 0.24)',
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-  },
-  archiveCreditAuthor: {
-    color: Palette.ink,
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    lineHeight: 13,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.35,
-  },
-  archiveCreditSource: {
-    marginTop: 3,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 10,
-    lineHeight: 14,
-  },
-  description: {
-    marginTop: Spacing.three,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  storySection: {
-    marginTop: Spacing.four,
-    gap: Spacing.two,
-  },
-  storySectionKicker: {
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.7,
-  },
-  storySectionTitle: {
-    marginBottom: Spacing.one,
-    color: Palette.ink,
-    fontFamily: Fonts.display,
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  storyCard: {
-    padding: Spacing.three,
-    borderRadius: Radius.large,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  storyCardArchive: {
-    borderColor: 'rgba(185, 95, 62, 0.3)',
-    backgroundColor: 'rgba(255, 250, 245, 0.9)',
-  },
-  storyCardCurrent: {
-    borderColor: 'rgba(119, 151, 138, 0.38)',
-    backgroundColor: 'rgba(239, 246, 242, 0.92)',
-  },
-  storyCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  storyYearBadge: {
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 5,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.copper,
-  },
-  storyYearBadgeCurrent: {
-    backgroundColor: Palette.lichen,
-  },
-  storyYearText: {
-    color: Palette.white,
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  storyYearTextCurrent: {
-    color: Palette.ink,
-  },
-  storyCardSource: {
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    fontSize: 8,
-    fontWeight: '800',
-    letterSpacing: 0.55,
-  },
-  storyAuthor: {
+    ...Typography.display,
     marginTop: Spacing.two,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 19,
-    fontWeight: '800',
-  },
-  storyLabel: {
-    marginTop: Spacing.twoHalf,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 0.55,
-  },
-  storyText: {
-    marginTop: 5,
-    color: Palette.ink,
-    fontFamily: Fonts.sans,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  storyFinePrint: {
-    marginTop: Spacing.one,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 10,
-    lineHeight: 15,
-  },
-  storyReference: {
-    marginTop: Spacing.two,
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  storyFacts: {
-    marginTop: Spacing.two,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.one,
-  },
-  storyFact: {
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 6,
-    borderRadius: Radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    fontSize: 8,
-    fontWeight: '800',
-  },
-  sectorLink: {
-    minHeight: 72,
-    marginTop: Spacing.two,
-    padding: Spacing.twoHalf,
-    borderRadius: Radius.medium,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Palette.line,
-    backgroundColor: Palette.white,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.twoHalf,
-  },
-  sectorLinkPressed: {
-    backgroundColor: Palette.blueMist,
-    transform: [{ scale: 0.99 }],
-  },
-  sectorLinkIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Palette.blueMist,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectorLinkCopy: {
-    flex: 1,
-  },
-  sectorLinkTitle: {
-    color: Palette.ink,
-    fontFamily: Fonts.sans,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  sectorLinkAction: {
-    marginTop: 3,
-    color: Palette.parisBlue,
-    fontFamily: Fonts.sans,
-    fontSize: 12,
     fontWeight: '700',
   },
-  metadataStrip: {
+  archiveTitle: { ...Typography.title, marginTop: 0 },
+  description: {
+    ...Typography.body,
     marginTop: Spacing.three,
-    minHeight: 48,
-    paddingHorizontal: Spacing.twoHalf,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+  },
+  // Crédit et notes d'archive : des légendes posées sur le fond, jamais une carte encadrée.
+  storySection: {
+    marginTop: Spacing.one,
+    gap: Spacing.half,
+  },
+  storyCredit: {
+    ...Typography.caption,
+    marginTop: Spacing.one,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+    fontWeight: '700',
+  },
+  storyText: {
+    ...Typography.caption,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+  },
+  metadataStrip: {
+    marginTop: Spacing.four,
     paddingVertical: Spacing.two,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Palette.line,
-    borderRadius: Radius.medium,
-    backgroundColor: Palette.white,
   },
   metadataInlineItem: {
     flex: 1,
@@ -1309,41 +1060,27 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.line,
   },
   metadataLabel: {
+    ...Typography.caption,
     color: Palette.inkSoft,
     fontFamily: Fonts.mono,
-    fontSize: 7,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   metadataValue: {
-    marginTop: 1,
+    ...Typography.body,
+    marginTop: Spacing.half,
     color: Palette.ink,
     fontFamily: Fonts.sans,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-  },
-  sectionHeading: {
-    marginTop: Spacing.five,
-    marginBottom: Spacing.three,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  sectionKicker: {
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.7,
+    fontWeight: '700',
   },
   sectionTitle: {
-    marginTop: 5,
+    ...Typography.body,
+    marginTop: Spacing.five,
+    marginBottom: Spacing.three,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 26,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   mapWrap: {
     height: 230,
@@ -1358,22 +1095,23 @@ const styles = StyleSheet.create({
   mapLegend: {
     position: 'absolute',
     left: Spacing.two,
-    bottom: Spacing.two,
+    top: Spacing.two,
+    maxWidth: '90%',
     paddingHorizontal: Spacing.two,
-    paddingVertical: 6,
+    paddingVertical: Spacing.one,
     borderRadius: Radius.pill,
     backgroundColor: 'rgba(255,255,255,0.92)',
   },
   mapLegendText: {
-    color: Palette.copper,
+    ...Typography.caption,
+    color: Palette.inkSoft,
     fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '900',
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   mapAction: {
     position: 'absolute',
-    top: Spacing.two,
+    bottom: Spacing.five,
     right: Spacing.two,
     minHeight: 32,
     paddingHorizontal: Spacing.two,
@@ -1381,30 +1119,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.94)',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.two,
     ...Shadow.card,
   },
   mapActionText: {
+    ...Typography.caption,
     color: Palette.parisBlue,
     fontFamily: Fonts.sans,
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  mapAttribution: {
-    position: 'absolute',
-    right: Spacing.two,
-    bottom: Spacing.two,
-    paddingHorizontal: 7,
-    paddingVertical: 5,
-    borderRadius: Radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-  },
-  mapAttributionText: {
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    fontSize: 6,
-    fontWeight: '800',
-    letterSpacing: 0.35,
+    fontWeight: '700',
   },
   recaptureBlock: {
     marginTop: Spacing.four,
@@ -1420,34 +1142,43 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   recaptureKicker: {
+    ...Typography.caption,
     color: Palette.lichen,
     fontFamily: Fonts.mono,
-    fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '700',
     letterSpacing: 0.6,
   },
   recaptureTitle: {
-    marginTop: 5,
+    ...Typography.body,
+    marginTop: Spacing.one,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   recaptureHint: {
-    marginTop: 5,
+    ...Typography.caption,
+    marginTop: Spacing.one,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 13,
-    lineHeight: 19,
+  },
+  recaptureObservation: {
+    ...Typography.body,
+    marginTop: Spacing.two,
+    color: Palette.ink,
+    fontFamily: Fonts.sans,
   },
   recaptureFooter: {
     minHeight: 64,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     gap: Spacing.two,
+  },
+  parisGoSignature: {
+    ...Typography.caption,
+    fontFamily: Fonts.display,
+    fontWeight: '900',
+    color: Palette.parisBlue,
+    alignSelf: 'flex-end',
   },
   recaptureCreditRow: {
     flex: 1,
@@ -1464,38 +1195,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recaptureCredit: {
+    ...Typography.caption,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 10,
   },
   recaptureCreditCopy: {
     flex: 1,
   },
   recaptureArchiveCredit: {
-    marginBottom: 2,
+    ...Typography.caption,
+    marginBottom: Spacing.half,
     color: Palette.copper,
     fontFamily: Fonts.mono,
-    fontSize: 7,
-    fontWeight: '900',
+    fontWeight: '700',
     letterSpacing: 0.35,
-  },
-  repriseMark: {
-    alignItems: 'flex-end',
-  },
-  repriseMarkName: {
-    color: Palette.parisBlue,
-    fontFamily: Fonts.display,
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.6,
-  },
-  repriseMarkUrl: {
-    marginTop: -1,
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontSize: 7,
-    fontWeight: '800',
-    letterSpacing: 0.3,
   },
   shareButton: {
     minHeight: 52,
@@ -1508,11 +1221,11 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   shareButtonText: {
+    ...Typography.body,
     flex: 1,
     color: Palette.white,
     fontFamily: Fonts.sans,
-    fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '700',
   },
   shareButtonPressed: {
     opacity: 0.82,
@@ -1558,19 +1271,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   shareSheetKicker: {
+    ...Typography.caption,
     color: Palette.copper,
     fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '900',
+    fontWeight: '700',
     letterSpacing: 0.7,
   },
   shareSheetTitle: {
-    marginTop: 3,
+    ...Typography.body,
+    marginTop: Spacing.half,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 26,
-    lineHeight: 31,
-    fontWeight: '900',
+    fontWeight: '700',
   },
   shareSheetClose: {
     width: 34,
@@ -1600,7 +1312,7 @@ const styles = StyleSheet.create({
     width: 62,
     height: 50,
     overflow: 'hidden',
-    borderRadius: 10,
+    borderRadius: Radius.small,
     backgroundColor: Palette.blueMist,
     flexDirection: 'row',
   },
@@ -1620,17 +1332,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   shareOptionTitle: {
+    ...Typography.body,
     color: Palette.ink,
     fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '700',
   },
   shareOptionText: {
-    marginTop: 3,
+    ...Typography.caption,
+    marginTop: Spacing.half,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 11,
-    lineHeight: 15,
   },
   shareExportCard: {
     overflow: 'hidden',
@@ -1642,19 +1353,18 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.white,
   },
   shareExportKicker: {
+    ...Typography.caption,
     color: Palette.copper,
     fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '900',
+    fontWeight: '700',
     letterSpacing: 0.7,
   },
   shareExportTitle: {
-    marginTop: 5,
+    ...Typography.display,
+    marginTop: Spacing.one,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '900',
+    fontWeight: '700',
   },
   shareExportPhotos: {
     height: 280,
@@ -1677,8 +1387,8 @@ const styles = StyleSheet.create({
   shareExportYear: {
     position: 'absolute',
     top: Spacing.two,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
     borderRadius: Radius.pill,
   },
   shareExportYearBefore: {
@@ -1690,19 +1400,16 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.parisBlue,
   },
   shareExportYearText: {
+    ...Typography.caption,
     color: Palette.white,
     fontFamily: Fonts.mono,
-    fontSize: 9,
-    fontWeight: '900',
+    fontWeight: '700',
   },
   shareExportFooter: {
     minHeight: 82,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.twoHalf,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.three,
+    gap: Spacing.two,
     backgroundColor: Palette.white,
   },
   shareExportCredits: {
@@ -1715,34 +1422,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.twoHalf,
     borderRadius: Radius.pill,
     borderWidth: 1,
-    borderColor: 'rgba(185, 95, 62, 0.28)',
+    borderColor: Palette.line,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: Spacing.two,
   },
   reportText: {
-    color: Palette.copper,
+    ...Typography.caption,
+    color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   secondaryButton: {
     marginTop: Spacing.two,
   },
   credit: {
+    ...Typography.caption,
     marginTop: Spacing.four,
     color: Palette.inkSoft,
     fontFamily: Fonts.mono,
-    fontSize: 9,
     textAlign: 'center',
-    lineHeight: 14,
     textTransform: 'uppercase',
   },
   stickyActionDock: {
     position: 'absolute',
     left: 0,
     right: 0,
-    paddingTop: 10,
+    paddingTop: Spacing.two,
     paddingHorizontal: Spacing.three,
     backgroundColor: 'rgba(238, 244, 244, 0.97)',
   },
@@ -1762,11 +1468,11 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.blueDeep,
   },
   stickyActionText: {
+    ...Typography.body,
     flex: 1,
     color: Palette.white,
     fontFamily: Fonts.sans,
-    fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '700',
     textAlign: 'center',
   },
   pressed: {

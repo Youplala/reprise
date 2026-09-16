@@ -22,9 +22,9 @@ export type StationSummary = {
   previewImage?: ImageSource;
   /** Nombre total de vues d'archive rattachées au secteur. */
   frameCount?: number;
-  /** Vues qui n'ont pas encore de reprise publiée, pour les secteurs de 1970. */
+  /** Vues sans reprise identifiée par leur référence d'archive, pour les secteurs de 1970. */
   remainingCount?: number;
-  /** Reprises déjà publiées dans le secteur de 1970. */
+  /** Vues d'archive distinctes avec une reprise identifiée, pas le nombre de dépôts proches. */
   publishedCount?: number;
   /** `[ouest, sud, est, nord]` — présent sur les carrés de 1970 uniquement. */
   bounds?: [number, number, number, number];
@@ -46,6 +46,8 @@ export type StationDetail = StationSummary & {
   archiveLinks: string[];
   /** Métadonnées BHVP alignées avec `archiveLinks` et les images de la pellicule. */
   archiveMetadata: (ArchivePhotoMetadata | undefined)[];
+  /** Reprises reliées à une vue précise, indexées par son permalien ARK (jamais par GPS). */
+  archiveRecaptures?: Record<string, StationDetail[]>;
   officialUrl: string;
   hasRecapture: boolean;
   sourceLabel: string;

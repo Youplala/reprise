@@ -4,7 +4,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AdaptivePhoto } from '@/components/adaptive-photo';
 import { ArchiveContactSheet } from '@/components/archive-contact-sheet';
-import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Fonts, Palette, Radius, Spacing, Typography } from '@/constants/theme';
+import { arrondissementLabel } from '@/utils/place-name';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import type { StationSummary } from '@/types/station';
@@ -42,21 +43,21 @@ export function StationCard({
       : station.approximate
         ? 'Zone de 250 m'
         : 'Point précis';
+  // Une carte de secteur nomme un arrondissement, jamais son numéro interne : « Secteur 794 » ne
+  // situe rien, pour l'œil comme pour un lecteur d'écran.
+  const archiveTitle = arrondissementLabel(station.arrondissement) ?? `Secteur ${station.name}`;
 
   return (
     <Link href={{ pathname: '/station/[id]', params: { id: station.id } }} asChild>
       <Pressable
         accessibilityLabel={
-          isArchive
-            ? `Explorer le secteur ${station.name}, ${photoLabel}`
-            : `Ouvrir ${station.name}`
+          isArchive ? `Explorer ${archiveTitle}, ${photoLabel}` : `Ouvrir ${station.name}`
         }
         style={({ pressed }) => [
-          styles.card,
-          wide ? styles.wideCard : compact ? styles.compactCard : styles.regularCard,
+          wide ? styles.wideRoot : compact ? styles.compactRoot : styles.regularRoot,
           pressed && styles.pressed,
         ]}>
-        <View style={[styles.imageWrap, wide && styles.wideImageWrap]}>
+        <View style={[styles.imageWrap, wide ? styles.wideImageWrap : styles.tileImageWrap]}>
           {isArchive && archiveImages.length ? (
             <ArchiveContactSheet images={archiveImages} />
           ) : image ? (
@@ -83,47 +84,50 @@ export function StationCard({
           </View>
         </View>
 
-        <View style={[styles.body, wide && styles.wideBody]}>
-          <Text style={styles.kicker}>{distanceLabel.toLocaleUpperCase('fr-FR')}</Text>
-          <Text style={styles.title} numberOfLines={2}>
-            {isArchive ? `Secteur ${station.name}` : station.name}
+        <View style={wide ? styles.captionWide : styles.captionTile}>
+          <Text style={styles.distanceLabel}>{distanceLabel.toLocaleUpperCase('fr-FR')}</Text>
+          <Text style={styles.title} numberOfLines={wide ? 1 : 2}>
+            {isArchive ? archiveTitle : station.name}
           </Text>
           <View style={styles.metaRow}>
-            <Text style={styles.meta}>{isArchive ? photoLabel : station.arrondissement ?? 'Paris'}</Text>
+            <Text style={styles.meta} numberOfLines={1}>
+              {isArchive ? photoLabel : station.arrondissement ?? 'Paris'}
+            </Text>
             <View style={styles.action}>
               {wide ? <Text style={styles.actionText}>Explorer</Text> : null}
               <SymbolView name="arrow.right" size={13} tintColor={Palette.parisBlue} />
             </View>
           </View>
         </View>
+        {wide ? <View style={styles.cardSeparator} /> : null}
       </Pressable>
     </Link>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: Palette.white,
-    borderRadius: Radius.large,
-    overflow: 'hidden',
-    ...Shadow.card,
-  },
-  regularCard: {
-    width: 250,
-  },
-  compactCard: {
-    width: 212,
-  },
-  wideCard: {
+  // Une vignette de rail (compact/regular) reste un objet contenu : elle ne touche jamais les deux
+  // bords de l'écran à la fois, elle garde donc un léger galbe. La carte « wide » occupe toute la
+  // largeur : son image part à fond perdu, sans coin arrondi ni carte blanche autour.
+  wideRoot: {
     width: '100%',
   },
+  regularRoot: {
+    width: 250,
+  },
+  compactRoot: {
+    width: 212,
+  },
   imageWrap: {
-    height: 145,
     backgroundColor: Palette.blueMist,
     overflow: 'hidden',
   },
   wideImageWrap: {
-    height: 190,
+    height: 240,
+  },
+  tileImageWrap: {
+    height: 150,
+    borderRadius: Radius.medium,
   },
   imageShade: {
     position: 'absolute',
@@ -166,9 +170,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   placeholderCopy: {
+    ...Typography.caption,
     color: Palette.parisBlue,
     fontFamily: Fonts.mono,
-    fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -177,66 +181,72 @@ const styles = StyleSheet.create({
     left: Spacing.twoHalf,
     top: Spacing.twoHalf,
     backgroundColor: 'rgba(8, 17, 22, 0.72)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
     borderRadius: Radius.pill,
   },
   countBadgeText: {
+    ...Typography.caption,
     color: Palette.white,
     fontFamily: Fonts.mono,
     fontWeight: '700',
-    fontSize: 10,
     letterSpacing: 0.5,
   },
-  body: {
-    padding: Spacing.three,
-    minHeight: 136,
+  // Le fond de légende relie le texte à sa photo, avant le séparateur vers la suivante.
+  captionWide: {
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.twoHalf,
+    paddingBottom: Spacing.three,
+    backgroundColor: Palette.fog,
   },
-  wideBody: {
-    minHeight: 124,
+  cardSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Palette.line,
+    marginHorizontal: Spacing.three,
+    marginBottom: Spacing.three,
   },
-  kicker: {
-    color: Palette.copper,
+  captionTile: {
+    paddingTop: Spacing.two,
+  },
+  distanceLabel: {
+    ...Typography.caption,
+    color: Palette.inkSoft,
     fontFamily: Fonts.mono,
-    fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.6,
-    marginBottom: 7,
   },
   title: {
+    ...Typography.title,
+    marginTop: Spacing.half,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    fontSize: 22,
-    fontWeight: '700',
-    lineHeight: 25,
   },
   metaRow: {
-    marginTop: 'auto',
-    paddingTop: Spacing.two,
+    marginTop: Spacing.one,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: Spacing.two,
   },
   meta: {
+    ...Typography.body,
     flex: 1,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-    fontSize: 13,
     fontWeight: '600',
   },
   action: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.one,
   },
   actionText: {
+    ...Typography.body,
     color: Palette.parisBlue,
     fontFamily: Fonts.sans,
-    fontSize: 13,
     fontWeight: '800',
   },
   pressed: {
-    transform: [{ scale: 0.985 }],
-    opacity: 0.9,
+    opacity: 0.86,
   },
 });

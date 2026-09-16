@@ -18,6 +18,23 @@ import {
 } from '@/data/snapshot';
 import type { StationDetail, StationSummary } from '@/types/station';
 import { contributorKey } from '@/utils/community-stats';
+import { archivePhotoKey, buildArchiveRecaptureIndex } from '@/utils/archive-recaptures';
+
+const archiveIndexes = new WeakMap<Snapshot, ReturnType<typeof buildArchiveRecaptureIndex>>();
+function archiveIndex(snapshot: Snapshot) {
+  let index = archiveIndexes.get(snapshot);
+  if (!index) {
+    index = buildArchiveRecaptureIndex(snapshot.stations);
+    archiveIndexes.set(snapshot, index);
+  }
+  return index;
+}
+
+function linkedArchiveCount(snapshot: Snapshot, square: SnapshotSquare) {
+  const index = archiveIndex(snapshot);
+  return new Set(archiveLinksOf(snapshot, square).map(archivePhotoKey)
+    .filter((key): key is string => Boolean(key && index.has(key)))).size;
+}
 
 function imageSource(uri?: string): ImageSource | undefined {
   return uri ? { uri } : undefined;
@@ -38,7 +55,7 @@ function summaryFromStation(station: SnapshotStation): StationSummary {
   };
 }
 
-function summaryFromSquare(square: SnapshotSquare): StationSummary {
+function summaryFromSquare(square: SnapshotSquare, linkedCount: number): StationSummary {
   return {
     id: square.id,
     name: square.name,
@@ -48,8 +65,8 @@ function summaryFromSquare(square: SnapshotSquare): StationSummary {
     approximate: true,
     source: 'observatoire',
     frameCount: square.photoCount,
-    remainingCount: Math.max(0, square.photoCount - square.recaptureCount),
-    publishedCount: square.recaptureCount,
+    remainingCount: Math.max(0, square.photoCount - linkedCount),
+    publishedCount: linkedCount,
     bounds: square.bounds,
   };
 }
@@ -86,15 +103,24 @@ function detailFromStation(station: SnapshotStation): StationDetail {
 }
 
 function detailFromSquare(snapshot: Snapshot, square: SnapshotSquare): StationDetail {
+  const archiveLinks = archiveLinksOf(snapshot, square);
+  const index = archiveIndex(snapshot);
+  const archiveRecaptures: Record<string, StationDetail[]> = {};
+  for (const link of archiveLinks) {
+    const key = archivePhotoKey(link);
+    const recaptures = key ? index.get(key) : undefined;
+    if (recaptures?.length) archiveRecaptures[link] = recaptures.map(detailFromStation);
+  }
   return {
-    ...summaryFromSquare(square),
+    ...summaryFromSquare(square, linkedArchiveCount(snapshot, square)),
     // Les images ne sont pas embarquées : le résolveur utilise ces permaliens pour demander les
     // aperçus à la visionneuse de la BHVP au moment où la fiche est ouverte.
     images: [],
-    archiveLinks: archiveLinksOf(snapshot, square),
+    archiveLinks,
+    archiveRecaptures,
     archiveMetadata: archiveMetadataOf(snapshot, square),
     officialUrl: square.officialUrl,
-    hasRecapture: square.recaptureCount > 0,
+    hasRecapture: Object.keys(archiveRecaptures).length > 0,
     sourceLabel: 'BHVP · Fonds C’était Paris en 1970',
   };
 }
@@ -103,7 +129,7 @@ function detailFromSquare(snapshot: Snapshot, square: SnapshotSquare): StationDe
 export function buildStations(snapshot: Snapshot): StationSummary[] {
   return [
     ...snapshot.stations.map(summaryFromStation),
-    ...snapshot.squares.map(summaryFromSquare),
+    ...snapshot.squares.map(square => summaryFromSquare(square, linkedArchiveCount(snapshot, square))),
   ];
 }
 

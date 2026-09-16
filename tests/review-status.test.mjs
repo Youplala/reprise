@@ -38,7 +38,7 @@ test('annonce explicitement une position approximative avant enregistrement', ()
   assert.match(result[2], /pas encore enregistrée/);
 });
 
-test('ne transforme pas un carnet sur cache en conservation durable quand Photos est refusé', () => {
+test('distingue la copie privée durable du carnet de la copie facultative dans Photos', () => {
   const rows = getReviewStatusRows({
     simulated: false,
     saved: true,
@@ -46,8 +46,8 @@ test('ne transforme pas un carnet sur cache en conservation durable quand Photos
   });
 
   assert.match(rows[0].copy, /Position non enregistrée/);
-  assert.equal(rows[2].icon, 'exclamationmark.circle.fill');
-  assert.match(rows[2].copy, /aucune copie durable confirmée/);
+  assert.equal(rows[2].icon, 'info.circle.fill');
+  assert.match(rows[2].copy, /conservée dans le carnet, mais pas dans Photos/);
 });
 
 test('le simulateur ne revendique ni position ni fichier photo', () => {

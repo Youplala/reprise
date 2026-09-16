@@ -2,7 +2,8 @@ import type { Snapshot, SquareBounds } from '@/data/snapshot';
 import type { Coordinate, StationSummary } from '@/types/station';
 
 export type MappingStatus = 'to-reprise' | 'published-reprise' | 'collection-2022';
-export type MapFilter = 'all' | MappingStatus;
+// Les deux filtres sont réservés à la campagne de reconduction du fonds 1970.
+export type MapFilter = 'to-reprise' | 'published-reprise';
 
 export type MappingCoverage = {
   /** Vues de 1970 réellement numérisées, et non le nombre d'éléments de l'API. */
@@ -43,13 +44,12 @@ export function mappingStatus(station: StationSummary): MappingStatus {
 }
 
 export function stationMatchesFilter(station: StationSummary, filter: MapFilter) {
-  if (filter === 'all') return true;
   if (station.kind === 'archive-1970') {
     if (filter === 'to-reprise') return (station.remainingCount ?? station.frameCount ?? 0) > 0;
-    if (filter === 'published-reprise') return (station.publishedCount ?? 0) > 0;
-    return false;
+    return (station.publishedCount ?? 0) > 0;
   }
-  return mappingStatus(station) === filter;
+  if (station.kind === 'station-2022') return false;
+  return filter === 'published-reprise';
 }
 
 function round1(value: number) {
@@ -101,6 +101,7 @@ function containsCoordinate(
  */
 export function buildCoverageGrid(snapshot: Snapshot, stations: StationSummary[]): CoverageCell[] {
   const stations2022 = stations.filter((station) => station.kind === 'station-2022');
+  const squaresById = new Map(stations.filter(station => station.kind === 'archive-1970').map(station => [station.id, station]));
 
   return snapshot.squares.map((square) => {
     const bounds = square.bounds;
@@ -108,7 +109,7 @@ export function buildCoverageGrid(snapshot: Snapshot, stations: StationSummary[]
       containsCoordinate(bounds, station.coordinate),
     ).length;
 
-    const published1970 = square.recaptureCount;
+    const published1970 = squaresById.get(square.id)?.publishedCount ?? square.recaptureCount;
     const total1970 = square.photoCount;
 
     return {

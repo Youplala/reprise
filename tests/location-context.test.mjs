@@ -101,7 +101,8 @@ test('cadre Paris par défaut et retire le retour dès que la navigation revient
 test('la carte branche le cadrage parisien et le retour explicite après un recentrage hors zone', async () => {
   const source = await readFile(new URL('../src/screens/map/index.tsx', import.meta.url), 'utf8');
 
-  assert.match(source, /initialRegion=\{PARIS_INITIAL_REGION\}/);
+  assert.match(source, /useState<Region>\(PARIS_INITIAL_REGION\)/);
+  assert.match(source, /region=\{region\}/);
   assert.match(source, /setRecenteredOutsideParis\([\s\S]*?'outside-paris'/);
   assert.match(source, /accessibilityLabel="Revenir à la carte de Paris"/);
   assert.match(source, /onPress=\{handleReturnToParis\}/);
@@ -149,8 +150,9 @@ test('l’accueil garde toute l’exploration accessible et ne redemande pas le 
   assert.match(source, /const handleRefresh = refresh;/);
   assert.doesNotMatch(source, /Promise\.all\(\[refresh\(\), locate\(\)\]\)/);
   assert.doesNotMatch(source, /disabled=\{awaitingFirstLocation\}/);
-  assert.match(source, /La consultation fonctionne partout/);
-  assert.match(source, /rendez-vous au point de\s+vue parisien/);
+  assert.match(source, />Autour de moi<\/Text>/);
+  assert.doesNotMatch(source, /Retrouvez Paris, photo après photo|Observatoire mobile de Paris/);
+  assert.doesNotMatch(source, /locationContent\.sectionTitle|styles\.seeAll/);
 });
 
 test('les reprises publiées restent indépendantes de la localisation', async () => {
