@@ -4,6 +4,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { applyGrid, buildGrid, squareBucket } from '../scripts/build-site-grid.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const site = path.join(root, 'site');
 const pages = [
@@ -55,6 +57,57 @@ test('la confidentialité décrit le traitement local et le dépôt tiers manuel
   assert.match(privacy, /OpenStreetMap/);
   assert.match(privacy, /Automattic/);
   assert.match(privacy, /mailto:eliebrosset@gmail\.com/);
+});
+
+test('ne charge aucune ressource tierce', () => {
+  for (const [, relativePath] of [...pages, [null, '404.html']]) {
+    const html = read(`site/${relativePath}`);
+    assert.doesNotMatch(html, /fonts\.googleapis|fonts\.gstatic/, relativePath);
+    const resources = [
+      ...html.matchAll(/<link\b[^>]*\brel="(?:stylesheet|preload|icon|apple-touch-icon)"[^>]*>/g),
+      ...html.matchAll(/<(?:script|img)\b[^>]*\bsrc="[^"]*"[^>]*>/g),
+    ].map((match) => match[0].match(/(?:href|src)="([^"]*)"/)[1]);
+    for (const resource of resources) {
+      assert.doesNotMatch(resource, /^(?:https?:)?\/\//, `${relativePath}: ${resource}`);
+    }
+  }
+});
+
+test('les textes publics ne décrivent plus de capteur d’orientation', () => {
+  const files = [
+    ...pages.map(([, relativePath]) => `site/${relativePath}`),
+    'docs/CONFIDENTIALITE.md',
+    'docs/PUBLICATION.md',
+    'store.config.json',
+    'docs/app-review/REPONSE-APP-STORE-CONNECT.md',
+    'docs/app-review/SCRIPT-ENREGISTREMENT.md',
+  ];
+  for (const file of files) {
+    const text = read(file);
+    assert.doesNotMatch(text, /orientation du téléphone|inclinaison|tilt guide|motion permission|motion prompt|l’orientation sont demandées/i, file);
+  }
+});
+
+test('la grille de l’accueil suit les paliers de l’écran Statistiques', () => {
+  const square = (photoCount, recaptureCount) => ({ photoCount, recaptureCount });
+  assert.equal(squareBucket(square(0, 0)), 'untouched');
+  assert.equal(squareBucket(square(8, 0)), 'untouched');
+  assert.equal(squareBucket(square(8, 1)), 'started');
+  assert.equal(squareBucket(square(8, 2)), 'halfway');
+  assert.equal(squareBucket(square(8, 8)), 'complete');
+
+  const snapshot = JSON.parse(read('assets/data/observatoire-snapshot.json'));
+  const grid = buildGrid(snapshot);
+  const tiles = [...grid.svg.matchAll(/M[\d.]+ [\d.]+h/g)].length;
+  assert.equal(tiles, snapshot.squares.filter((entry) => Array.isArray(entry.bounds)).length);
+  assert.doesNotMatch(grid.svg, /https?:\/\/(?!www\.w3\.org)/);
+
+  // La page publiée contient une grille générée par le script, sans exiger le relevé du jour.
+  const html = read('site/index.html');
+  assert.match(html, /<!-- grille:début -->\n<svg class="grid-map"[\s\S]*<\/svg>\n<!-- grille:fin -->/);
+  const regenerated = applyGrid(html, grid);
+  const keys = (page) => [...page.matchAll(/data-stat="([a-z0-9-]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(keys(regenerated), keys(html));
 });
 
 test('propose un canal d’assistance privé', () => {

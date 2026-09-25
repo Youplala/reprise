@@ -142,6 +142,10 @@ Le [site public](https://youplala.github.io/reprise/) réunit la politique de co
 l’assistance, les conditions d’utilisation et les sources. Ces URLs sont utilisées par App Store
 Connect et Play Console.
 
+La carte de la page d’accueil est dessinée à partir du relevé embarqué. Pour la mettre à jour,
+lancer `npm run site:grid` puis committer `site/index.html`. Le site n’utilise aucune ressource
+tierce : les polices sont servies depuis `site/assets/fonts/`.
+
 La clé Google Maps Android ne doit jamais être commitée. Pour un build distant, créer la variable
 `GOOGLE_MAPS_API_KEY` dans l’environnement EAS `production`; le build Android de production est
 volontairement bloqué si elle manque.
