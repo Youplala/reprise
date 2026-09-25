@@ -28,7 +28,7 @@ Chaque étape : laisser l'écran se poser 2 secondes avant d'agir.
 
 1. **Écran d'accueil iOS** → lancer Paris GO depuis l'icône (le lancement doit être visible).
 2. **Onboarding** : faire défiler les pages jusqu'à la dernière. Toucher **« Voir autour de moi   position »** → la demande de **localisation** apparaît → « Autoriser lorsque l'app est active ».
-3. **Accueil** : laisser la liste « Autour de vous » se charger. Faire défiler une fois.
+3. **Autour** : laisser la liste « Autour de moi » se charger. Faire défiler une fois.
 4. **Fiche station** : toucher une carte. Attendre la photo de 1970 (chargée depuis la BHVP),
    montrer l'auteur et le crédit BHVP. Si une reprise 2026 existe, faire glisser le comparateur
    avant/après. Revenir.
@@ -41,10 +41,9 @@ Chaque étape : laisser l'écran se poser 2 secondes avant d'agir.
    d'expéditeur : si vous ne voulez pas la montrer, annulez dès son ouverture. **Annuler** sans
    envoyer, revenir dans Paris GO.
 7. **Viseur** : depuis une fiche station, toucher **« Refaire cette photo »**. Demande **caméra** →
-   Autoriser. Si une demande **« Mouvement et forme physique »** apparaît (elle n'est pas
-   systématique sur iOS), l'autoriser aussi. Montrer la superposition de
-   l'archive, jouer le curseur d'opacité, incliner un peu le téléphone pour montrer les repères,
-   puis **déclencher**.
+   Autoriser. Aucune demande « Mouvement et forme physique » ne doit apparaître : l'app n'utilise
+   plus de capteur de mouvement. Montrer la superposition de l'archive, jouer le curseur
+   d'opacité, puis **déclencher**.
 8. **Revue** : montrer le comparatif. Toucher **« Enregistrer ma photo »** → demande **Photos
    (ajout uniquement)** → Autoriser. Montrer le message « Enregistrée dans vos photos ».
 9. **Dépôt officiel** : toucher **« Préparer le dépôt officiel »**. Laisser le guide s'afficher,
@@ -54,7 +53,7 @@ Chaque étape : laisser l'écran se poser 2 secondes avant d'agir.
    - Si le site est en panne : montrer l'écran d'erreur, revenir en arrière, montrer que l'app
      fonctionne toujours.
 10. Optionnel mais utile : Réglages iOS → Paris GO, montrer les autorisations (Position, Appareil
-    photo, Mouvement, Photos « Ajouter uniquement »). Revenir sur Paris GO.
+    photo, Photos « Ajouter uniquement » ; aucune ligne Mouvement). Revenir sur Paris GO.
 11. Arrêter l'enregistrement.
 
 ## Après
@@ -68,7 +67,7 @@ Chaque étape : laisser l'écran se poser 2 secondes avant d'agir.
 
    (`brew install ffmpeg` si absent.) Viser moins de 200 Mo ; ajouter `-vf scale=-2:1080` si besoin.
 2. Regarder la vidéo une fois en entier : lancement visible, les demandes d'autorisation
-   (position, caméra, Photos, et mouvement si elle est apparue), aucun envoi de formulaire, aucune donnée personnelle
+   (position, caméra, Photos ; aucune demande de mouvement), aucun envoi de formulaire, aucune donnée personnelle
    à l'écran (pas d'adresse mail dans le brouillon de signalement autre que celle du CAUE).
 3. Dans App Store Connect → l'app → version 1.0 → message App Review → **Répondre**, coller le texte
    de [REPONSE-APP-STORE-CONNECT.md](REPONSE-APP-STORE-CONNECT.md) avec la bonne version iOS,

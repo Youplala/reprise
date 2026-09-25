@@ -48,8 +48,8 @@ les reprises déjà publiées par l’Observatoire photo participatif des paysag
 
 RETROUVEZ LE CADRAGE
 
-Affichez la photographie historique, rejoignez le point de vue et utilisez la superposition ainsi
-que les repères d’inclinaison pour préparer une reprise fidèle. Aucune comparaison automatique de
+Affichez la photographie historique, rejoignez le point de vue et superposez-la à la caméra en
+réglant sa transparence pour préparer une reprise fidèle. Aucune comparaison automatique de
 visages ou d’images n’est effectuée.
 
 GARDEZ LE CONTRÔLE
@@ -71,9 +71,9 @@ l’Observatoire photo participatif des paysages parisiens, animée par le CAUE 
 Le dossier complet de réponse à App Review (vidéo, questions 2 à 7, mails d’autorisation) est dans
 [`docs/app-review/`](app-review/README.md).
 
-L’application ne nécessite aucun compte. La position, la caméra et l’orientation sont demandées
-uniquement au moment où l’utilisateur déclenche les fonctions correspondantes. Les photos sont
-enregistrées en accès ajout uniquement.
+L’application ne nécessite aucun compte. La position et la caméra sont demandées uniquement au
+moment où l’utilisateur déclenche les fonctions correspondantes. Aucun capteur de mouvement n’est
+utilisé. Les photos sont enregistrées en accès ajout uniquement.
 
 L’écran « Dépôt officiel » contient une WebView vers
 `https://observatoire-photo.paris/elements/add`. Paris GO préremplit seulement certains champs
