@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0F233A">
+  <meta name="theme-color" content="#F5F0E6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0B1620" media="(prefers-color-scheme: dark)">
   <meta name="description" content="Assistance et réponses aux questions fréquentes pour l’application Paris GO&nbsp;: position, caméra, photothèque, dépôt à l’Observatoire.">
   <meta property="og:title" content="Assistance — Paris GO">
   <meta property="og:description" content="Assistance et réponses aux questions fréquentes pour l’application Paris GO&nbsp;: position, caméra, photothèque, dépôt à l’Observatoire.">
@@ -11,11 +12,10 @@
   <meta property="og:locale" content="fr_FR">
   <meta property="og:url" content="https://youplala.github.io/reprise/support/">
   <link rel="canonical" href="https://youplala.github.io/reprise/support/">
-  <link rel="icon" href="../assets/app-icon.png">
-  <link rel="apple-touch-icon" href="../assets/app-icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&family=IBM+Plex+Mono:wght@500&display=swap">
+  <link rel="icon" href="../assets/icon-64.png" sizes="64x64" type="image/png">
+  <link rel="apple-touch-icon" href="../assets/icon-180.png">
+  <link rel="preload" href="../assets/fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../assets/fonts/newsreader-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="../assets/styles.css">
   <title>Assistance — Paris GO</title>
 </head>
@@ -23,19 +23,19 @@
   <a class="skip-link" href="#contenu">Aller au contenu</a>
   <nav class="site-nav" aria-label="Navigation principale">
     <div class="container nav-inner">
-      <a class="brand" href="../"><img src="../assets/app-icon.png" alt="" width="36" height="36"><span>Paris GO</span></a>
-      <div class="nav-links"><a href="../">Accueil</a><a href="./" aria-current="page">Assistance</a><a href="../confidentialite/">Confidentialité</a><a href="../conditions/">Conditions</a><a href="../sources/">Sources</a></div>
+      <a class="brand" href="../"><img src="../assets/icon-64.png" alt="" width="32" height="32"><span>Paris GO</span></a>
+      <div class="nav-links"><a href="../#histoire">Le projet</a><a href="../#comment">Comment ça marche</a><a href="./" aria-current="page">Assistance</a><a href="../confidentialite/">Confidentialité</a></div>
       <details class="mobile-nav">
         <summary>Menu</summary>
-        <div class="mobile-nav-panel"><a href="../">Accueil</a><a href="./" aria-current="page">Assistance</a><a href="../confidentialite/">Confidentialité</a><a href="../conditions/">Conditions</a><a href="../sources/">Sources</a></div>
+        <div class="mobile-nav-panel"><a href="../">Accueil</a><a href="../#comment">Comment ça marche</a><a href="./" aria-current="page">Assistance</a><a href="../confidentialite/">Confidentialité</a><a href="../conditions/">Conditions d’utilisation</a><a href="../sources/">Sources et crédits</a></div>
       </details>
     </div>
   </nav>
   <main id="contenu">
-    <header class="page-hero grid-bg-light">
+    <header class="page-hero">
       <div class="container">
-        <p class="eyebrow">Assistance</p>
-        <h1>Comment pouvons-nous vous aider&nbsp;?</h1>
+        <p class="kicker">Assistance</p>
+        <h1>Aide et contact</h1>
         <p class="lead">Une question sur l’application, une autorisation, le dépôt à l’Observatoire&nbsp;? Les réponses les plus fréquentes sont ci-dessous, et une personne répond aux autres.</p>
         <div class="meta"><span>Dernière mise à jour&nbsp;: 30 août 2026</span></div>
       </div>
@@ -53,7 +53,7 @@
             <article class="support-card primary">
               <h3>Assistance privée</h3>
               <p>Pour une question personnelle, une demande liée à la confidentialité ou un problème contenant des informations sensibles, écrivez-nous directement. Réponse sous quelques jours.</p>
-              <p class="cta"><a class="button" href="mailto:eliebrosset@gmail.com?subject=Assistance%20Reprise">Écrire à l’assistance</a></p>
+              <p class="cta"><a class="button" href="mailto:eliebrosset@gmail.com?subject=Assistance%20Paris%20GO">Écrire à l’assistance</a></p>
             </article>
             <article class="support-card">
               <h3>Signaler un problème public</h3>
@@ -98,20 +98,29 @@
   <footer class="site-footer">
     <div class="container">
       <div class="footer-grid">
-        <div>
-          <a class="brand" href="../"><img src="../assets/app-icon.png" alt="" width="36" height="36"><span>Paris GO</span></a>
-          <small>Dernière mise à jour de l’assistance&nbsp;: 30 août 2026.</small>
+        <div class="footer-about">
+          <a class="brand" href="../"><img src="../assets/icon-64.png" alt="" width="32" height="32"><span>Paris GO</span></a>
+          <p>Dernière mise à jour de l’assistance&nbsp;: 30 août 2026.</p>
         </div>
-        <ul class="footer-links">
-          <li><a href="../">Accueil</a></li>
-          <li><a href="../support/">Assistance</a></li>
-          <li><a href="../confidentialite/">Confidentialité</a></li>
-          <li><a href="../conditions/">Conditions d’utilisation</a></li>
-          <li><a href="../sources/">Sources et crédits</a></li>
-          <li><a href="https://github.com/Youplala/reprise">GitHub</a></li>
-        </ul>
+        <nav aria-label="Le projet">
+          <p class="footer-title">Le projet</p>
+          <ul>
+            <li><a href="../#comment">Comment ça marche</a></li>
+            <li><a href="../#contribuer">Contribuer</a></li>
+            <li><a href="../sources/">Sources et crédits</a></li>
+            <li><a href="https://github.com/Youplala/reprise">Code source</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="Aide et cadre">
+          <p class="footer-title">Aide et cadre</p>
+          <ul>
+            <li><a href="../support/">Assistance</a></li>
+            <li><a href="../confidentialite/">Confidentialité</a></li>
+            <li><a href="../conditions/">Conditions d’utilisation</a></li>
+          </ul>
+        </nav>
       </div>
-      <p class="footer-meta">© 2026 Élie Brosset · Projet indépendant · Code sous licence MIT · Les contenus tiers conservent leurs droits</p>
+      <p class="footer-meta">© 2026 Élie Brosset · Projet indépendant · Code sous licence MIT · Les contenus tiers conservent leurs droits · Ce site ne dépose aucun cookie et ne charge aucune ressource tierce.</p>
     </div>
   </footer>
 </body>

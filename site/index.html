@@ -3,23 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0F233A">
-  <meta name="description" content="Paris GO, application iPhone gratuite et open source : retrouvez les points de vue du concours photo « C’était Paris en 1970 », superposez l’archive à la caméra et refaites la photo aujourd’hui pour l’Observatoire photo participatif des paysages parisiens.">
-  <meta property="og:title" content="Paris GO — Refaire la photo de Paris, 56 ans plus tard">
-  <meta property="og:description" content="1 755 carrés, des dizaines de milliers de photographies de 1970. Retrouvez le point de vue, alignez le cadrage, contribuez à l’Observatoire.">
+  <meta name="theme-color" content="#F5F0E6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0B1620" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="Paris GO est une application iPhone gratuite et open source pour retrouver les points de vue du concours photo « C’était Paris en 1970 », refaire la même photo aujourd’hui et l’envoyer à l’Observatoire photo participatif des paysages parisiens.">
+  <meta property="og:title" content="Paris GO — refaire les photos de Paris prises en 1970">
+  <meta property="og:description" content="Application iPhone gratuite pour retrouver les points de vue du concours « C’était Paris en 1970 », refaire la photo et l’envoyer à l’Observatoire photo participatif.">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="fr_FR">
   <meta property="og:url" content="https://youplala.github.io/reprise/">
-  <meta property="og:image" content="https://youplala.github.io/reprise/assets/screenshots/01-accueil.png">
+  <meta property="og:image" content="https://youplala.github.io/reprise/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="La grille des carrés du concours de 1970 sur Paris, colorée selon les photos déjà refaites, avec le titre Paris GO.">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="canonical" href="https://youplala.github.io/reprise/">
-  <link rel="icon" href="assets/app-icon.png">
-  <link rel="apple-touch-icon" href="assets/app-icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&family=IBM+Plex+Mono:wght@500&display=swap">
+  <link rel="icon" href="assets/icon-64.png" sizes="64x64" type="image/png">
+  <link rel="apple-touch-icon" href="assets/icon-180.png">
+  <link rel="preload" href="assets/fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/newsreader-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/styles.css">
-  <title>Paris GO — Explorez Paris, capturez 1970</title>
+  <title>Paris GO — refaire les photos de Paris prises en 1970</title>
 </head>
 <body>
   <a class="skip-link" href="#contenu">Aller au contenu</a>
@@ -27,12 +30,11 @@
   <nav class="site-nav" aria-label="Navigation principale">
     <div class="container nav-inner">
       <a class="brand" href="./">
-        <img src="assets/app-icon.png" alt="" width="36" height="36">
+        <img src="assets/icon-64.png" alt="" width="32" height="32">
         <span>Paris GO</span>
       </a>
       <div class="nav-links">
-        <a href="#histoire">L’histoire</a>
-        <a href="#application">L’application</a>
+        <a href="#histoire">Le projet</a>
         <a href="#comment">Comment ça marche</a>
         <a href="support/">Assistance</a>
         <a href="confidentialite/">Confidentialité</a>
@@ -40,9 +42,9 @@
       <details class="mobile-nav">
         <summary>Menu</summary>
         <div class="mobile-nav-panel">
-          <a href="#histoire">L’histoire</a>
-          <a href="#application">L’application</a>
+          <a href="#histoire">Le projet</a>
           <a href="#comment">Comment ça marche</a>
+          <a href="#contribuer">Contribuer</a>
           <a href="support/">Assistance</a>
           <a href="confidentialite/">Confidentialité</a>
           <a href="conditions/">Conditions d’utilisation</a>
@@ -54,153 +56,78 @@
 
   <main id="contenu">
 
-    <!-- Héros -->
-    <header class="hero grid-bg on-panel">
-      <div class="container hero-grid">
-        <div class="reveal">
-          <p class="eyebrow">Paris · 1970 → 2026</p>
-          <h1>Explorez Paris.<br><em>Capturez</em> 1970.</h1>
-          <p class="lead">En 1970, des milliers de Parisiennes et de Parisiens ont photographié leur ville carré par carré. Paris GO transforme ces archives en missions&nbsp;: repérez le point de vue le plus proche, marchez jusqu’au carré, superposez l’archive à votre caméra et capturez la même vue aujourd’hui. Carré après carré, la carte se complète.</p>
-          <div class="hero-actions">
-            <!-- TODO: lien App Store — remplacer href="#disponibilite" par l’URL App Store une fois l’app publiée -->
-            <a class="store-badge" href="#disponibilite" aria-describedby="store-note">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M16.37 12.7c.03 2.98 2.62 3.97 2.65 3.98-.02.07-.41 1.42-1.36 2.8-.82 1.2-1.68 2.39-3.03 2.41-1.32.03-1.75-.78-3.26-.78s-1.98.76-3.23.81c-1.3.05-2.29-1.29-3.12-2.48-1.7-2.45-3-6.91-1.25-9.93.87-1.5 2.42-2.44 4.1-2.47 1.28-.02 2.49.86 3.27.86.78 0 2.25-1.06 3.79-.91.65.03 2.46.26 3.63 1.97-.09.06-2.17 1.27-2.19 3.74zM13.9 5.34c.7-.84 1.16-2.01 1.03-3.18-1 .04-2.21.67-2.93 1.5-.64.74-1.2 1.93-1.05 3.07 1.12.09 2.26-.57 2.95-1.39z"/></svg>
-              <span><small>Télécharger dans</small><b>l’App Store</b></span>
-            </a>
-            <a class="button ghost" href="https://github.com/Youplala/reprise">Voir le code source</a>
+    <!-- Héros : la grille de 1970, dessinée depuis le relevé embarqué (npm run site:grid) -->
+    <header class="hero">
+      <div class="container">
+        <div class="hero-head">
+          <div class="hero-title reveal">
+            <p class="kicker">Application iPhone</p>
+            <h1>Refaire aujourd’hui les photos de Paris prises <em>en 1970</em></h1>
           </div>
-          <p class="store-note" id="store-note">Gratuit · Sans compte · Sans publicité · Open source (MIT)</p>
-        </div>
-
-        <div class="hero-stage" aria-label="Deux écrans de l’application Paris GO">
-          <div class="phone back">
-            <img src="assets/screenshots/02-carte-grille.png" alt="Carte de Paris couverte par la grille des 1 755 carrés du concours de 1970, colorée selon la progression des reprises" width="414" height="900" loading="eager">
-            <span class="side l1"></span><span class="side l2"></span><span class="side l3"></span><span class="side r1"></span>
+          <div class="hero-copy reveal">
+            <p class="lead">En 1970, environ 2&nbsp;800 photographes amateurs ont photographié Paris, chacun dans un carré de 250&nbsp;m. Paris GO affiche leurs photos sur une carte, vous guide jusqu’au point de vue et superpose l’archive à la caméra.</p>
+            <div class="actions">
+              <a class="button" href="#comment">Comment ça marche</a>
+              <a class="button ghost" href="https://github.com/Youplala/reprise">Code source</a>
+            </div>
+            <!-- TODO: lien App Store — remplacer ce statut par le badge officiel et l’URL App Store une fois l’app publiée -->
+            <p class="status"><span class="status-dot" aria-hidden="true"></span>Bientôt sur l’App&nbsp;Store · Gratuit, sans compte, sans publicité</p>
           </div>
-          <div class="phone front">
-            <img src="assets/screenshots/01-accueil.png" alt="Écran d’accueil de Paris GO : « Paris, photographié rue par rue en 1970 », le pouls du collectif et un point de vue à reconduire place de l’Opéra" width="414" height="900" loading="eager">
-            <span class="side l1"></span><span class="side l2"></span><span class="side l3"></span><span class="side r1"></span>
-          </div>
-          <p class="caption">Captures iPhone · version 1.0</p>
         </div>
       </div>
 
-      <div class="facts" aria-label="Le concours de 1970 en chiffres">
-        <div class="container">
-          <div class="fact"><strong>1 755</strong><span>carrés de 250 m de côté</span></div>
-          <div class="fact"><strong>≈ 2 800</strong><span>photographes amateurs</span></div>
-          <div class="fact"><strong>Des dizaines de milliers</strong><span>d’images conservées à la BHVP</span></div>
-          <div class="fact"><strong>30 nov. 2026</strong><span>fin de la campagne 2026</span></div>
+      <figure class="map-figure">
+        <div class="map-frame">
+<!-- grille:début -->
+<svg class="grid-map" viewBox="0 0 1000 546" role="img" aria-labelledby="grille-titre grille-desc">
+<title id="grille-titre">La grille du concours de 1970, carré par carré</title>
+<desc id="grille-desc">1 169 carrés de 250 mètres référencés par l’Observatoire : 623 sans photo refaite, 320 commencés, 160 bien avancés et 66 terminés, au 25 septembre 2026.</desc>
+<g class="tiles"><path class="t-untouched w0" d="M500.2 245.7h12.4v12.4h-12.4zM514.5 245.6h12.4v12.4h-12.4zM443.8 317.7h12.4v12.4h-12.4zM458 317.5h12.4v12.4h-12.4zM501 345.8h12.4v12.4h-12.4zM443.9 332h12.4v12.4h-12.4zM458.1 331.8h12.4v12.4h-12.4zM472.4 331.7h12.4v12.4h-12.4zM486.8 345.9h12.4v12.4h-12.4zM500.6 288.6h12.4v12.4h-12.4zM514.8 288.5h12.4v12.4h-12.4zM543.3 288.2h12.4v12.4h-12.4zM557.9 331h12.4v12.4h-12.4zM501.1 360.1h12.4v12.4h-12.4zM471.9 274.5h12.4v12.4h-12.4z"/><path class="t-started w0" d="M543 245.3h12.4v12.4h-12.4zM500.3 260h12.4v12.4h-12.4zM557.5 273.8h12.4v12.4h-12.4zM528.8 259.7h12.4v12.4h-12.4zM543.1 259.6h12.4v12.4h-12.4zM500.4 274.3h12.4v12.4h-12.4zM514.7 274.2h12.4v12.4h-12.4zM543.2 273.9h12.4v12.4h-12.4zM429.3 289.2h12.4v12.4h-12.4zM429.4 303.5h12.4v12.4h-12.4zM472 288.8h12.4v12.4h-12.4zM486.3 288.7h12.4v12.4h-12.4zM443.6 303.3h12.4v12.4h-12.4zM472.2 303.1h12.4v12.4h-12.4zM529.3 316.9h12.4v12.4h-12.4zM543.6 316.8h12.4v12.4h-12.4zM500.9 331.5h12.4v12.4h-12.4zM472.3 317.4h12.4v12.4h-12.4zM486.5 317.3h12.4v12.4h-12.4zM529.5 345.5h12.4v12.4h-12.4zM486.7 331.6h12.4v12.4h-12.4zM543.8 345.4h12.4v12.4h-12.4zM571.8 288h12.4v12.4h-12.4zM529.1 288.3h12.4v12.4h-12.4zM500.7 302.9h12.4v12.4h-12.4zM443.2 246.2h12.4v12.4h-12.4zM457.4 246h12.4v12.4h-12.4zM457.5 260.3h12.4v12.4h-12.4zM486.2 274.4h12.4v12.4h-12.4z"/><path class="t-halfway w0" d="M514.3 231.3h12.4v12.4h-12.4zM528.6 231.1h12.4v12.4h-12.4zM528.7 245.4h12.4v12.4h-12.4zM514.6 259.9h12.4v12.4h-12.4zM571.7 273.7h12.4v12.4h-12.4zM529 274h12.4v12.4h-12.4zM557.2 245.2h12.4v12.4h-12.4zM557.4 259.5h12.4v12.4h-12.4zM457.8 288.9h12.4v12.4h-12.4zM515.2 331.4h12.4v12.4h-12.4zM529.4 331.2h12.4v12.4h-12.4zM472.5 346h12.4v12.4h-12.4zM514.9 302.8h12.4v12.4h-12.4zM543.4 302.5h12.4v12.4h-12.4zM500.8 317.2h12.4v12.4h-12.4zM485.7 217.2h12.4v12.4h-12.4zM485.8 231.5h12.4v12.4h-12.4zM471.7 245.9h12.4v12.4h-12.4zM471.8 260.2h12.4v12.4h-12.4zM486.1 260.1h12.4v12.4h-12.4zM457.7 274.6h12.4v12.4h-12.4zM500 217.1h12.4v12.4h-12.4z"/><path class="t-complete w0" d="M500.1 231.4h12.4v12.4h-12.4zM443.5 289.1h12.4v12.4h-12.4zM486.4 303h12.4v12.4h-12.4zM515.3 345.7h12.4v12.4h-12.4zM557.6 288.1h12.4v12.4h-12.4zM458.3 346.1h12.4v12.4h-12.4zM557.7 302.4h12.4v12.4h-12.4zM529.2 302.6h12.4v12.4h-12.4zM457.3 231.7h12.4v12.4h-12.4zM485.9 245.8h12.4v12.4h-12.4zM443.4 274.8h12.4v12.4h-12.4z"/><path class="t-untouched w1" d="M586 273.6h12.4v12.4h-12.4zM557 216.6h12.4v12.4h-12.4zM614.3 244.8h12.4v12.4h-12.4zM628.5 244.6h12.4v12.4h-12.4zM600 244.9h12.4v12.4h-12.4zM571.6 259.4h12.4v12.4h-12.4zM585.9 259.3h12.4v12.4h-12.4zM358 289.8h12.4v12.4h-12.4zM372.2 289.7h12.4v12.4h-12.4zM358.1 304.1h12.4v12.4h-12.4zM372.4 304h12.4v12.4h-12.4zM358.2 318.4h12.4v12.4h-12.4zM372.6 332.6h12.4v12.4h-12.4zM372.7 346.9h12.4v12.4h-12.4zM386.5 289.5h12.4v12.4h-12.4zM386.6 303.8h12.4v12.4h-12.4zM386.7 318.1h12.4v12.4h-12.4zM386.9 332.4h12.4v12.4h-12.4zM401.1 332.3h12.4v12.4h-12.4zM444 346.2h12.4v12.4h-12.4zM572.1 316.6h12.4v12.4h-12.4zM572.2 330.9h12.4v12.4h-12.4zM586.4 330.8h12.4v12.4h-12.4zM628.9 287.5h12.4v12.4h-12.4zM614.7 302h12.4v12.4h-12.4zM629 301.8h12.4v12.4h-12.4zM643.2 301.7h12.4v12.4h-12.4zM643.4 316h12.4v12.4h-12.4zM444.4 389.1h12.4v12.4h-12.4zM458.6 389h12.4v12.4h-12.4zM487.1 388.8h12.4v12.4h-12.4zM473 403.2h12.4v12.4h-12.4zM458.9 417.6h12.4v12.4h-12.4zM473.1 417.5h12.4v12.4h-12.4zM487.4 417.4h12.4v12.4h-12.4zM444.1 360.5h12.4v12.4h-12.4zM529.8 374.1h12.4v12.4h-12.4zM544 374h12.4v12.4h-12.4zM472.8 374.6h12.4v12.4h-12.4zM487 374.5h12.4v12.4h-12.4zM544.3 402.6h12.4v12.4h-12.4zM501.6 417.3h12.4v12.4h-12.4zM586.7 359.4h12.4v12.4h-12.4zM600.9 359.3h12.4v12.4h-12.4zM558.3 373.9h12.4v12.4h-12.4zM572.5 373.8h12.4v12.4h-12.4zM601 373.6h12.4v12.4h-12.4zM586.9 388h12.4v12.4h-12.4zM601.1 387.9h12.4v12.4h-12.4zM558.5 402.5h12.4v12.4h-12.4zM572.8 402.4h12.4v12.4h-12.4zM587 402.3h12.4v12.4h-12.4zM572.9 416.7h12.4v12.4h-12.4zM615.2 359.2h12.4v12.4h-12.4zM459 431.9h12.4v12.4h-12.4zM473.2 431.8h12.4v12.4h-12.4zM544.5 431.2h12.4v12.4h-12.4zM428.5 203.4h12.4v12.4h-12.4zM485.1 145.7h12.4v12.4h-12.4zM485.2 160h12.4v12.4h-12.4zM385.8 203.7h12.4v12.4h-12.4zM400 203.6h12.4v12.4h-12.4zM599.6 187.7h12.4v12.4h-12.4zM570.8 159.3h12.4v12.4h-12.4zM570.9 173.6h12.4v12.4h-12.4zM613.9 201.9h12.4v12.4h-12.4zM371.7 232.5h12.4v12.4h-12.4zM371.9 246.8h12.4v12.4h-12.4zM357.7 261.2h12.4v12.4h-12.4zM400.1 217.9h12.4v12.4h-12.4zM400.3 232.2h12.4v12.4h-12.4zM414.5 232.1h12.4v12.4h-12.4zM386.3 260.9h12.4v12.4h-12.4zM429 260.6h12.4v12.4h-12.4zM414.9 275h12.4v12.4h-12.4z"/><path class="t-started w1" d="M628.3 216h12.4v12.4h-12.4zM585.5 216.4h12.4v12.4h-12.4zM585.6 230.7h12.4v12.4h-12.4zM642.8 244.5h12.4v12.4h-12.4zM614.5 273.4h12.4v12.4h-12.4zM628.8 273.2h12.4v12.4h-12.4zM643 273.1h12.4v12.4h-12.4zM400.8 289.4h12.4v12.4h-12.4zM415 289.3h12.4v12.4h-12.4zM415.3 317.9h12.4v12.4h-12.4zM415.4 332.2h12.4v12.4h-12.4zM401.2 346.6h12.4v12.4h-12.4zM429.8 346.4h12.4v12.4h-12.4zM586.1 287.9h12.4v12.4h-12.4zM600.4 287.8h12.4v12.4h-12.4zM586.2 302.2h12.4v12.4h-12.4zM600.6 316.4h12.4v12.4h-12.4zM600.7 330.7h12.4v12.4h-12.4zM558 345.3h12.4v12.4h-12.4zM600.8 345h12.4v12.4h-12.4zM615 330.6h12.4v12.4h-12.4zM372.9 361.2h12.4v12.4h-12.4zM387.1 361h12.4v12.4h-12.4zM429.9 360.7h12.4v12.4h-12.4zM387.2 375.3h12.4v12.4h-12.4zM430 375h12.4v12.4h-12.4zM458.7 403.3h12.4v12.4h-12.4zM529.7 359.8h12.4v12.4h-12.4zM543.9 359.7h12.4v12.4h-12.4zM515.5 374.3h12.4v12.4h-12.4zM458.4 360.4h12.4v12.4h-12.4zM444.2 374.9h12.4v12.4h-12.4zM515.6 388.6h12.4v12.4h-12.4zM544.1 388.3h12.4v12.4h-12.4zM501.5 403h12.4v12.4h-12.4zM558.2 359.6h12.4v12.4h-12.4zM558.6 416.8h12.4v12.4h-12.4zM629.4 359h12.4v12.4h-12.4zM487.5 431.7h12.4v12.4h-12.4zM530.2 431.3h12.4v12.4h-12.4zM414.3 203.5h12.4v12.4h-12.4zM470.8 145.8h12.4v12.4h-12.4zM442.4 160.4h12.4v12.4h-12.4zM456.7 160.2h12.4v12.4h-12.4zM456.8 174.5h12.4v12.4h-12.4zM428.2 160.5h12.4v12.4h-12.4zM428.3 174.8h12.4v12.4h-12.4zM471.3 203h12.4v12.4h-12.4zM499.4 145.6h12.4v12.4h-12.4zM499.5 159.9h12.4v12.4h-12.4zM542.3 159.5h12.4v12.4h-12.4zM499.6 174.2h12.4v12.4h-12.4zM528.1 173.9h12.4v12.4h-12.4zM514 188.4h12.4v12.4h-12.4zM585.4 202.1h12.4v12.4h-12.4zM556.5 159.4h12.4v12.4h-12.4zM556.8 188h12.4v12.4h-12.4zM442.9 217.6h12.4v12.4h-12.4zM443 231.9h12.4v12.4h-12.4zM385.9 218h12.4v12.4h-12.4zM428.8 232h12.4v12.4h-12.4z"/><path class="t-halfway w1" d="M614 216.2h12.4v12.4h-12.4zM557.1 230.9h12.4v12.4h-12.4zM571.4 230.8h12.4v12.4h-12.4zM642.9 258.8h12.4v12.4h-12.4zM586.3 316.5h12.4v12.4h-12.4zM614.8 316.3h12.4v12.4h-12.4zM629.1 316.1h12.4v12.4h-12.4zM415.6 360.8h12.4v12.4h-12.4zM401.5 375.2h12.4v12.4h-12.4zM415.7 375.1h12.4v12.4h-12.4zM416 403.7h12.4v12.4h-12.4zM458.5 374.7h12.4v12.4h-12.4zM530 402.7h12.4v12.4h-12.4zM516 431.5h12.4v12.4h-12.4zM471 160.1h12.4v12.4h-12.4zM442.6 174.7h12.4v12.4h-12.4zM442.7 189h12.4v12.4h-12.4zM485.5 188.6h12.4v12.4h-12.4zM442.8 203.3h12.4v12.4h-12.4zM399.9 189.3h12.4v12.4h-12.4zM414.2 189.2h12.4v12.4h-12.4zM457.1 203.1h12.4v12.4h-12.4zM513.6 145.5h12.4v12.4h-12.4zM528 159.7h12.4v12.4h-12.4zM528.3 188.2h12.4v12.4h-12.4zM542.5 188.1h12.4v12.4h-12.4zM499.8 202.8h12.4v12.4h-12.4zM571 187.9h12.4v12.4h-12.4zM471.4 217.3h12.4v12.4h-12.4zM414.8 260.7h12.4v12.4h-12.4zM528.5 216.8h12.4v12.4h-12.4z"/><path class="t-complete w1" d="M628.6 258.9h12.4v12.4h-12.4zM571.5 245.1h12.4v12.4h-12.4zM400.9 303.7h12.4v12.4h-12.4zM387 346.7h12.4v12.4h-12.4zM430.4 417.9h12.4v12.4h-12.4zM472.6 360.3h12.4v12.4h-12.4zM615.3 373.5h12.4v12.4h-12.4zM527.9 145.4h12.4v12.4h-12.4zM428.9 246.3h12.4v12.4h-12.4zM400.5 260.8h12.4v12.4h-12.4zM400.6 275.1h12.4v12.4h-12.4z"/><path class="t-untouched w2" d="M699.6 215.5h12.4v12.4h-12.4zM685.5 229.9h12.4v12.4h-12.4zM699.7 229.8h12.4v12.4h-12.4zM685.6 244.2h12.4v12.4h-12.4zM699.8 244.1h12.4v12.4h-12.4zM714.1 244h12.4v12.4h-12.4zM343.7 289.9h12.4v12.4h-12.4zM329.6 304.3h12.4v12.4h-12.4zM286.7 290.4h12.4v12.4h-12.4zM343.9 304.2h12.4v12.4h-12.4zM301 290.3h12.4v12.4h-12.4zM286.8 304.7h12.4v12.4h-12.4zM329.7 318.6h12.4v12.4h-12.4zM315.3 304.5h12.4v12.4h-12.4zM358.4 332.7h12.4v12.4h-12.4zM287.1 333.3h12.4v12.4h-12.4zM287.2 347.6h12.4v12.4h-12.4zM301.5 347.5h12.4v12.4h-12.4zM329.5 290h12.4v12.4h-12.4zM358.5 347h12.4v12.4h-12.4zM700.3 301.3h12.4v12.4h-12.4zM671.9 315.8h12.4v12.4h-12.4zM657.5 301.6h12.4v12.4h-12.4zM672 330.1h12.4v12.4h-12.4zM657.6 315.9h12.4v12.4h-12.4zM672.1 344.4h12.4v12.4h-12.4zM686.3 344.3h12.4v12.4h-12.4zM657.8 344.5h12.4v12.4h-12.4zM671.8 301.5h12.4v12.4h-12.4zM686 301.4h12.4v12.4h-12.4zM316.1 390.3h12.4v12.4h-12.4zM330.2 375.8h12.4v12.4h-12.4zM344.5 375.7h12.4v12.4h-12.4zM301.6 361.8h12.4v12.4h-12.4zM301.7 376.1h12.4v12.4h-12.4zM316 376h12.4v12.4h-12.4zM359 404.2h12.4v12.4h-12.4zM643.8 373.2h12.4v12.4h-12.4zM629.7 387.6h12.4v12.4h-12.4zM629.9 416.2h12.4v12.4h-12.4zM644.1 416.1h12.4v12.4h-12.4zM658.4 416h12.4v12.4h-12.4zM686.5 358.6h12.4v12.4h-12.4zM715 358.4h12.4v12.4h-12.4zM672.3 373h12.4v12.4h-12.4zM700.8 372.8h12.4v12.4h-12.4zM672.4 387.3h12.4v12.4h-12.4zM686.7 387.2h12.4v12.4h-12.4zM686.8 401.5h12.4v12.4h-12.4zM430.5 432.2h12.4v12.4h-12.4zM345.1 447.2h12.4v12.4h-12.4zM431 489.4h12.4v12.4h-12.4zM459.1 446.2h12.4v12.4h-12.4zM502.1 474.5h12.4v12.4h-12.4zM459.3 474.8h12.4v12.4h-12.4zM473.6 474.7h12.4v12.4h-12.4zM445.2 489.2h12.4v12.4h-12.4zM559 459.7h12.4v12.4h-12.4zM530.4 445.6h12.4v12.4h-12.4zM544.6 445.5h12.4v12.4h-12.4zM573.3 473.9h12.4v12.4h-12.4zM573.4 488.2h12.4v12.4h-12.4zM601.9 488h12.4v12.4h-12.4zM644.2 430.4h12.4v12.4h-12.4zM658.5 430.3h12.4v12.4h-12.4zM615.9 444.9h12.4v12.4h-12.4zM644.4 444.7h12.4v12.4h-12.4zM616 459.3h12.4v12.4h-12.4zM630.2 459.1h12.4v12.4h-12.4zM644.5 459h12.3v12.3h-12.3zM672.7 430.2h12.4v12.4h-12.4zM559.3 502.6h12.4v12.4h-12.4zM516.6 503h12.4v12.4h-12.4zM530.8 502.8h12.4v12.4h-12.4zM356.6 132.5h12.4v12.4h-12.4zM498.9 88.4h12.4v12.4h-12.4zM441.7 74.6h12.4v12.4h-12.4zM513.2 88.3h12.4v12.4h-12.4zM456 74.4h12.4v12.4h-12.4zM499 102.7h12.4v12.4h-12.4zM542 130.9h12.4v12.4h-12.4zM442.2 131.8h12.4v12.4h-12.4zM485 131.4h12.4v12.4h-12.4zM498.8 74.1h12.4v12.4h-12.4zM599 116.2h12.4v12.4h-12.4zM613.1 101.8h12.4v12.4h-12.4zM300.2 204.5h12.4v12.4h-12.4zM342.5 146.9h12.4v12.4h-12.4zM328.3 161.3h12.4v12.4h-12.4zM342.6 161.2h12.4v12.4h-12.4zM356.9 161.1h12.4v12.4h-12.4zM371.1 161h12.4v12.4h-12.4zM371.4 189.6h12.4v12.4h-12.4zM328.7 204.2h12.4v12.4h-12.4zM442.3 146.1h12.4v12.4h-12.4zM371.5 203.9h12.4v12.4h-12.4zM385.5 175.1h12.4v12.4h-12.4zM613.6 159h12.4v12.4h-12.4zM556.4 145.1h12.4v12.4h-12.4zM599.2 144.8h12.4v12.4h-12.4zM613.8 187.6h12.4v12.4h-12.4zM314.6 218.7h12.4v12.4h-12.4zM286.2 233.2h12.4v12.4h-12.4zM300.5 233.1h12.4v12.4h-12.4zM314.7 233h12.4v12.4h-12.4zM286.3 247.5h12.4v12.4h-12.4zM314.8 247.3h12.4v12.4h-12.4zM286.4 261.8h12.4v12.4h-12.4zM300.7 261.7h12.4v12.4h-12.4zM315 261.6h12.4v12.4h-12.4zM286.6 276.1h12.4v12.4h-12.4zM315.1 275.9h12.4v12.4h-12.4zM328.8 218.5h12.4v12.4h-12.4zM343.1 218.4h12.4v12.4h-12.4zM357.4 218.3h12.4v12.4h-12.4zM329 232.8h12.4v12.4h-12.4zM357.5 232.6h12.4v12.4h-12.4zM329.1 247.1h12.4v12.4h-12.4zM329.3 275.7h12.4v12.4h-12.4zM343.6 275.6h12.4v12.4h-12.4z"/><path class="t-started w2" d="M656.8 215.8h12.4v12.4h-12.4zM642.7 230.2h12.4v12.4h-12.4zM656.9 230.1h12.4v12.4h-12.4zM657 244.4h12.4v12.4h-12.4zM685.4 215.6h12.4v12.4h-12.4zM714 229.7h12.4v12.4h-12.4zM671.3 244.3h12.4v12.4h-12.4zM699.9 258.4h12.4v12.4h-12.4zM685.8 272.8h12.4v12.4h-12.4zM315.2 290.2h12.4v12.4h-12.4zM301.1 304.6h12.4v12.4h-12.4zM344 318.5h12.4v12.4h-12.4zM329.8 332.9h12.4v12.4h-12.4zM344.1 332.8h12.4v12.4h-12.4zM301.2 318.9h12.4v12.4h-12.4zM330 347.2h12.4v12.4h-12.4zM315.6 333.1h12.4v12.4h-12.4zM344.2 347.1h12.4v12.4h-12.4zM700.5 329.9h12.4v12.4h-12.4zM671.6 287.2h12.4v12.4h-12.4zM685.9 287.1h12.4v12.4h-12.4zM330.1 361.5h12.4v12.4h-12.4zM373 375.5h12.4v12.4h-12.4zM344.6 390h12.4v12.4h-12.4zM373.1 389.8h12.4v12.4h-12.4zM330.5 404.4h12.4v12.4h-12.4zM373.2 404.1h12.4v12.4h-12.4zM344.9 418.6h12.4v12.4h-12.4zM359.1 418.5h12.4v12.4h-12.4zM629.5 373.3h12.4v12.4h-12.4zM643.9 387.5h12.4v12.4h-12.4zM644 401.8h12.4v12.4h-12.4zM658.3 401.7h12.4v12.4h-12.4zM587.1 416.6h12.4v12.4h-12.4zM686.6 372.9h12.4v12.4h-12.4zM700.9 387.1h12.4v12.4h-12.4zM672.5 401.6h12.4v12.4h-12.4zM330.7 433h12.4v12.4h-12.4zM345 432.9h12.4v12.4h-12.4zM430.6 446.5h12.4v12.4h-12.4zM373.7 461.3h12.4v12.4h-12.4zM444.9 446.3h12.4v12.4h-12.4zM459.2 460.5h12.4v12.4h-12.4zM516.3 474.4h12.4v12.4h-12.4zM473.5 460.4h12.4v12.4h-12.4zM530.6 474.2h12.4v12.4h-12.4zM544.8 474.1h12.4v12.4h-12.4zM530.7 488.5h12.4v12.4h-12.4zM473.7 489h12.4v12.4h-12.4zM501.9 445.9h12.4v12.4h-12.4zM516.1 445.8h12.4v12.4h-12.4zM601.7 459.4h12.4v12.4h-12.4zM559.1 474h12.4v12.4h-12.4zM530.5 459.9h12.4v12.4h-12.4zM559.2 488.3h12.4v12.4h-12.4zM413.4 103.4h12.4v12.4h-12.4zM427.7 103.3h12.4v12.4h-12.4zM385 117.9h12.4v12.4h-12.4zM399.3 117.8h12.4v12.4h-12.4zM413.7 132h12.4v12.4h-12.4zM470.3 74.3h12.4v12.4h-12.4zM527.4 88.2h12.4v12.4h-12.4zM456.1 88.7h12.4v12.4h-12.4zM527.6 102.5h12.4v12.4h-12.4zM470.5 102.9h12.4v12.4h-12.4zM541.9 116.6h12.4v12.4h-12.4zM442.1 117.5h12.4v12.4h-12.4zM456.3 117.3h12.4v12.4h-12.4zM470.6 117.2h12.4v12.4h-12.4zM456.5 131.6h12.4v12.4h-12.4zM470.7 131.5h12.4v12.4h-12.4zM513.1 74h12.4v12.4h-12.4zM584.6 102h12.4v12.4h-12.4zM556.2 116.5h12.4v12.4h-12.4zM584.7 116.3h12.4v12.4h-12.4zM656.2 130h12.4v12.4h-12.4zM599.1 130.5h12.4v12.4h-12.4zM613.3 116.1h12.4v12.4h-12.4zM641.9 130.1h12.4v12.4h-12.4zM314.3 190.1h12.4v12.4h-12.4zM342.9 189.8h12.4v12.4h-12.4zM456.6 145.9h12.4v12.4h-12.4zM357.2 204h12.4v12.4h-12.4zM385.4 160.8h12.4v12.4h-12.4zM413.9 160.6h12.4v12.4h-12.4zM399.8 175h12.4v12.4h-12.4zM613.5 144.7h12.4v12.4h-12.4zM627.7 144.6h12.4v12.4h-12.4zM570.7 145h12.4v12.4h-12.4zM613.7 173.3h12.4v12.4h-12.4zM628 173.1h12.4v12.4h-12.4zM642.2 173h12.4v12.4h-12.4zM656.5 172.9h12.4v12.4h-12.4zM599.3 159.1h12.4v12.4h-12.4zM656.6 187.2h12.4v12.4h-12.4zM599.4 173.4h12.4v12.4h-12.4zM656.7 201.5h12.4v12.4h-12.4zM670.6 158.5h12.4v12.4h-12.4zM699.5 201.2h12.4v12.4h-12.4z"/><path class="t-halfway w2" d="M642.6 215.9h12.4v12.4h-12.4zM671.1 215.7h12.4v12.4h-12.4zM700 272.7h12.4v12.4h-12.4zM714.3 272.6h12.4v12.4h-12.4zM287 319h12.4v12.4h-12.4zM315.5 318.8h12.4v12.4h-12.4zM700.4 315.6h12.4v12.4h-12.4zM714.6 315.5h12.4v12.4h-12.4zM643.6 344.6h12.4v12.4h-12.4zM700.2 287h12.4v12.4h-12.4zM344.4 361.4h12.4v12.4h-12.4zM358.9 389.9h12.4v12.4h-12.4zM387.4 389.6h12.4v12.4h-12.4zM387.5 403.9h12.4v12.4h-12.4zM401.9 418.1h12.4v12.4h-12.4zM657.9 358.8h12.4v12.4h-12.4zM658.1 373.1h12.4v12.4h-12.4zM601.4 416.5h12.4v12.4h-12.4zM387.7 432.5h12.4v12.4h-12.4zM402.1 446.7h12.4v12.4h-12.4zM359.2 432.8h12.4v12.4h-12.4zM373.5 432.7h12.4v12.4h-12.4zM416.5 460.9h12.4v12.4h-12.4zM359.4 447.1h12.4v12.4h-12.4zM388.1 475.4h12.4v12.4h-12.4zM402.3 475.3h12.4v12.4h-12.4zM430.8 475.1h12.4v12.4h-12.4zM416.7 489.5h12.4v12.4h-12.4zM444.7 432h12.4v12.4h-12.4zM473.4 446.1h12.4v12.4h-12.4zM445 460.6h12.4v12.4h-12.4zM502.2 488.8h12.4v12.4h-12.4zM445.1 474.9h12.4v12.4h-12.4zM516.5 488.7h12.4v12.4h-12.4zM544.9 488.4h12.4v12.4h-12.4zM601.5 430.8h12.4v12.4h-12.4zM573.1 445.3h12.4v12.4h-12.4zM601.6 445.1h12.4v12.4h-12.4zM587.5 459.5h12.4v12.4h-12.4zM502 460.2h12.4v12.4h-12.4zM601.8 473.7h12.4v12.4h-12.4zM658.6 444.6h12.4v12.4h-12.4zM427.6 89h12.4v12.4h-12.4zM484.5 74.2h12.4v12.4h-12.4zM441.8 88.9h12.4v12.4h-12.4zM470.4 88.6h12.4v12.4h-12.4zM484.6 88.5h12.4v12.4h-12.4zM527.7 116.8h12.4v12.4h-12.4zM499.3 131.3h12.4v12.4h-12.4zM513.5 131.2h12.4v12.4h-12.4zM484.9 117.1h12.4v12.4h-12.4zM556.1 102.2h12.4v12.4h-12.4zM570.5 116.4h12.4v12.4h-12.4zM570.6 130.7h12.4v12.4h-12.4zM584.8 130.6h12.4v12.4h-12.4zM641.8 115.8h12.4v12.4h-12.4zM613.4 130.4h12.4v12.4h-12.4zM314.2 175.8h12.4v12.4h-12.4zM328.6 189.9h12.4v12.4h-12.4zM385.3 146.5h12.4v12.4h-12.4zM642 144.4h12.4v12.4h-12.4zM628.1 187.4h12.4v12.4h-12.4zM642.5 201.6h12.4v12.4h-12.4zM670.8 172.8h12.4v12.4h-12.4zM670.9 187.1h12.4v12.4h-12.4zM671 201.4h12.4v12.4h-12.4z"/><path class="t-complete w2" d="M657.3 273h12.4v12.4h-12.4zM714.5 301.2h12.4v12.4h-12.4zM358.7 375.6h12.4v12.4h-12.4zM615.4 387.7h12.4v12.4h-12.4zM416.2 432.3h12.4v12.4h-12.4zM416.3 446.6h12.4v12.4h-12.4zM402.2 461h12.4v12.4h-12.4zM359.5 461.4h12.4v12.4h-12.4zM416.6 475.2h12.4v12.4h-12.4zM402.5 489.6h12.4v12.4h-12.4zM487.7 460.3h12.4v12.4h-12.4zM587.4 445.2h12.4v12.4h-12.4zM516.2 460.1h12.4v12.4h-12.4zM587.7 488.1h12.4v12.4h-12.4zM456.2 103h12.4v12.4h-12.4zM570.2 87.8h12.4v12.4h-12.4zM527.3 73.9h12.4v12.4h-12.4zM598.9 101.9h12.4v12.4h-12.4zM556.3 130.8h12.4v12.4h-12.4zM399.5 146.4h12.4v12.4h-12.4zM542.2 145.2h12.4v12.4h-12.4zM685 172.7h12.4v12.4h-12.4zM685.1 187h12.4v12.4h-12.4z"/><path class="t-untouched w3" d="M527 31h12.4v12.4h-12.4zM512.8 45.4h12.4v12.4h-12.4zM527.1 45.3h12.4v12.4h-12.4zM771.1 243.6h12.4v12.4h-12.4zM757.1 272.3h12.4v12.4h-12.4zM771.3 272.2h12.4v12.4h-12.4zM742.4 215.2h12.4v12.4h-12.4zM756.6 215.1h12.4v12.4h-12.4zM742.5 229.5h12.4v12.4h-12.4zM756.8 229.4h12.4v12.4h-12.4zM771 229.3h12.4v12.4h-12.4zM756.9 243.7h12.4v12.4h-12.4zM313.2 61.4h12.4v12.4h-12.4zM555.4 16.4h12.4v12.4h-12.4zM569.7 16.3h12.4v12.4h-12.4zM215.4 291.1h12.4v12.4h-12.4zM229.7 290.9h12.4v12.4h-12.4zM243.9 290.8h12.4v12.4h-12.4zM244.1 305.1h12.4v12.4h-12.4zM583.9 16.2h12.4v12.4h-12.4zM244.2 319.4h12.4v12.4h-12.4zM215.8 334h12.4v12.4h-12.4zM598.2 16.1h12.4v12.4h-12.4zM272.4 290.5h12.4v12.4h-12.4zM272.7 319.1h12.4v12.4h-12.4zM598.4 44.7h12.4v12.4h-12.4zM742.9 286.7h12.4v12.4h-12.4zM757.2 286.6h12.4v12.4h-12.4zM612.5 16h12.4v12.4h-12.4zM771.6 300.8h12.4v12.4h-12.4zM771.9 343.6h12.3v12.3h-12.3zM785.7 286.3h12.4v12.4h-12.4zM785.8 300.6h12.4v12.4h-12.4zM626.8 30.2h12.4v12.4h-12.4zM641.1 30h12.4v12.4h-12.4zM244.7 376.6h12.4v12.4h-12.4zM245 405.2h12.4v12.4h-12.4zM641.2 44.3h12.4v12.4h-12.4zM245.1 419.5h12.4v12.4h-12.4zM612.7 44.6h12.4v12.4h-12.4zM287.3 361.9h12.4v12.4h-12.4zM273.2 376.3h12.4v12.4h-12.4zM612.8 58.9h12.4v12.4h-12.4zM715.3 401.3h12.4v12.4h-12.4zM772.4 415.1h12.3v12.3h-12.3zM715.4 415.6h12.3v12.3h-12.3zM772.1 372.2h12.3v12.3h-12.3zM757.9 386.7h12.3v12.3h-12.3zM729.5 401.2h12.3v12.3h-12.3zM729.6 415.5h12.3v12.3h-12.3zM245.2 433.8h12.4v12.4h-12.4zM259.5 433.7h12.4v12.4h-12.4zM259.6 448h12.4v12.4h-12.4zM288 433.4h12.4v12.4h-12.4zM345.5 490.1h12.4v12.4h-12.4zM359.7 490h12.4v12.4h-12.4zM274 462.1h12.4v12.4h-12.4zM288.2 462h12.4v12.4h-12.4zM302.5 461.9h12.4v12.4h-12.4zM302.6 476.2h12.4v12.4h-12.4zM345.2 461.5h12.4v12.4h-12.4zM331.1 475.9h12.4v12.4h-12.4zM687.1 444.4h12.4v12.4h-12.4zM673.1 473.1h12.4v12.4h-12.4zM729.7 429.8h12.4v12.4h-12.4zM744 429.7h12.3v12.3h-12.3zM630.3 473.4h12.4v12.4h-12.4zM658.8 473.2h12.4v12.4h-12.4zM744.2 458.3h12.3v12.3h-12.3zM616.3 502.2h12.4v12.4h-12.4zM687 430.1h12.3v12.3h-12.3zM502.6 531.7h12.4v12.4h-12.4zM388.3 504h12.4v12.4h-12.4zM545.3 531.3h12.4v12.4h-12.4zM256.8 133.4h12.4v12.4h-12.4zM602.1 502.3h12.4v12.4h-12.4zM587.9 516.7h12.4v12.4h-12.4zM573.8 531.1h12.3v12.3h-12.3zM474.1 531.9h12.4v12.4h-12.4zM516.7 517.3h12.4v12.4h-12.4zM530.9 517.1h12.4v12.4h-12.4zM327.8 104.1h12.4v12.4h-12.4zM299.2 90.1h12.4v12.4h-12.4zM313.4 90h12.4v12.4h-12.4zM370.6 103.8h12.4v12.4h-12.4zM270.8 104.6h12.4v12.4h-12.4zM328 118.4h12.4v12.4h-12.4zM285 104.5h12.4v12.4h-12.4zM313.6 104.3h12.4v12.4h-12.4zM270.9 119h12.4v12.4h-12.4zM285.2 118.8h12.4v12.4h-12.4zM328.1 132.7h12.4v12.4h-12.4zM299.4 118.7h12.4v12.4h-12.4zM313.7 118.6h12.4v12.4h-12.4zM271 133.3h12.4v12.4h-12.4zM285.3 133.1h12.4v12.4h-12.4zM299.6 133h12.4v12.4h-12.4zM313.8 132.9h12.4v12.4h-12.4zM327.6 75.6h12.4v12.4h-12.4zM341.7 61.1h12.4v12.4h-12.4zM327.5 61.3h12.4v12.4h-12.4zM426.9 3.2h12.4v12.4h-12.4zM698.7 101.1h12.4v12.4h-12.4zM713 101h12.4v12.4h-12.4zM741.6 115.1h12.4v12.4h-12.4zM314 147.2h12.4v12.4h-12.4zM271.3 161.8h12.4v12.4h-12.4zM285.6 161.7h12.4v12.4h-12.4zM299.8 161.6h12.4v12.4h-12.4zM256.9 147.7h12.4v12.4h-12.4zM314.1 161.5h12.4v12.4h-12.4zM271.5 190.4h12.4v12.4h-12.4zM285.8 190.3h12.4v12.4h-12.4zM228.6 176.5h12.4v12.4h-12.4zM242.9 176.4h12.4v12.4h-12.4zM271.7 204.7h12.4v12.4h-12.4zM328.2 147h12.4v12.4h-12.4zM398.7 46.3h12.4v12.4h-12.4zM228.9 205.1h12.4v12.4h-12.4zM271.2 147.5h12.4v12.4h-12.4zM285.4 147.4h12.4v12.4h-12.4zM384.5 60.8h12.4v12.4h-12.4zM398.8 60.6h12.4v12.4h-12.4zM441.1 3.1h12.4v12.4h-12.4zM455.4 3h12.4v12.4h-12.4zM483.9 2.7h12.4v12.4h-12.4zM469.8 17.1h12.4v12.4h-12.4zM441.2 17.4h12.4v12.4h-12.4zM684.8 144.1h12.4v12.4h-12.4zM756.3 172.2h12.4v12.4h-12.4zM770.6 172.1h12.4v12.4h-12.4zM727.9 186.7h12.4v12.4h-12.4zM756.4 186.5h12.4v12.4h-12.4zM770.7 186.4h12.4v12.4h-12.4zM742.3 200.9h12.4v12.4h-12.4zM455.6 31.5h12.4v12.4h-12.4zM469.9 31.4h12.4v12.4h-12.4zM441.6 60.3h12.4v12.4h-12.4zM271.9 233.3h12.4v12.4h-12.4zM243.4 233.6h12.4v12.4h-12.4zM257.7 233.5h12.4v12.4h-12.4zM215 248.2h12.4v12.4h-12.4zM272.2 261.9h12.4v12.4h-12.4zM272.3 276.2h12.4v12.4h-12.4zM243.7 262.2h12.4v12.4h-12.4zM541 2.2h12.4v12.4h-12.4zM215.3 276.8h12.4v12.4h-12.4zM258.1 276.4h12.4v12.4h-12.4zM512.6 16.8h12.4v12.4h-12.4zM526.9 16.7h12.4v12.4h-12.4zM541.1 16.5h12.4v12.4h-12.4z"/><path class="t-started w3" d="M728.5 258.2h12.4v12.4h-12.4zM757 258h12.4v12.4h-12.4zM771.2 257.9h12.4v12.4h-12.4zM728.6 272.5h12.4v12.4h-12.4zM742.8 272.4h12.4v12.4h-12.4zM728.1 215.3h12.4v12.4h-12.4zM215.5 305.4h12.4v12.4h-12.4zM258.3 305h12.4v12.4h-12.4zM215.7 319.7h12.4v12.4h-12.4zM229.9 319.5h12.4v12.4h-12.4zM230.1 333.8h12.4v12.4h-12.4zM244.3 333.7h12.4v12.4h-12.4zM230.2 348.1h12.4v12.4h-12.4zM258.7 347.9h12.4v12.4h-12.4zM273 347.7h12.4v12.4h-12.4zM584.2 44.8h12.4v12.4h-12.4zM728.8 301.1h12.4v12.4h-12.4zM743 301h12.4v12.4h-12.4zM757.3 300.9h12.4v12.4h-12.4zM728.9 315.4h12.4v12.4h-12.4zM743.1 315.3h12.4v12.4h-12.4zM729 329.7h12.4v12.4h-12.4zM757.5 329.5h12.4v12.4h-12.4zM612.6 30.3h12.4v12.4h-12.4zM785.9 314.9h12.4v12.4h-12.4zM230.3 362.4h12.4v12.4h-12.4zM230.4 376.7h12.4v12.4h-12.4zM287.7 404.8h12.4v12.4h-12.4zM302 404.7h12.4v12.4h-12.4zM273.6 419.2h12.4v12.4h-12.4zM287.8 419.1h12.4v12.4h-12.4zM230.7 405.3h12.4v12.4h-12.4zM302.1 419h12.4v12.4h-12.4zM259.3 419.4h12.4v12.4h-12.4zM273.1 362h12.4v12.4h-12.4zM273.3 390.6h12.4v12.4h-12.4zM627 44.5h12.4v12.4h-12.4zM301.8 390.4h12.4v12.4h-12.4zM669.8 44.1h12.4v12.4h-12.4zM669.9 58.4h12.4v12.4h-12.4zM684.1 58.3h12.4v12.4h-12.4zM273.7 433.5h12.4v12.4h-12.4zM316.5 433.2h12.4v12.4h-12.4zM273.8 447.8h12.4v12.4h-12.4zM359.6 475.7h12.4v12.4h-12.4zM288.1 447.7h12.4v12.4h-12.4zM374 489.9h12.4v12.4h-12.4zM316.7 461.8h12.4v12.4h-12.4zM316.9 476.1h12.4v12.4h-12.4zM388.2 489.7h12.4v12.4h-12.4zM715.6 444.2h12.3v12.3h-12.3zM701.2 430h12.4v12.4h-12.4zM672.9 444.5h12.3v12.3h-12.3zM256.6 119.1h12.4v12.4h-12.4zM573.7 516.8h12.4v12.4h-12.4zM459.7 517.7h12.4v12.4h-12.4zM488.2 517.5h12.4v12.4h-12.4zM299.1 75.8h12.4v12.4h-12.4zM313.3 75.7h12.4v12.4h-12.4zM284.9 90.2h12.4v12.4h-12.4zM342.1 104h12.4v12.4h-12.4zM299.3 104.4h12.4v12.4h-12.4zM355.8 32.4h12.4v12.4h-12.4zM341.9 75.4h12.4v12.4h-12.4zM370 32.3h12.4v12.4h-12.4zM356.2 89.6h12.4v12.4h-12.4zM356 61h12.4v12.4h-12.4zM584.4 73.4h12.4v12.4h-12.4zM627.2 73.1h12.4v12.4h-12.4zM641.4 72.9h12.4v12.4h-12.4zM698.6 86.8h12.4v12.4h-12.4zM655.8 87.1h12.4v12.4h-12.4zM713.1 115.3h12.4v12.4h-12.4zM655.9 101.4h12.4v12.4h-12.4zM656 115.7h12.4v12.4h-12.4zM713.2 129.6h12.4v12.4h-12.4zM727.4 115.2h12.4v12.4h-12.4zM398.4 17.7h12.4v12.4h-12.4zM398.6 32h12.4v12.4h-12.4zM427 17.5h12.4v12.4h-12.4zM412.8 31.9h12.4v12.4h-12.4zM271.4 176.1h12.4v12.4h-12.4zM242.8 162.1h12.4v12.4h-12.4zM299.9 175.9h12.4v12.4h-12.4zM300.1 190.2h12.4v12.4h-12.4zM427.3 60.4h12.4v12.4h-12.4zM455.5 17.3h12.4v12.4h-12.4zM484 17h12.4v12.4h-12.4zM699.1 144h12.4v12.4h-12.4zM684.9 158.4h12.4v12.4h-12.4zM441.4 31.7h12.4v12.4h-12.4zM728 201h12.4v12.4h-12.4zM484.2 31.3h12.4v12.4h-12.4zM713.7 186.8h12.4v12.4h-12.4zM756.5 200.8h12.4v12.4h-12.4zM713.8 201.1h12.4v12.4h-12.4zM727.7 158.1h12.4v12.4h-12.4zM727.8 172.4h12.4v12.4h-12.4zM455.7 45.8h12.4v12.4h-12.4zM455.9 60.1h12.4v12.4h-12.4zM484.3 45.6h12.4v12.4h-12.4zM470.1 60h12.4v12.4h-12.4zM272.1 247.6h12.4v12.4h-12.4zM257.8 247.8h12.4v12.4h-12.4zM271.8 219h12.4v12.4h-12.4zM498.3 16.9h12.4v12.4h-12.4zM512.7 31.1h12.4v12.4h-12.4z"/><path class="t-halfway w3" d="M713.9 215.4h12.4v12.4h-12.4zM728.3 243.9h12.4v12.4h-12.4zM229.8 305.2h12.4v12.4h-12.4zM215.9 348.3h12.4v12.4h-12.4zM244.4 348h12.4v12.4h-12.4zM555.5 30.7h12.4v12.4h-12.4zM272.8 333.4h12.4v12.4h-12.4zM771.7 315.1h12.4v12.4h-12.4zM743.2 329.6h12.4v12.4h-12.4zM216.1 362.6h12.4v12.4h-12.4zM244.6 362.3h12.4v12.4h-12.4zM655.5 44.2h12.4v12.4h-12.4zM287.5 376.2h12.4v12.4h-12.4zM655.6 58.5h12.4v12.4h-12.4zM641.3 58.6h12.4v12.4h-12.4zM743.8 401.1h12.3v12.3h-12.3zM345.3 475.8h12.4v12.4h-12.4zM373.8 475.6h12.4v12.4h-12.4zM302.4 447.6h12.4v12.4h-12.4zM330.8 447.3h12.4v12.4h-12.4zM473.9 517.6h12.4v12.4h-12.4zM342.2 118.3h12.4v12.4h-12.4zM370.1 46.6h12.4v12.4h-12.4zM598.7 73.3h12.4v12.4h-12.4zM655.7 72.8h12.4v12.4h-12.4zM698.8 115.4h12.4v12.4h-12.4zM384.3 32.2h12.4v12.4h-12.4zM384.4 46.5h12.4v12.4h-12.4zM257 162h12.4v12.4h-12.4zM713.4 158.2h12.4v12.4h-12.4zM713.5 172.5h12.4v12.4h-12.4zM742 158h12.4v12.4h-12.4zM742.1 172.3h12.4v12.4h-12.4zM484.4 59.9h12.4v12.4h-12.4zM243.8 276.5h12.4v12.4h-12.4zM498.4 31.2h12.4v12.4h-12.4z"/><path class="t-complete w3" d="M498.6 45.5h12.4v12.4h-12.4zM742.6 243.8h12.4v12.4h-12.4zM743.4 343.9h12.4v12.4h-12.4zM627.1 58.8h12.4v12.4h-12.4zM331 461.6h12.4v12.4h-12.4zM715.5 429.9h12.3v12.3h-12.3zM356.1 75.3h12.4v12.4h-12.4zM370.4 75.2h12.4v12.4h-12.4zM712.9 86.7h12.4v12.4h-12.4zM670.2 101.3h12.4v12.4h-12.4zM670.3 115.6h12.4v12.4h-12.4zM384.2 17.9h12.4v12.4h-12.4zM684.7 129.8h12.4v12.4h-12.4zM741.7 129.4h12.4v12.4h-12.4zM242.6 147.8h12.4v12.4h-12.4z"/><path class="t-untouched w4" d="M298.9 61.5h12.4v12.4h-12.4zM129.9 291.8h12.4v12.4h-12.4zM144.1 291.7h12.4v12.4h-12.4zM172.9 320h12.4v12.4h-12.4zM130 306.1h12.4v12.4h-12.4zM144.3 306h12.4v12.4h-12.4zM173 334.3h12.4v12.4h-12.4zM187.3 334.2h12.4v12.4h-12.4zM130.1 320.4h12.4v12.4h-12.4zM158.9 348.8h12.4v12.4h-12.4zM173.2 348.6h12.4v12.4h-12.4zM187.4 348.5h12.4v12.4h-12.4zM598.1 1.8h12.4v12.4h-12.4zM144.7 348.9h12.4v12.4h-12.4zM158.4 291.6h12.4v12.4h-12.4zM172.6 291.4h12.4v12.4h-12.4zM201.2 291.2h12.4v12.4h-12.4zM158.5 305.9h12.4v12.4h-12.4zM640.9 1.4h12.4v12.4h-12.4zM355.5 3.8h12.4v12.4h-12.4zM626.6 1.6h12.4v12.4h-12.4zM173.3 362.9h12.4v12.4h-12.4zM159.2 377.4h12.4v12.4h-12.4zM173.4 377.2h12.4v12.4h-12.4zM187.7 377.1h12.4v12.4h-12.4zM201.9 377h12.4v12.4h-12.4zM173.6 391.5h12.4v12.4h-12.4zM187.8 391.4h12.4v12.4h-12.4zM159.4 406h12.4v12.4h-12.4zM173.7 405.8h12.4v12.4h-12.4zM188 405.7h12.4v12.4h-12.4zM173.8 420.1h12.4v12.4h-12.4zM188.1 420h12.4v12.4h-12.4zM145.1 391.8h12.4v12.4h-12.4zM202.3 419.9h12.4v12.4h-12.4zM369.8 3.7h12.4v12.4h-12.4zM230.8 419.6h12.4v12.4h-12.4zM669.4 1.2h12.4v12.4h-12.4zM327.1 18.4h12.4v12.4h-12.4zM698 1h12.4v12.4h-12.4zM698.1 15.3h12.4v12.4h-12.4zM683.8 15.4h12.4v12.4h-12.4zM683.9 29.7h12.4v12.4h-12.4zM814.7 357.6h12.3v12.3h-12.3zM698.2 29.6h12.4v12.4h-12.4zM684 44h12.4v12.4h-12.4zM712.5 29.5h12.4v12.4h-12.4zM786.6 415h12.3v12.3h-12.3zM815.2 414.8h12.3v12.3h-12.3zM843.3 371.7h12.3v12.3h-12.3zM857.6 371.6h12.3v12.3h-12.3zM857.7 385.9h12.3v12.3h-12.3zM843.6 400.3h12.3v12.3h-12.3zM857.8 400.2h12.3v12.3h-12.3zM174 434.4h12.4v12.4h-12.4zM188.2 434.3h12.4v12.4h-12.4zM174.1 448.7h12.4v12.4h-12.4zM188.3 448.6h12.4v12.4h-12.4zM245.3 448.1h12.4v12.4h-12.4zM185.5 134h12.4v12.4h-12.4zM242 76.3h12.4v12.4h-12.4zM199.7 133.9h12.4v12.4h-12.4zM256.3 76.2h12.4v12.4h-12.4zM227.9 90.7h12.4v12.4h-12.4zM213.7 105.2h12.4v12.4h-12.4zM772.5 429.4h12.3v12.3h-12.3zM242.1 90.6h12.4v12.4h-12.4zM758.5 458.2h12.3v12.3h-12.3zM228 105h12.4v12.4h-12.4zM772.7 458h12.3v12.3h-12.3zM772.8 472.3h12.3v12.3h-12.3zM786.8 429.3h12.3v12.3h-12.3zM256.4 90.5h12.4v12.4h-12.4zM801 429.2h12.3v12.3h-12.3zM815.3 429.1h12.3v12.3h-12.3zM829.5 429h12.3v12.3h-12.3zM801.1 443.5h12.3v12.3h-12.3zM815.4 443.4h12.3v12.3h-12.3zM242.3 104.9h12.4v12.4h-12.4zM787 457.9h12.3v12.3h-12.3zM815.5 457.7h12.3v12.3h-12.3zM829.7 457.6h12.3v12.3h-12.3zM815.6 472h12.3v12.3h-12.3zM256.5 104.8h12.4v12.4h-12.4zM242.4 119.2h12.4v12.4h-12.4zM214 133.8h12.4v12.4h-12.4zM270.5 76.1h12.4v12.4h-12.4zM242.5 133.5h12.4v12.4h-12.4zM341.5 32.5h12.4v12.4h-12.4zM312.9 32.8h12.4v12.4h-12.4zM284.5 47.3h12.4v12.4h-12.4zM185.6 148.3h12.4v12.4h-12.4zM199.9 148.2h12.4v12.4h-12.4zM171.5 162.8h12.4v12.4h-12.4zM185.7 162.6h12.4v12.4h-12.4zM157.5 191.5h12.4v12.4h-12.4zM171.7 191.4h12.4v12.4h-12.4zM186 191.2h12.4v12.4h-12.4zM157.6 205.8h12.4v12.4h-12.4zM298.8 47.2h12.4v12.4h-12.4zM171.9 205.7h12.4v12.4h-12.4zM186.1 205.5h12.4v12.4h-12.4zM214.1 148.1h12.4v12.4h-12.4zM214.2 162.4h12.4v12.4h-12.4zM228.5 162.2h12.4v12.4h-12.4zM214.4 176.7h12.4v12.4h-12.4zM214.5 191h12.4v12.4h-12.4zM313.1 47.1h12.4v12.4h-12.4zM270.4 61.8h12.4v12.4h-12.4zM770.4 143.5h12.4v12.4h-12.4zM143.9 263.1h12.4v12.4h-12.4zM129.7 277.5h12.4v12.4h-12.4zM144 277.4h12.4v12.4h-12.4zM157.9 234.4h12.4v12.4h-12.4zM200.9 262.6h12.4v12.4h-12.4zM201 276.9h12.4v12.4h-12.4z"/><path class="t-started w4" d="M172.8 305.7h12.4v12.4h-12.4zM201.3 305.5h12.4v12.4h-12.4zM201.4 319.8h12.4v12.4h-12.4zM158.8 334.5h12.4v12.4h-12.4zM144.5 334.6h12.4v12.4h-12.4zM655.2 1.3h12.4v12.4h-12.4zM626.7 15.9h12.4v12.4h-12.4zM187.6 362.8h12.4v12.4h-12.4zM144.8 363.2h12.4v12.4h-12.4zM669.5 15.5h12.4v12.4h-12.4zM669.6 29.8h12.4v12.4h-12.4zM341.4 18.2h12.4v12.4h-12.4zM698.4 58.2h12.4v12.4h-12.4zM712.7 58.1h12.4v12.4h-12.4zM355.6 18.1h12.4v12.4h-12.4zM171.2 134.2h12.4v12.4h-12.4zM369.9 18h12.4v12.4h-12.4zM228.1 119.3h12.4v12.4h-12.4zM228.2 133.6h12.4v12.4h-12.4zM412.6 3.3h12.4v12.4h-12.4zM284.7 61.6h12.4v12.4h-12.4z"/><path class="t-halfway w4" d="M201.6 334.1h12.4v12.4h-12.4zM641 15.7h12.4v12.4h-12.4zM655.3 15.6h12.4v12.4h-12.4zM786.9 443.6h12.3v12.3h-12.3zM756 129.3h12.4v12.4h-12.4z"/><path class="t-complete w4" d="M144.4 320.3h12.4v12.4h-12.4zM201.7 348.4h12.4v12.4h-12.4zM655.4 29.9h12.4v12.4h-12.4zM216.5 405.5h12.4v12.4h-12.4zM698.3 43.9h12.4v12.4h-12.4zM384 3.6h12.4v12.4h-12.4z"/><path class="t-untouched w5" d="M58.6 292.5h12.4v12.4h-12.4zM87.1 292.3h12.4v12.4h-12.4zM58.7 306.8h12.4v12.4h-12.4zM87.2 306.5h12.4v12.4h-12.4zM58.9 321.1h12.4v12.4h-12.4zM73.1 321h12.4v12.4h-12.4zM87.4 320.8h12.4v12.4h-12.4zM73.3 335.3h12.4v12.4h-12.4zM115.6 292h12.4v12.4h-12.4zM101.5 306.4h12.4v12.4h-12.4zM115.8 306.3h12.4v12.4h-12.4zM115.9 320.6h12.4v12.4h-12.4zM101.8 335h12.4v12.4h-12.4zM116 334.9h12.4v12.4h-12.4zM101.9 349.3h12.4v12.4h-12.4zM130.9 406.2h12.4v12.4h-12.4zM145.2 406.1h12.4v12.4h-12.4zM132.1 420.6h12.3v12.3h-12.3zM146.2 420.8h12.3v12.3h-12.3zM130.5 363.3h12.4v12.4h-12.4zM116.4 377.8h12.4v12.4h-12.4zM130.7 377.6h12.4v12.4h-12.4zM102.3 392.2h12.4v12.4h-12.4zM116.6 392.1h12.4v12.4h-12.4zM886 357.1h12.3v12.3h-12.3zM886.4 414.3h12.3v12.3h-12.3zM914.6 371.2h12.3v12.3h-12.3zM900.5 385.6h12.3v12.3h-12.3zM914.7 385.5h12.3v12.3h-12.3zM929 385.4h12.3v12.3h-12.3zM914.8 399.8h12.3v12.3h-12.3zM159.8 448.9h12.4v12.4h-12.4zM929.2 414h12.3v12.3h-12.3zM128.3 120.3h12.4v12.4h-12.4zM142.7 134.4h12.4v12.4h-12.4zM156.9 134.3h12.4v12.4h-12.4zM128.4 134.6h12.4v12.4h-12.4zM900.9 442.8h12.3v12.3h-12.3zM915.1 442.7h12.3v12.3h-12.3zM858 428.8h12.3v12.3h-12.3zM886.5 428.6h12.3v12.3h-12.3zM901 457.1h12.3v12.3h-12.3zM915.2 457h12.3v12.3h-12.3zM858.1 443.1h12.3v12.3h-12.3zM872.4 443h12.3v12.3h-12.3zM886.6 442.9h12.3v12.3h-12.3zM844 457.5h12.3v12.3h-12.3zM886.7 457.2h12.3v12.3h-12.3zM872.6 471.6h12.3v12.3h-12.3zM886.8 471.5h12.3v12.3h-12.3zM858.5 500.3h12.3v12.3h-12.3zM872.8 500.2h12.3v12.3h-12.3zM887 500.1h12.3v12.3h-12.3zM872.9 514.5h12.3v12.3h-12.3zM142.9 163h12.4v12.4h-12.4zM100.3 177.7h12.4v12.4h-12.4zM85.7 149.3h12.4v12.4h-12.4zM114.5 177.6h12.4v12.4h-12.4zM128.8 177.5h12.4v12.4h-12.4zM143.1 177.3h12.4v12.4h-12.4zM85.9 163.6h12.4v12.4h-12.4zM114.7 191.9h12.4v12.4h-12.4zM100.5 206.3h12.4v12.4h-12.4zM86 177.9h12.4v12.4h-12.4zM114.8 206.2h12.4v12.4h-12.4zM71.9 192.3h12.4v12.4h-12.4zM86.2 192.2h12.4v12.4h-12.4zM86.3 206.5h12.4v12.4h-12.4zM128.5 148.9h12.4v12.4h-12.4zM142.8 148.7h12.4v12.4h-12.4zM114.4 163.3h12.4v12.4h-12.4zM128.7 163.2h12.4v12.4h-12.4zM101 249.2h12.4v12.4h-12.4zM115.2 249.1h12.4v12.4h-12.4zM129.5 249h12.4v12.4h-12.4zM101.1 263.5h12.4v12.4h-12.4zM58.2 249.6h12.4v12.4h-12.4zM86.7 249.4h12.4v12.4h-12.4zM115.5 277.7h12.4v12.4h-12.4zM58.3 263.9h12.4v12.4h-12.4zM86.8 263.6h12.4v12.4h-12.4zM58.5 278.2h12.4v12.4h-12.4zM72.7 278.1h12.4v12.4h-12.4zM100.7 220.6h12.4v12.4h-12.4zM114.9 220.5h12.4v12.4h-12.4zM129.2 220.3h12.4v12.4h-12.4zM129.3 234.7h12.4v12.4h-12.4z"/><path class="t-started w5" d="M130.3 334.7h12.4v12.4h-12.4zM116.2 349.2h12.4v12.4h-12.4zM102 363.6h12.4v12.4h-12.4z"/><path class="t-untouched w6" d="M30.1 292.8h12.4v12.4h-12.4zM16 307.2h12.4v12.4h-12.4zM44.3 292.7h12.4v12.4h-12.4zM44.5 307h12.4v12.4h-12.4zM44.6 321.3h12.4v12.4h-12.4zM957.3 356.6h12.3v12.3h-12.3zM971.5 356.5h12.3v12.3h-12.3zM985.8 356.4h12.3v12.3h-12.3zM971.6 370.8h12.3v12.3h-12.3zM985.9 370.7h12.3v12.3h-12.3zM957.5 385.2h12.3v12.3h-12.3zM971.7 385.1h12.3v12.3h-12.3zM986 385h12.3v12.3h-12.3zM957.6 399.5h12.3v12.3h-12.3zM971.8 399.4h12.3v12.3h-12.3zM986.1 399.3h12.3v12.3h-12.3zM957.7 413.8h12.3v12.3h-12.3zM943.4 413.9h12.3v12.3h-12.3zM943.5 428.2h12.3v12.3h-12.3zM929.4 442.6h12.3v12.3h-12.3zM943.6 442.5h12.3v12.3h-12.3zM929.5 456.9h12.3v12.3h-12.3zM943.9 485.4h12.3v12.3h-12.3zM986.3 427.9h12.3v12.3h-12.3zM972.1 442.3h12.3v12.3h-12.3zM986.4 442.2h12.3v12.3h-12.3zM972.2 456.6h12.3v12.3h-12.3zM986.5 456.5h12.3v12.3h-12.3zM958.1 471h12.3v12.3h-12.3zM972.3 470.9h12.3v12.3h-12.3zM986.6 470.8h12.3v12.3h-12.3zM958.2 485.3h12.3v12.3h-12.3zM986.7 485.1h12.3v12.3h-12.3zM901.3 500h12.3v12.3h-12.3zM929.8 499.8h12.3v12.3h-12.3zM944 499.7h12.3v12.3h-12.3zM915.6 514.2h12.3v12.3h-12.3zM929.9 514.1h12.3v12.3h-12.3zM944.1 514h12.3v12.3h-12.3zM972.5 499.5h12.3v12.3h-12.3zM958.4 513.9h12.3v12.3h-12.3zM14.9 192.8h12.4v12.4h-12.4zM29.1 192.7h12.4v12.4h-12.4zM71.5 149.4h12.4v12.4h-12.4zM57.4 163.8h12.4v12.4h-12.4zM71.6 163.7h12.4v12.4h-12.4zM57.5 178.1h12.4v12.4h-12.4zM43.4 192.6h12.4v12.4h-12.4zM43.5 206.9h12.4v12.4h-12.4zM57.8 206.7h12.4v12.4h-12.4zM15.1 221.4h12.4v12.4h-12.4zM29.4 221.3h12.4v12.4h-12.4zM1 235.9h12.4v12.4h-12.4zM15.3 235.7h12.4v12.4h-12.4zM29.5 235.6h12.4v12.4h-12.4zM1.1 250.2h12.4v12.4h-12.4zM15.4 250h12.4v12.4h-12.4zM1.3 264.5h12.4v12.4h-12.4zM44.2 278.4h12.4v12.4h-12.4z"/></g>
+<g class="landmarks" aria-hidden="true"><g class="landmark"><circle cx="484.3" cy="83.8" r="4"/><text x="494.3" y="88.3" text-anchor="start">Montmartre</text></g><g class="landmark"><circle cx="280.9" cy="263.8" r="4"/><text x="270.9" y="268.3" text-anchor="end">Tour Eiffel</text></g><g class="landmark minor"><circle cx="512.8" cy="298.1" r="4"/><text x="502.8" y="302.6" text-anchor="end">Notre-Dame</text></g><g class="landmark minor"><circle cx="593.1" cy="296.8" r="4"/><text x="603.1" y="301.3" text-anchor="start">Bastille</text></g></g>
+</svg>
+<!-- grille:fin -->
         </div>
+        <figcaption class="container map-caption">
+          <ul class="legend" aria-label="Légende de la carte">
+            <li><span class="swatch t-untouched" aria-hidden="true"></span>Aucune photo refaite <b data-stat="untouched">623</b></li>
+            <li><span class="swatch t-started" aria-hidden="true"></span>Commencé <b data-stat="started">320</b></li>
+            <li><span class="swatch t-halfway" aria-hidden="true"></span>Bien avancé <b data-stat="halfway">160</b></li>
+            <li><span class="swatch t-complete" aria-hidden="true"></span>Terminé <b data-stat="complete">66</b></li>
+          </ul>
+          <p class="map-source">Les <span data-stat="squares">1 169</span> carrés de 250&nbsp;m référencés par l’Observatoire, au <span data-stat="date">25 septembre 2026</span>. Grille&nbsp;: CAUE de Paris.</p>
+        </figcaption>
+      </figure>
+
+      <div class="container">
+        <dl class="figures">
+          <div><dt>Carrés dessinés en 1970</dt><dd>1&nbsp;755</dd></div>
+          <div><dt>Vues de 1970 numérisées</dt><dd data-stat="photos1970">30 076</dd></div>
+          <div><dt>Déjà refaites en 2026</dt><dd data-stat="recaptures">2 571</dd></div>
+          <div><dt>Fin de la campagne</dt><dd>30&nbsp;nov.</dd></div>
+        </dl>
       </div>
     </header>
 
     <!-- Histoire -->
-    <section class="section grid-bg-light" id="histoire" aria-labelledby="histoire-titre">
+    <section class="section band" id="histoire" aria-labelledby="histoire-titre">
       <div class="container">
         <div class="section-head">
-          <p class="eyebrow">Deux campagnes, une ville</p>
-          <h2 id="histoire-titre">Paris a déjà été photographié rue par rue. C’est le moment de recommencer.</h2>
+          <p class="kicker">Le projet</p>
+          <h2 id="histoire-titre">Le concours de 1970 et la campagne de 2026</h2>
         </div>
         <div class="epochs">
           <article class="epoch">
-            <span class="year">1970<sup>Le concours</sup></span>
-            <h3>«&nbsp;C’était Paris en 1970&nbsp;»</h3>
-            <p>La FNAC et la Ville de Paris lancent un concours photographique d’une ampleur inédite. La capitale est découpée en <strong>1 755 carrés de 250 mètres</strong>&nbsp;; chaque participant se voit attribuer le sien et doit en rapporter des vues&nbsp;: façades, cours, commerces, chantiers, passants.</p>
-            <p>Environ <strong>2 800 photographes amateurs</strong> répondent à l’appel. Les dizaines de milliers d’images qu’ils déposent forment aujourd’hui le fonds «&nbsp;C’était Paris en 1970&nbsp;», conservé par la Bibliothèque historique de la Ville de Paris (BHVP) et consultable en ligne.</p>
-            <ul class="tiles" aria-hidden="true">
-              <li></li><li></li><li class="a"></li><li></li><li></li><li class="d"></li><li></li><li></li><li class="a"></li><li></li><li></li><li></li>
-              <li class="a"></li><li></li><li></li><li class="b"></li><li></li><li></li><li class="a"></li><li></li><li></li><li></li><li class="c"></li><li></li>
-              <li></li><li class="c"></li><li></li><li></li><li class="a"></li><li></li><li></li><li class="d"></li><li></li><li class="a"></li><li></li><li></li>
-              <li></li><li></li><li class="d"></li><li></li><li></li><li class="a"></li><li></li><li></li><li class="b"></li><li></li><li></li><li class="a"></li>
-            </ul>
+            <p class="year" aria-hidden="true">1970</p>
+            <h3><span class="visually-hidden">1970 — </span>«&nbsp;C’était Paris en 1970&nbsp;»</h3>
+            <p>La FNAC et la Ville de Paris organisent un concours photographique. La capitale est découpée en <strong>1&nbsp;755 carrés de 250&nbsp;mètres</strong>&nbsp;; chaque participant reçoit le sien et doit en rapporter des vues&nbsp;: façades, cours, commerces, chantiers, passants.</p>
+            <p>Environ <strong>2&nbsp;800 photographes amateurs</strong> répondent à l’appel. Leurs images forment aujourd’hui le fonds «&nbsp;C’était Paris en 1970&nbsp;», conservé par la Bibliothèque historique de la Ville de Paris (BHVP).</p>
           </article>
+          <div class="epoch-gap" aria-hidden="true"><span>56 ans</span></div>
           <article class="epoch">
-            <span class="year">2026<sup>La reprise</sup></span>
-            <h3>L’Observatoire photo participatif des paysages parisiens</h3>
-            <p>Animé par le <strong>CAUE de Paris</strong>, l’Observatoire invite chacune et chacun à retrouver les points de vue de 1970 et à les rephotographier au même endroit, dans le même cadrage. Placées côte à côte, les deux images racontent un demi-siècle de transformations&nbsp;: ce qui a disparu, ce qui tient, ce qui a poussé.</p>
-            <p>La campagne est ouverte à tous, sans matériel particulier. Elle se termine le <strong>30&nbsp;novembre 2026</strong>. Paris GO est l’outil de terrain qui manquait pour y participer depuis un iPhone.</p>
-            <span class="deadline">Campagne ouverte jusqu’au 30 novembre 2026</span>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- Application -->
-    <section class="section panel grid-bg" id="application" aria-labelledby="application-titre">
-      <div class="container">
-        <div class="section-head">
-          <p class="eyebrow">L’application</p>
-          <h2 id="application-titre">Une carte à compléter, carré par carré.</h2>
-          <p class="lead">Paris GO réunit les données publiques de l’Observatoire et les archives de la BHVP en un seul compagnon de terrain. Vous choisissez un point de vue, vous y allez, vous cadrez, vous photographiez.</p>
-        </div>
-
-        <div class="features">
-          <article class="feature">
-            <div class="feature-visual">
-              <div class="phone">
-                <img src="assets/screenshots/02-carte-grille.png" alt="Carte de la grille de 1970 : les carrés déjà repris apparaissent en bleu, ceux encore à faire en terre cuite, avec un indicateur de progression globale" width="414" height="900" loading="lazy">
-                <span class="side l1"></span><span class="side l2"></span><span class="side l3"></span><span class="side r1"></span>
-              </div>
-            </div>
-            <div class="feature-text">
-              <span class="index">01 — La carte</span>
-              <h3>La grille de 1970 sur le Paris d’aujourd’hui</h3>
-              <p>Les 1 755 carrés du concours sont posés sur la carte, colorés selon leur taux de reprise. Touchez un quartier pour voir ce qui reste à faire, filtrez les vues encore à reprendre ou celles déjà publiées, cherchez une rue ou un arrondissement.</p>
-            </div>
-          </article>
-
-          <article class="feature">
-            <div class="feature-visual">
-              <div class="phone">
-                <img src="assets/screenshots/01-accueil.png" alt="Écran Autour : le point de vue le plus proche à reconduire, ici 3 place de l’Opéra, avec la photographie d’archive et le bouton « Refaire cette photo »" width="414" height="900" loading="lazy">
-                <span class="side l1"></span><span class="side l2"></span><span class="side l3"></span><span class="side r1"></span>
-              </div>
-            </div>
-            <div class="feature-text">
-              <span class="index">02 — Autour de vous</span>
-              <h3>Les photos de 1970 prises là où vous êtes</h3>
-              <p>Depuis un trottoir, une terrasse ou une sortie de métro, Paris GO vous montre les vues de 1970 les plus proches, chargées directement depuis la visionneuse de la BHVP, avec le nom du photographe et le lieu indexé par la bibliothèque.</p>
-            </div>
-          </article>
-
-          <article class="feature">
-            <div class="feature-visual">
-              <div class="overlay-demo" role="img" aria-label="Illustration : la photographie d’archive est superposée en transparence à l’image de la caméra, avec une grille de cadrage et un curseur d’opacité">
-                <div class="screen">
-                  <div class="archive"></div>
-                  <div class="grid"></div>
-                  <div class="frame"></div>
-                  <span class="label">Superposition · 1970</span>
-                  <div class="slider"></div>
-                  <div class="shutter"></div>
-                </div>
-              </div>
-            </div>
-            <div class="feature-text">
-              <span class="index">03 — La caméra</span>
-              <h3>L’archive en transparence sur votre viseur</h3>
-              <p>Ajustez l’opacité de la photographie de 1970 par-dessus l’image de la caméra, alignez les corniches, les fenêtres et les lignes de fuite, puis déclenchez. Des repères d’inclinaison vous aident à retrouver la hauteur et l’aplomb de l’époque. Aucune analyse d’image automatique&nbsp;: c’est votre œil qui décide.</p>
-              <ul>
-                <li>La photo est enregistrée dans Photos, en <strong>ajout seul</strong>&nbsp;: Paris GO ne lit jamais votre photothèque.</li>
-                <li>Vos prises de vue et votre carnet restent sur le téléphone.</li>
-              </ul>
-            </div>
-          </article>
-
-          <article class="feature">
-            <div class="feature-visual">
-              <div class="phone">
-                <img src="assets/screenshots/04-collectif.png" alt="Écran Collectif : les chiffres du mois, les contributrices et contributeurs les plus actifs et une comparaison avant-après avenue Ledru-Rollin, 1970 et 2026" width="414" height="900" loading="lazy">
-                <span class="side l1"></span><span class="side l2"></span><span class="side l3"></span><span class="side r1"></span>
-              </div>
-            </div>
-            <div class="feature-text">
-              <span class="index">04 — La contribution</span>
-              <h3>Le formulaire officiel, préparé mais jamais envoyé à votre place</h3>
-              <p>Quand vous êtes satisfait de votre reprise, Paris GO ouvre le formulaire de l’Observatoire et y prépare ce qui est public&nbsp;: la date, le lieu, les coordonnées du point de vue, le modèle d’appareil et les deux photographies attendues. Vous renseignez vous-même votre identité et les consentements, vous vérifiez chaque champ, puis vous déclenchez l’envoi. Rien ne part sans vous.</p>
-              <p>L’écran Collectif suit ensuite l’avancement de la campagne et les comparaisons avant-après déjà publiées.</p>
-            </div>
+            <p class="year" aria-hidden="true">2026</p>
+            <h3><span class="visually-hidden">2026 — </span>L’Observatoire photo participatif des paysages parisiens</h3>
+            <p>Animé par le <strong>CAUE de Paris</strong>, l’Observatoire invite chacune et chacun à retrouver les points de vue de 1970 et à les rephotographier au même endroit, dans le même cadrage. Les deux photos sont ensuite publiées côte à côte sur le site de l’Observatoire.</p>
+            <p>La campagne est ouverte à tous, sans matériel particulier, jusqu’au <strong>30&nbsp;novembre 2026</strong>. Paris GO sert à y participer depuis un iPhone.</p>
           </article>
         </div>
       </div>
@@ -210,101 +137,233 @@
     <section class="section" id="comment" aria-labelledby="comment-titre">
       <div class="container">
         <div class="section-head">
-          <p class="eyebrow">Comment ça marche</p>
-          <h2 id="comment-titre">Quatre gestes, une capture.</h2>
-          <p class="lead">Une sortie de vingt minutes suffit, et chaque capture fait avancer le collectif. Pas de compte à créer, pas de matériel à acheter&nbsp;: l’iPhone que vous avez déjà.</p>
+          <p class="kicker">Comment ça marche</p>
+          <h2 id="comment-titre">De la carte au formulaire de l’Observatoire</h2>
+          <p class="lead">Il faut un iPhone et une connexion internet pour charger les photos de 1970. Aucun compte n’est nécessaire.</p>
         </div>
         <ol class="steps">
-          <li class="step">
-            <span class="verb">Explorer</span>
-            <h3>Choisissez une mission</h3>
-            <p>Sur la carte ou autour de vous, les points de vue de 1970 encore à reprendre apparaissent comme des missions ouvertes. Ouvrez-en une, lisez sa légende, situez le carré.</p>
+          <li>
+            <h3>Choisir une photo</h3>
+            <p>Sur la carte ou dans l’onglet Autour, choisissez une vue de 1970 encore à refaire. Sa fiche indique l’auteur et le lieu indexé par la bibliothèque.</p>
           </li>
-          <li class="step">
-            <span class="verb">Marcher</span>
-            <h3>Rendez-vous sur place</h3>
-            <p>Paris GO vous guide jusqu’au carré et affiche l’archive en grand pour reconnaître le bâtiment, l’angle de rue ou la perspective d’origine.</p>
+          <li>
+            <h3>Aller sur place</h3>
+            <p>Rendez-vous au point de vue avec la photo de 1970 affichée en grand pour repérer le bâtiment ou l’angle de rue.</p>
           </li>
-          <li class="step">
-            <span class="verb">Capturer</span>
-            <h3>Alignez et capturez</h3>
-            <p>Superposez l’archive à la caméra, réglez sa transparence, ajustez votre position jusqu’à ce que les lignes coïncident, puis photographiez.</p>
+          <li>
+            <h3>Aligner et photographier</h3>
+            <p>Superposez l’archive à la caméra, réglez sa transparence et déplacez-vous jusqu’à ce que les lignes coïncident.</p>
           </li>
-          <li class="step">
-            <span class="verb">Compléter</span>
-            <h3>Complétez la carte, envoyez vous-même</h3>
-            <p>Paris GO prépare le formulaire de l’Observatoire avec les deux photos. Vous complétez votre identité, relisez, et envoyez quand vous le décidez.</p>
+          <li>
+            <h3>Envoyer à l’Observatoire</h3>
+            <p>Étape facultative. Paris GO préremplit le formulaire de l’Observatoire&nbsp;; vous le vérifiez et l’envoyez vous-même.</p>
           </li>
         </ol>
       </div>
     </section>
 
-    <!-- Engagements -->
-    <section class="section panel" id="engagements" aria-labelledby="engagements-titre">
+    <!-- La caméra -->
+    <section class="section band" id="camera" aria-labelledby="camera-titre">
+      <div class="container split">
+        <figure class="viewfinder">
+          <svg viewBox="0 0 360 660" role="img" aria-labelledby="viseur-titre">
+            <title id="viseur-titre">Illustration : une façade photographiée en 1970, en transparence, vient se caler sur la même façade vue aujourd’hui dans le viseur.</title>
+            <defs>
+              <clipPath id="viseur-clip"><rect width="360" height="660" rx="34"/></clipPath>
+              <linearGradient id="viseur-ciel" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#C9D6DC"/>
+                <stop offset="1" stop-color="#E7E1D4"/>
+              </linearGradient>
+              <g id="facade" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M-150 382H390"/>
+                <path d="M-150 112H-18V382M-150 170H-18M-150 232H-18M-150 294H-18"/>
+                <path d="M-122 124h24v34h-24zM-72 124h24v34h-24zM-122 186h24v34h-24zM-72 186h24v34h-24zM-122 248h24v34h-24zM-72 248h24v34h-24z"/>
+                <path d="M258 96H390M258 96V382M258 150H390M258 212H390M258 274H390"/>
+                <path d="M286 110h24v30h-24zM336 110h24v30h-24zM286 166h24v34h-24zM336 166h24v34h-24zM286 228h24v34h-24zM336 228h24v34h-24z"/>
+                <path d="M-6 76L12 30H228L246 76"/>
+                <path d="M30 70V52a12 12 0 0 1 24 0v18M108 70V52a12 12 0 0 1 24 0v18M186 70V52a12 12 0 0 1 24 0v18"/>
+                <path d="M-10 76H250M-10 82H250M0 82V322M240 82V322"/>
+                <path d="M13 94h22v34h-22zM61 94h22v34h-22zM109 94h22v34h-22zM157 94h22v34h-22zM205 94h22v34h-22z"/>
+                <path d="M13 150h22v38h-22zM61 150h22v38h-22zM109 150h22v38h-22zM157 150h22v38h-22zM205 150h22v38h-22z"/>
+                <path d="M13 210h22v34h-22zM61 210h22v34h-22zM109 210h22v34h-22zM157 210h22v34h-22zM205 210h22v34h-22z"/>
+                <path d="M13 264h22v32h-22zM61 264h22v32h-22zM109 264h22v32h-22zM157 264h22v32h-22zM205 264h22v32h-22z"/>
+                <path d="M-4 132H244M-4 192H244"/>
+                <path d="M-2 135H242M-2 195H242" stroke-width="6" stroke-dasharray="1.4 4.2"/>
+                <path d="M-10 316H250M-10 322H250"/>
+                <path d="M16 382V350a26 22 0 0 1 52 0v32M94 382V350a26 22 0 0 1 52 0v32M172 382V350a26 22 0 0 1 52 0v32"/>
+                <path d="M-44 382V286M-52 270h16l-3 16h-10z"/>
+              </g>
+            </defs>
+            <g clip-path="url(#viseur-clip)">
+              <rect width="360" height="660" fill="url(#viseur-ciel)"/>
+              <g transform="translate(60 72)">
+                <use href="#facade" class="facade-now"/>
+                <g class="facade-then"><use href="#facade"/></g>
+              </g>
+              <rect x="44" y="84" width="272" height="360" rx="4" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.9"/>
+              <path d="M180 84V444M44 264H316" stroke="#FFFFFF" stroke-width="1" opacity="0.55"/>
+              <g class="viewfinder-chip">
+                <rect x="84" y="30" width="192" height="30" rx="15" fill="#0D1B26" opacity="0.86"/>
+                <circle cx="104" cy="45" r="4" fill="#F0B642"/>
+                <text x="116" y="49.5">Superposition · 1970</text>
+              </g>
+              <g class="aligned-chip">
+                <rect x="112" y="400" width="136" height="30" rx="15" fill="#FFFFFF"/>
+                <text x="180" y="419.5" text-anchor="middle">Lignes alignées</text>
+              </g>
+              <rect y="470" width="360" height="190" fill="#0D1B26"/>
+              <text class="vf-kicker" x="28" y="508">Superposition historique</text>
+              <text class="vf-title" x="28" y="540">Photo 01 · 1970</text>
+              <rect x="28" y="566" width="304" height="6" rx="3" fill="#3A4A56"/>
+              <rect class="vf-fill" x="28" y="566" width="168" height="6" rx="3" fill="#F0B642"/>
+              <circle class="vf-thumb" cx="196" cy="569" r="12" fill="#FFFFFF"/>
+              <circle cx="180" cy="620" r="24" fill="#FFFFFF"/>
+              <circle cx="180" cy="620" r="29" fill="none" stroke="#FFFFFF" stroke-width="2.5"/>
+            </g>
+          </svg>
+          <figcaption>Illustration du viseur. Dans l’application, c’est la photographie de 1970 qui se superpose à l’image de la caméra.</figcaption>
+        </figure>
+        <div class="split-copy">
+          <p class="kicker">La caméra</p>
+          <h2 id="camera-titre">Superposer la photo de 1970 à la caméra</h2>
+          <p class="lead">La photo de 1970 s’affiche en transparence sur l’image de la caméra, et un curseur règle son opacité. Vous vous déplacez jusqu’à ce que les façades, les fenêtres et les lignes de la rue coïncident, puis vous déclenchez.</p>
+          <p>L’alignement se fait à l’œil&nbsp;: l’application n’analyse pas les images. Après la prise de vue, les deux photos sont affichées côte à côte pour vérifier le cadrage.</p>
+          <ul class="checks">
+            <li>Enregistrement dans Photos en <strong>ajout seul</strong>&nbsp;: Paris GO ne lit jamais votre photothèque.</li>
+            <li>Vos prises de vue et votre carnet restent sur le téléphone.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contribution -->
+    <section class="section" id="contribuer" aria-labelledby="contribuer-titre">
+      <div class="container split reverse">
+        <div class="split-copy">
+          <p class="kicker">La contribution</p>
+          <h2 id="contribuer-titre">Envoyer sa photo à l’Observatoire</h2>
+          <p class="lead">Paris GO ouvre le formulaire officiel de l’Observatoire dans l’application et remplit les champs publics&nbsp;: date, lieu, coordonnées, modèle d’appareil et les deux photos.</p>
+          <p>Vous remplissez votre identité et les consentements, vous vérifiez le formulaire, puis vous l’envoyez vous-même. La contribution va directement à l’Observatoire, qui la modère et la publie. Paris GO n’envoie rien à votre place.</p>
+        </div>
+        <div class="form-sheet">
+          <p class="form-sheet-head"><span>observatoire-photo.paris</span><span>Formulaire de contribution</span></p>
+          <table>
+            <caption class="visually-hidden">Qui remplit quoi dans le formulaire officiel</caption>
+            <thead class="visually-hidden"><tr><th scope="col">Champ</th><th scope="col">Rempli par</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Date de la prise de vue</th><td><span class="by-app">Préparé</span></td></tr>
+              <tr><th scope="row">Lieu et coordonnées du point de vue</th><td><span class="by-app">Préparé</span></td></tr>
+              <tr><th scope="row">Modèle d’appareil</th><td><span class="by-app">Préparé</span></td></tr>
+              <tr><th scope="row">Photographie de 1970</th><td><span class="by-app">Préparé</span></td></tr>
+              <tr><th scope="row">Photographie d’aujourd’hui</th><td><span class="by-app">Préparé</span></td></tr>
+              <tr><th scope="row">Commentaire public</th><td><span class="by-none">Laissé vide</span></td></tr>
+              <tr><th scope="row">Votre identité</th><td><span class="by-you">Vous</span></td></tr>
+              <tr><th scope="row">Consentements</th><td><span class="by-you">Vous</span></td></tr>
+            </tbody>
+          </table>
+          <p class="form-sheet-send"><span>Envoyer la contribution</span><span class="by-you">Vous</span></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dans l’application -->
+    <section class="section band" id="application" aria-labelledby="application-titre">
       <div class="container">
         <div class="section-head">
-          <p class="eyebrow">Nos engagements</p>
-          <h2 id="engagements-titre">Une application qui ne vous demande rien.</h2>
+          <p class="kicker">Dans l’application</p>
+          <h2 id="application-titre">Les écrans de l’application</h2>
+        </div>
+        <ul class="tabs-list">
+          <li>
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M26 6L5 14.5l9 3.5 3.5 9z"/></svg>
+            <h3>Autour de moi</h3>
+            <p>Les vues de 1970 les plus proches de vous, chargées depuis la visionneuse de la BHVP, avec le nom du photographe.</p>
+          </li>
+          <li>
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 8l8-3 8 3 8-3v19l-8 3-8-3-8 3zM12 5v19M20 8v19"/></svg>
+            <h3>Carte</h3>
+            <p>La grille de 1970 sur le plan actuel de Paris, avec un filtre pour les vues à retrouver ou déjà refaites et une recherche par rue.</p>
+          </li>
+          <li>
+            <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="11" r="4"/><circle cx="22" cy="12" r="3.5"/><path d="M3 26c.8-5 4-7.5 8-7.5s7.2 2.5 8 7.5M18 19.5c1.2-.7 2.5-1 4-1 3.4 0 6 2.2 6.8 6.5"/></svg>
+            <h3>Communauté</h3>
+            <p>Les comparaisons publiées, la liste des contributrices et contributeurs et les statistiques de la campagne.</p>
+          </li>
+          <li>
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 4h14l4 4v20H8z"/><path d="M12 12h10M12 17h10M12 22h6"/></svg>
+            <h3>Carnet</h3>
+            <p>Vos prises de vue et brouillons de dépôt, enregistrés sur le téléphone pour être repris plus tard.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Engagements -->
+    <section class="section dark" id="engagements" aria-labelledby="engagements-titre">
+      <div class="container">
+        <div class="section-head">
+          <p class="kicker">Nos engagements</p>
+          <h2 id="engagements-titre">Gratuité, données et code source</h2>
         </div>
         <ul class="pledges">
-          <li class="pledge">
-            <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="14"/><path d="M14 20h12M20 14v12"/></svg>
-            <div><h3>Gratuite, sans achat intégré</h3><p>Aucune option payante, aucune version «&nbsp;pro&nbsp;». Le projet est bénévole et le restera pendant toute la campagne.</p></div>
+          <li>
+            <h3>Gratuite</h3>
+            <p>Aucun achat intégré ni version payante. Le projet est bénévole.</p>
           </li>
-          <li class="pledge">
-            <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="15" r="6"/><path d="M8 33c1.5-6 6-9 12-9s10.5 3 12 9"/><path d="M6 6l28 28"/></svg>
-            <div><h3>Sans compte</h3><p>Pas d’inscription, pas de mot de passe, pas de profil. L’application n’a aucun serveur d’utilisateurs.</p></div>
+          <li>
+            <h3>Sans compte</h3>
+            <p>Pas d’inscription ni de mot de passe. L’application n’a pas de serveur d’utilisateurs.</p>
           </li>
-          <li class="pledge">
-            <svg viewBox="0 0 40 40" aria-hidden="true"><rect x="7" y="9" width="26" height="22" rx="3"/><path d="M7 15h26M12 22h9"/><path d="M6 6l28 28"/></svg>
-            <div><h3>Sans publicité ni suivi</h3><p>Aucune régie, aucun profilage, aucun suivi entre applications. Les seules connexions servent à afficher les archives et les données publiques.</p></div>
+          <li>
+            <h3>Sans publicité ni suivi</h3>
+            <p>Aucune régie publicitaire ni profilage. Les connexions servent uniquement à charger les archives et les données publiques.</p>
           </li>
-          <li class="pledge">
-            <svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="8" width="24" height="24" rx="4"/><path d="M14 20l4 4 8-8"/></svg>
-            <div><h3>Photos en ajout seul</h3><p>Paris GO demande uniquement le droit d’enregistrer les photos qu’elle crée. Elle ne parcourt jamais votre bibliothèque.</p></div>
+          <li>
+            <h3>Photos en ajout seul</h3>
+            <p>Paris GO enregistre les photos qu’elle crée et n’a pas accès au reste de votre photothèque.</p>
           </li>
-          <li class="pledge">
-            <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 20l8 8M32 20l-8 8M8 20l8-8M32 20l-8-8"/><path d="M23 10l-6 20"/></svg>
-            <div><h3>Open source, licence MIT</h3><p>Le code est public sur <a href="https://github.com/Youplala/reprise">GitHub</a>. Chacun peut le lire, le vérifier, proposer une amélioration.</p></div>
+          <li>
+            <h3>Pas d’envoi automatique</h3>
+            <p>Le formulaire officiel est prérempli par l’application, jamais soumis par elle.</p>
           </li>
-          <li class="pledge">
-            <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 30V12a2 2 0 012-2h20a2 2 0 012 2v18"/><path d="M4 30h32"/><path d="M14 17h12M14 22h8"/></svg>
-            <div><h3>Jamais d’envoi automatique</h3><p>Le formulaire officiel est préparé, pas soumis. Identité, consentements et bouton d’envoi restent entre vos mains.</p></div>
+          <li>
+            <h3>Open source</h3>
+            <p>Le code est publié sur <a href="https://github.com/Youplala/reprise">GitHub</a> sous licence MIT.</p>
           </li>
         </ul>
       </div>
     </section>
 
     <!-- Crédits -->
-    <section class="section grid-bg-light" id="credits" aria-labelledby="credits-titre">
+    <section class="section" id="credits" aria-labelledby="credits-titre">
       <div class="container">
         <div class="section-head">
-          <p class="eyebrow">Sur les épaules de qui</p>
-          <h2 id="credits-titre">Paris GO s’appuie sur des institutions et des communs.</h2>
+          <p class="kicker">Sources</p>
+          <h2 id="credits-titre">Sources des données et des images</h2>
         </div>
         <ul class="credits">
-          <li class="credit">
-            <span class="who">Archives</span>
+          <li>
+            <p class="credit-role">Archives</p>
             <h3>Bibliothèque historique de la Ville de Paris</h3>
             <p>Conserve le fonds «&nbsp;C’était Paris en 1970&nbsp;». Les images sont chargées depuis sa <a href="https://bibliotheques-specialisees.paris.fr/">visionneuse</a> par permalien, jamais copiées dans l’application.</p>
           </li>
-          <li class="credit">
-            <span class="who">Campagne 2026</span>
+          <li>
+            <p class="credit-role">Campagne 2026</p>
             <h3>Observatoire photo participatif</h3>
-            <p>Animé par le <a href="https://www.caue75.fr/">CAUE de Paris</a>. Les reprises publiées et la progression par carré viennent d’<a href="https://observatoire-photo.paris/">observatoire-photo.paris</a>.</p>
+            <p>Animé par le <a href="https://www.caue75.fr/">CAUE de Paris</a>. Les reprises publiées et la grille viennent d’<a href="https://observatoire-photo.paris/">observatoire-photo.paris</a>.</p>
           </li>
-          <li class="credit">
-            <span class="who">Cartographie</span>
+          <li>
+            <p class="credit-role">Cartographie</p>
             <h3>Apple Plans et OpenStreetMap</h3>
-            <p>La carte principale est celle de la plateforme&nbsp;; certaines vues de détail utilisent les tuiles © contributeurs OpenStreetMap, sous licence ODbL.</p>
+            <p>La carte principale est celle de la plateforme&nbsp;; certaines vues de détail utilisent les tuiles © contributeurs OpenStreetMap (ODbL).</p>
           </li>
-          <li class="credit">
-            <span class="who">Métadonnées</span>
+          <li>
+            <p class="credit-role">Métadonnées</p>
             <h3>Projet paris-1970</h3>
             <p>Auteurs et lieux des dossiers de 1970, normalisés à partir des notices BHVP par un projet open source indépendant.</p>
           </li>
         </ul>
-        <div class="disclaimer">
+        <div class="notice">
           <p><strong>Projet indépendant.</strong> Paris GO est éditée par Élie Brosset. Elle n’est ni éditée ni approuvée par la Ville de Paris, la BHVP ou le CAUE de Paris&nbsp;; elle accompagne leur campagne publique sans s’y substituer.</p>
           <a class="button ghost" href="sources/">Sources, crédits et licences</a>
         </div>
@@ -312,20 +371,14 @@
     </section>
 
     <!-- Disponibilité -->
-    <section class="section panel grid-bg on-panel" id="disponibilite" aria-labelledby="dispo-titre">
-      <div class="container">
-        <div class="section-head reveal">
-          <p class="eyebrow">Disponibilité</p>
-          <h2 id="dispo-titre">Bientôt dans l’App&nbsp;Store.</h2>
-          <p class="lead">Paris GO 1.0 est en cours de publication pour iPhone. En attendant, le code source est ouvert et l’assistance répond déjà aux questions.</p>
-          <div class="hero-actions">
-            <!-- TODO: lien App Store — remplacer href="#disponibilite" par l’URL App Store une fois l’app publiée -->
-            <a class="store-badge" href="#disponibilite">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M16.37 12.7c.03 2.98 2.62 3.97 2.65 3.98-.02.07-.41 1.42-1.36 2.8-.82 1.2-1.68 2.39-3.03 2.41-1.32.03-1.75-.78-3.26-.78s-1.98.76-3.23.81c-1.3.05-2.29-1.29-3.12-2.48-1.7-2.45-3-6.91-1.25-9.93.87-1.5 2.42-2.44 4.1-2.47 1.28-.02 2.49.86 3.27.86.78 0 2.25-1.06 3.79-.91.65.03 2.46.26 3.63 1.97-.09.06-2.17 1.27-2.19 3.74zM13.9 5.34c.7-.84 1.16-2.01 1.03-3.18-1 .04-2.21.67-2.93 1.5-.64.74-1.2 1.93-1.05 3.07 1.12.09 2.26-.57 2.95-1.39z"/></svg>
-              <span><small>Télécharger dans</small><b>l’App Store</b></span>
-            </a>
-            <a class="button ghost" href="support/">Une question&nbsp;? L’assistance</a>
-          </div>
+    <section class="section closing" id="disponibilite" aria-labelledby="dispo-titre">
+      <div class="container closing-inner">
+        <img src="assets/icon-180.png" alt="" width="96" height="96">
+        <h2 id="dispo-titre">Bientôt sur l’App&nbsp;Store</h2>
+        <p class="lead">La version 1.0 pour iPhone est en cours de publication. Le code source est déjà public et l’assistance répond par e-mail.</p>
+        <div class="actions">
+          <a class="button" href="support/">Assistance</a>
+          <a class="button ghost" href="https://github.com/Youplala/reprise">Voir le code source</a>
         </div>
       </div>
     </section>
@@ -334,19 +387,29 @@
   <footer class="site-footer">
     <div class="container">
       <div class="footer-grid">
-        <div>
-          <a class="brand" href="./"><img src="assets/app-icon.png" alt="" width="36" height="36"><span>Paris GO</span></a>
-          <small>Application iPhone gratuite et open source pour retrouver les points de vue du concours «&nbsp;C’était Paris en 1970&nbsp;» et les rephotographier aujourd’hui.</small>
+        <div class="footer-about">
+          <a class="brand" href="./"><img src="assets/icon-64.png" alt="" width="32" height="32"><span>Paris GO</span></a>
+          <p>Application iPhone gratuite et open source pour retrouver les points de vue du concours «&nbsp;C’était Paris en 1970&nbsp;» et les rephotographier aujourd’hui.</p>
         </div>
-        <ul class="footer-links">
-          <li><a href="support/">Assistance</a></li>
-          <li><a href="confidentialite/">Confidentialité</a></li>
-          <li><a href="conditions/">Conditions d’utilisation</a></li>
-          <li><a href="sources/">Sources et crédits</a></li>
-          <li><a href="https://github.com/Youplala/reprise">GitHub</a></li>
-        </ul>
+        <nav aria-label="Le projet">
+          <p class="footer-title">Le projet</p>
+          <ul>
+            <li><a href="#comment">Comment ça marche</a></li>
+            <li><a href="#contribuer">Contribuer</a></li>
+            <li><a href="sources/">Sources et crédits</a></li>
+            <li><a href="https://github.com/Youplala/reprise">Code source</a></li>
+          </ul>
+        </nav>
+        <nav aria-label="Aide et cadre">
+          <p class="footer-title">Aide et cadre</p>
+          <ul>
+            <li><a href="support/">Assistance</a></li>
+            <li><a href="confidentialite/">Confidentialité</a></li>
+            <li><a href="conditions/">Conditions d’utilisation</a></li>
+          </ul>
+        </nav>
       </div>
-      <p class="footer-meta">© 2026 Élie Brosset · Projet indépendant · Code sous licence MIT · Les contenus tiers conservent leurs droits</p>
+      <p class="footer-meta">© 2026 Élie Brosset · Projet indépendant · Code sous licence MIT · Les contenus tiers conservent leurs droits · Ce site ne dépose aucun cookie et ne charge aucune ressource tierce.</p>
     </div>
   </footer>
 </body>

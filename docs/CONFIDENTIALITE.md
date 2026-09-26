@@ -1,6 +1,6 @@
 # Politique de confidentialité de Paris GO
 
-Dernière mise à jour : 30 août 2026
+Dernière mise à jour : 25 septembre 2026
 
 Paris GO est une application mobile gratuite et open source éditée par Élie Brosset. Elle aide à
 retrouver et à rephotographier des points de vue historiques de Paris. Paris GO n’exige aucun
@@ -17,7 +17,6 @@ Avec votre autorisation, l’application utilise :
   secteurs dont la localisation n’est qu’approximative, ces coordonnées préremplies sont
   exclusivement les vôtres ; vous pouvez les modifier avant tout envoi ;
 - la caméra, pour prendre une photographie ;
-- l’orientation du téléphone, pour faciliter le cadrage ;
 - la photothèque en ajout uniquement, pour enregistrer les photographies que vous créez.
 
 Votre carnet de prises de vue, les réglages de cadrage et les encouragements du prototype sont
