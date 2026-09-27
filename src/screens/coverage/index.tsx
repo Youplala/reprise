@@ -8,20 +8,54 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedNumber } from '@/components/charts/animated-number';
 import { BarChart } from '@/components/charts/bar-chart';
-import { RankedBars } from '@/components/charts/ranked-bars';
+import { ArrondissementHeatmap } from '@/components/charts/arrondissement-heatmap';
+import { RankRow } from '@/components/charts/rank-row';
+import { WaffleChart } from '@/components/charts/waffle-chart';
 import { StackedShare } from '@/components/charts/stacked-share';
 import { SourcePill } from '@/components/source-pill';
-import { Fonts, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { ProgressBar } from '@/components/progress-bar';
+import {
+  Fonts,
+  Kicker,
+  Palette,
+  Radius,
+  Shadow,
+  Spacing,
+  Stat,
+  Typography,
+} from '@/constants/theme';
 import { useStations } from '@/providers/stations-provider';
 import { HISTORIC_GRID_COUNT } from '@/services/onboarding';
 import { formatContributorName } from '@/utils/community-stats';
 
 const BUCKET_COLORS: Record<string, string> = {
-  untouched: 'rgba(185, 95, 62, 0.55)',
+  untouched: 'rgba(204, 72, 28, 0.55)',
   started: Palette.brass,
   halfway: Palette.lichen,
   complete: Palette.parisBlue,
 };
+
+const DEVICE_COLORS: Record<string, string> = {
+  digital: Palette.parisBlue,
+  smartphone: Palette.goBright,
+  film: Palette.lichen,
+  other: Palette.line,
+};
+
+function SeeAllButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => {
+        void Haptics.selectionAsync();
+        onPress();
+      }}
+      style={({ pressed }) => [styles.seeAll, pressed && styles.seeAllPressed]}>
+      <Text style={styles.seeAllText}>{label}</Text>
+      <SymbolView name="chevron.right" size={13} tintColor={Palette.go} />
+    </Pressable>
+  );
+}
 
 // Une seule tête de section a droit au kicker orange sur cet écran — celle du haut de page. Les
 // sections qui suivent se contentent de leur titre. Seule celle qui détache un objet actionnable
@@ -75,11 +109,33 @@ export function CoverageScreen() {
     value: entry.count,
   }));
 
-  const arrondissements = stats.arrondissementActivity.slice(0, 8).map((entry) => ({
-    key: entry.code,
+  const weekdays = stats.weekdayActivity.map((entry) => ({
+    key: String(entry.day),
     label: entry.label,
     value: entry.count,
+    // Samedi et dimanche : c'est là que la campagne se joue.
+    color: entry.day >= 5 ? Palette.goBright : undefined,
   }));
+  const busiestDay = [...weekdays].sort((left, right) => right.value - left.value)[0];
+  const datedTotal = weekdays.reduce((sum, entry) => sum + entry.value, 0);
+  const weekendShare = datedTotal
+    ? Math.round(
+        (weekdays.filter((_, day) => day >= 5).reduce((sum, entry) => sum + entry.value, 0) /
+          datedTotal) *
+          100,
+      )
+    : 0;
+
+  const devices = stats.deviceShare.map((entry) => ({
+    key: entry.key,
+    label: entry.label,
+    value: entry.count,
+    color: DEVICE_COLORS[entry.key],
+  }));
+  const filmCount = stats.deviceShare.find((entry) => entry.key === 'film')?.count ?? 0;
+
+  const topContributors = stats.topContributors.slice(0, 5);
+  const topPhotographers = stats.archivePhotographers.slice(0, 5);
 
   return (
     <View style={styles.screen}>
@@ -104,18 +160,15 @@ export function CoverageScreen() {
         </SafeAreaView>
 
         <Animated.View entering={FadeInDown.duration(420)} style={styles.heroCard}>
-          <View style={styles.heroTop}>
-            <AnimatedNumber
-              value={coverage.percentage}
-              decimals={1}
-              suffix=" %"
-              style={styles.heroNumber}
-            />
-            <Text style={styles.heroCaption}>des photos de 1970{'\n'}ont été refaites</Text>
-          </View>
-          <View style={styles.heroTrack}>
-            <View style={[styles.heroFill, { width: `${Math.max(1.5, coverage.percentage)}%` }]} />
-          </View>
+          <Text style={styles.heroKicker}>Paris refait à</Text>
+          <AnimatedNumber
+            value={coverage.percentage}
+            decimals={1}
+            suffix=" %"
+            style={styles.heroNumber}
+          />
+          <Text style={styles.heroCaption}>des photos de 1970 ont été refaites</Text>
+          <ProgressBar percentage={coverage.percentage} height={10} tone="onDark" style={styles.heroTrack} />
           <Text style={styles.heroDetail}>
             {coverage.published1970.toLocaleString('fr-FR')} photos refaites sur{' '}
             {coverage.total1970.toLocaleString('fr-FR')} photos numérisées. Le chantier est immense,
@@ -137,21 +190,55 @@ export function CoverageScreen() {
           <BarChart data={months} unit="photos" accentColor={Palette.parisBlue} />
         </Section>
 
-        <Section title="Les arrondissements les plus actifs" delay={180}>
-          <RankedBars data={arrondissements} color={Palette.lichen} />
+        <Section
+          title="Quand Paris sort photographier"
+          copy={`Le week-end concentre ${weekendShare} % des photos datées.`}
+          delay={160}>
+          <BarChart
+            data={weekdays}
+            unit="photos"
+            accentColor={Palette.parisBlue}
+            initialKey={busiestDay?.key}
+          />
+        </Section>
+
+        <Section
+          title="Smartphone ou appareil photo ?"
+          copy={
+            filmCount > 0
+              ? `Et ${filmCount} ${filmCount > 1 ? 'photos refaites' : 'photo refaite'} à l’argentique, comme en 1970.`
+              : undefined
+          }
+          delay={200}>
+          <WaffleChart data={devices} />
+        </Section>
+
+        <Section
+          title="Paris, arrondissement par arrondissement"
+          copy="Touchez un arrondissement pour voir son score."
+          delay={240}>
+          <ArrondissementHeatmap data={stats.arrondissementActivity} />
+          <SeeAllButton
+            label="Voir le classement complet"
+            onPress={() => router.push({ pathname: '/stats/[kind]', params: { kind: 'arrondissements' } })}
+          />
         </Section>
 
         <Section
           title="Celles et ceux qui refont Paris"
           copy={`${stats.contributorCount} personnes créditées par leur prénom, comme le prévoit le règlement de l’Observatoire.`}
-          delay={240}
-          card>
-          <View style={styles.contributors}>
-            {stats.topContributors.slice(0, 6).map((contributor, index) => (
-              <Pressable
+          delay={280}>
+          <View>
+            {topContributors.map((contributor, index) => (
+              <RankRow
                 key={contributor.name}
-                accessibilityLabel={`Voir le profil de ${formatContributorName(contributor.name)}, ${contributor.count} photos`}
-                accessibilityRole="button"
+                rank={index + 1}
+                label={formatContributorName(contributor.name)}
+                count={contributor.count}
+                max={topContributors[0]?.count ?? 1}
+                unit="photos"
+                first={index === 0}
+                last={index === topContributors.length - 1}
                 onPress={() => {
                   void Haptics.selectionAsync();
                   router.push({
@@ -159,27 +246,45 @@ export function CoverageScreen() {
                     params: { name: contributor.name },
                   });
                 }}
-                style={({ pressed }) => [
-                  styles.contributorRow,
-                  pressed && styles.contributorRowPressed,
-                ]}>
-                <Text style={styles.contributorRank}>{String(index + 1).padStart(2, '0')}</Text>
-                <Text style={styles.contributorName} numberOfLines={1}>
-                  {formatContributorName(contributor.name)}
-                </Text>
-                <Text style={styles.contributorCount}>
-                  {contributor.count} {contributor.count > 1 ? 'photos' : 'photo'}
-                </Text>
-                <SymbolView name="chevron.right" size={11} tintColor={Palette.inkSoft} />
-              </Pressable>
+              />
             ))}
           </View>
+          <SeeAllButton
+            label={`Voir les ${stats.contributorCount} contributeurs`}
+            onPress={() => router.push('/contributors')}
+          />
         </Section>
+
+        {topPhotographers.length ? (
+          <Section
+            title="Les photographes de 1970 les plus repris"
+            copy={`${stats.archivePhotographers.length} photographes identifiés ont déjà vu au moins une de leurs vues refaite.`}
+            delay={320}>
+            <View>
+              {topPhotographers.map((photographer, index) => (
+                <RankRow
+                  key={photographer.name}
+                  rank={index + 1}
+                  label={formatContributorName(photographer.name)}
+                  count={photographer.count}
+                  max={topPhotographers[0]?.count ?? 1}
+                  unit="vues refaites"
+                  first={index === 0}
+                  last={index === topPhotographers.length - 1}
+                />
+              ))}
+            </View>
+            <SeeAllButton
+              label="Voir tous les photographes"
+              onPress={() => router.push({ pathname: '/stats/[kind]', params: { kind: 'photographes' } })}
+            />
+          </Section>
+        ) : null}
 
         <Section
           title="Les secteurs les plus fournis"
           copy="Ces secteurs contiennent le plus de photos qui n’ont pas encore été refaites."
-          delay={300}>
+          delay={360}>
           <View style={styles.priority}>
             {priorityCells.map((cell, index) => (
               <Pressable
@@ -214,6 +319,28 @@ export function CoverageScreen() {
 }
 
 const styles = StyleSheet.create({
+  seeAll: {
+    marginTop: Spacing.twoHalf,
+    minHeight: 48,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: Palette.line,
+    backgroundColor: Palette.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
+  },
+  seeAllPressed: {
+    backgroundColor: Palette.goSoft,
+  },
+  seeAllText: {
+    ...Typography.body,
+    color: Palette.go,
+    fontFamily: Fonts.sans,
+    fontWeight: '700',
+  },
   screen: {
     flex: 1,
     backgroundColor: Palette.fog,
@@ -250,7 +377,7 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     marginTop: Spacing.four,
     color: Palette.copper,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '800',
     letterSpacing: 0.8,
   },
@@ -266,41 +393,30 @@ const styles = StyleSheet.create({
     borderRadius: Radius.large,
     backgroundColor: Palette.parisBlue,
   },
-  heroTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: Spacing.three,
+  heroKicker: {
+    ...Kicker,
+    color: Palette.goBright,
   },
   heroNumber: {
-    ...Typography.title,
+    ...Stat,
+    marginTop: Spacing.two,
+    paddingTop: Spacing.two,
+    fontSize: 64,
+    lineHeight: 80,
     color: Palette.white,
-    fontFamily: Fonts.display,
-    fontWeight: '900',
-    minWidth: 132,
   },
   heroCaption: {
     ...Typography.body,
-    flex: 1,
-    marginBottom: Spacing.two,
-    color: Palette.blueMist,
+    color: 'rgba(255, 255, 255, 0.78)',
     fontFamily: Fonts.sans,
   },
   heroTrack: {
     marginTop: Spacing.three,
-    height: 8,
-    borderRadius: Radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    overflow: 'hidden',
-  },
-  heroFill: {
-    height: '100%',
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.brass,
   },
   heroDetail: {
     ...Typography.body,
     marginTop: Spacing.three,
-    color: Palette.blueMist,
+    color: 'rgba(255, 255, 255, 0.78)',
     fontFamily: Fonts.sans,
   },
   // Une section n'est une carte que si elle détache un objet actionnable (ici, la liste de
@@ -330,40 +446,6 @@ const styles = StyleSheet.create({
   sectionBody: {
     marginTop: Spacing.three,
   },
-  contributors: {
-    gap: Spacing.twoHalf,
-  },
-  contributorRow: {
-    minHeight: 40,
-    marginHorizontal: -Spacing.two,
-    paddingHorizontal: Spacing.two,
-    borderRadius: Radius.small,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.twoHalf,
-  },
-  contributorRowPressed: {
-    backgroundColor: Palette.blueMist,
-  },
-  contributorRank: {
-    ...Typography.caption,
-    width: 22,
-    color: Palette.brass,
-    fontFamily: Fonts.mono,
-    fontWeight: '900',
-  },
-  contributorName: {
-    ...Typography.body,
-    flex: 1,
-    color: Palette.ink,
-    fontWeight: '600',
-  },
-  contributorCount: {
-    ...Typography.body,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    fontWeight: '700',
-  },
   priority: {
     gap: Spacing.one,
   },
@@ -377,7 +459,7 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     width: 22,
     color: Palette.copper,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '900',
   },
   priorityText: {

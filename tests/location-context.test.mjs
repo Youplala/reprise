@@ -98,12 +98,18 @@ test('cadre Paris par défaut et retire le retour dès que la navigation revient
   );
 });
 
-test('la carte branche le cadrage parisien et le retour explicite après un recentrage hors zone', async () => {
+test('hors de Paris, la carte reste sur Paris et explique pourquoi', async () => {
   const source = await readFile(new URL('../src/screens/map/index.tsx', import.meta.url), 'utf8');
 
   assert.match(source, /useState<Region>\(PARIS_INITIAL_REGION\)/);
   assert.match(source, /region=\{region\}/);
-  assert.match(source, /setRecenteredOutsideParis\([\s\S]*?'outside-paris'/);
+  // Localiser hors de Paris ne vole pas jusqu'à une carte vide : on recadre sur Paris.
+  assert.match(
+    source,
+    /'outside-paris'\) \{[\s\S]*?setOutsideNoticeDismissed\(false\);[\s\S]*?setMapTarget\(\{ \.\.\.PARIS_INITIAL_REGION \}\);[\s\S]*?return;/,
+  );
+  assert.match(source, /locationContext === 'outside-paris' && !outsideNoticeDismissed/);
+  assert.match(source, /de Paris\n\s*<\/Text>/);
   assert.match(source, /accessibilityLabel="Revenir à la carte de Paris"/);
   assert.match(source, /onPress=\{handleReturnToParis\}/);
   assert.match(source, />Revenir à Paris<\/Text>/);

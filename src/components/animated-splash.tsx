@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     color: '#163F5B',
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.2,

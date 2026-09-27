@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     marginTop: Spacing.half,
     color: Palette.blueMist,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '800',
     letterSpacing: 0.45,
   },
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     flex: 1,
     color: Palette.parisBlue,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   contributorCount: {
     ...Typography.body,
     color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '800',
   },
   // Bord à bord : le rail de vignettes n'a pas de marge de page, seul le texte des têtes de
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
   suggestionCountLabel: {
     ...Typography.caption,
     color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '800',
     letterSpacing: 0.6,
   },
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
   walkKicker: {
     ...Typography.caption,
     color: Palette.brass,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '900',
     letterSpacing: 0.6,
   },

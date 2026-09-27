@@ -63,12 +63,12 @@ export function AboutScreen() {
             accessibilityHint="Ouvre votre application de messagerie"
             onPress={() => openLink('mailto:parisgo@eliebrosset.com')}
             style={({ pressed }) => [styles.contact, pressed && styles.contactPressed]}>
-            <SymbolView name="envelope" size={22} tintColor={Palette.parisBlue} />
+            <SymbolView name="envelope.fill" size={22} tintColor={Palette.go} />
             <View style={styles.linkCopy}>
-              <Text style={styles.linkTitle}>On en parle ?</Text>
+              <Text style={[styles.linkTitle, styles.contactTitle]}>On en parle ?</Text>
               <Text selectable style={styles.contactAddress}>parisgo@eliebrosset.com</Text>
             </View>
-            <SymbolView name="arrow.up.right" size={14} tintColor={Palette.parisBlue} />
+            <SymbolView name="arrow.up.right" size={14} tintColor={Palette.go} />
           </Pressable>
         </View>
 
@@ -116,8 +116,9 @@ const styles = StyleSheet.create({
   profiles: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.three, marginBottom: Spacing.two },
   profile: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 44, paddingHorizontal: Spacing.twoHalf, paddingVertical: Spacing.two, borderRadius: Radius.pill, backgroundColor: Palette.white },
   profileIcon: { width: 20, height: 20 },
-  contact: { marginTop: Spacing.three, backgroundColor: Palette.brass, borderRadius: Radius.medium, padding: Spacing.three, flexDirection: 'row', alignItems: 'center', gap: Spacing.twoHalf },
-  contactAddress: { ...Typography.caption, fontFamily: Fonts.sans, color: Palette.parisBlue, marginTop: Spacing.half },
+  contact: { marginTop: Spacing.three, backgroundColor: Palette.goSoft, borderRadius: Radius.medium, padding: Spacing.three, flexDirection: 'row', alignItems: 'center', gap: Spacing.twoHalf },
+  contactTitle: { color: Palette.go },
+  contactAddress: { ...Typography.caption, fontFamily: Fonts.sans, color: Palette.ink, marginTop: Spacing.half },
   contactPressed: { opacity: 0.8 },
   links: { backgroundColor: Palette.white, borderRadius: Radius.medium, overflow: 'hidden', marginBottom: Spacing.three },
   link: { minHeight: 72, padding: Spacing.three, flexDirection: 'row', alignItems: 'center', gap: Spacing.three },

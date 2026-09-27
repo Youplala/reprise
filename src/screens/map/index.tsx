@@ -23,7 +23,8 @@ import { ArchiveContactSheet } from '@/components/archive-contact-sheet';
 import { GlassSurface } from '@/components/glass-surface';
 import { MapPreviewSheet } from '@/components/map-preview-sheet';
 import { ParisGoBadge } from '@/components/paris-go-badge';
-import { Fonts, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { Fonts, HitSize, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { PARIS_CENTER } from '@/data/archive';
 
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
@@ -33,7 +34,6 @@ import { useStations } from '@/providers/stations-provider';
 import {
   PARIS_INITIAL_REGION,
   classifyLocationContext,
-  updateReturnToParisVisibility,
 } from '@/services/location-context';
 import type { Coordinate, StationSummary } from '@/types/station';
 import { distanceInMeters, formatDistance } from '@/utils/distance';
@@ -98,9 +98,9 @@ function cellFill(cell: CoverageCell, filter: MapFilter) {
   if (!cellHasFilter(cell, filter)) return 'rgba(22, 63, 91, 0.025)';
 
   if (filter === 'to-reprise') {
-    return `rgba(185, 95, 62, ${Math.min(0.68, 0.2 + cellRemainingCount(cell) * 0.025)})`;
+    return `rgba(204, 72, 28, ${Math.min(0.68, 0.2 + cellRemainingCount(cell) * 0.025)})`;
   }
-  return `rgba(112, 137, 124, ${Math.min(0.78, 0.2 + cell.published1970 * 0.03)})`;
+  return `rgba(79, 138, 107, ${Math.min(0.78, 0.2 + cell.published1970 * 0.03)})`;
 }
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`) {
@@ -131,9 +131,9 @@ function emptySearchCopy(filter: MapFilter, query: string) {
 
 function focusedCellColors(filter: MapFilter) {
   if (filter === 'published-reprise') {
-    return { fill: 'rgba(112, 137, 124, 0.2)', stroke: Palette.lichen };
+    return { fill: 'rgba(79, 138, 107, 0.2)', stroke: Palette.lichen };
   }
-  return { fill: 'rgba(185, 95, 62, 0.14)', stroke: Palette.copper };
+  return { fill: 'rgba(204, 72, 28, 0.14)', stroke: Palette.copper };
 }
 
 function stationIsInCell(station: StationSummary, cell: CoverageCell) {
@@ -332,7 +332,11 @@ export function MapScreen() {
   const [selectedCell, setSelectedCell] = useState<CoverageCell>();
   const [focusedCell, setFocusedCell] = useState<CoverageCell>();
   const [userMovedMap, setUserMovedMap] = useState(false);
-  const [recenteredOutsideParis, setRecenteredOutsideParis] = useState(false);
+  // Loin de Paris, la carte reste sur Paris — toutes les photos y sont — et un bandeau dit
+  // pourquoi. Le fermer le masque jusqu'à la prochaine demande de position.
+  const [outsideNoticeDismissed, setOutsideNoticeDismissed] = useState(false);
+  const showOutsideNotice =
+    locationContext === 'outside-paris' && !outsideNoticeDismissed && !searchFocused;
   const [browseOrigin, setBrowseOrigin] = useState<Coordinate>({
     latitude: PARIS_INITIAL_REGION.latitude,
     longitude: PARIS_INITIAL_REGION.longitude,
@@ -562,13 +566,17 @@ export function MapScreen() {
       );
       return;
     }
+    if (classifyLocationContext({ coordinate: nextCoordinate, isPrecise: true }) === 'outside-paris') {
+      // Voler jusqu'à la position ne montrerait qu'une carte vide : on reste sur Paris et on
+      // réaffiche l'explication.
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setOutsideNoticeDismissed(false);
+      setMapTarget({ ...PARIS_INITIAL_REGION });
+      return;
+    }
     setSelectedCell(undefined);
     setFocusedCell(undefined);
     setBrowseOrigin(nextCoordinate);
-    setRecenteredOutsideParis(
-      classifyLocationContext({ coordinate: nextCoordinate, isPrecise: true }) ===
-        'outside-paris',
-    );
     const nearestStation = statusFilteredStations.reduce<StationSummary | undefined>(
       (closest, station) => {
         if (station.approximate) return closest;
@@ -593,7 +601,6 @@ export function MapScreen() {
     setSelectedCell(undefined);
     setFocusedCell(undefined);
     setQuery('');
-    setRecenteredOutsideParis(false);
     setBrowseOrigin({
       latitude: PARIS_INITIAL_REGION.latitude,
       longitude: PARIS_INITIAL_REGION.longitude,
@@ -622,9 +629,6 @@ export function MapScreen() {
       const target =
         station.approximate && stationCell ? stationCell.center : station.coordinate;
       setBrowseOrigin(target);
-      setRecenteredOutsideParis((visible) =>
-        updateReturnToParisVisibility(visible, target),
-      );
       if (station.approximate && stationCell) {
         const latitudeDelta =
           Math.abs(stationCell.coordinates[1].latitude - stationCell.coordinates[0].latitude) *
@@ -695,9 +699,6 @@ export function MapScreen() {
     setSelectedCell(undefined);
     setFocusedCell(cell);
     setBrowseOrigin(cell.center);
-    setRecenteredOutsideParis((visible) =>
-      updateReturnToParisVisibility(visible, cell.center),
-    );
 
     const latitudeDelta =
       Math.abs(cell.coordinates[1].latitude - cell.coordinates[0].latitude) *
@@ -727,9 +728,6 @@ export function MapScreen() {
       void mapRef.current?.getCamera().then((camera) => {
         setHeading(camera.heading);
       }).catch(() => undefined);
-      setRecenteredOutsideParis((visible) =>
-        updateReturnToParisVisibility(visible, nextRegion),
-      );
       if (userMovedMap || enteredPointView) {
         setBrowseOrigin({
           latitude: nextRegion.latitude,
@@ -747,9 +745,6 @@ export function MapScreen() {
       if (!station || station.id === activeSelected?.id) return;
       setSelectedCell(undefined);
       setSelected(station);
-      setRecenteredOutsideParis((visible) =>
-        updateReturnToParisVisibility(visible, station.coordinate),
-      );
       setMapTarget({ ...station.coordinate });
       void Haptics.selectionAsync();
     },
@@ -792,7 +787,7 @@ export function MapScreen() {
         {!showIndividualPoints && selectedCell ? (
           <Marker coordinate={selectedCell.center} tracksViewChanges={false}>
             <View style={styles.gridMarker}>
-              <Text style={styles.gridMarkerText}>{selectedCell.percentage}%</Text>
+              <Text style={styles.gridMarkerText}>{selectedCell.percentage.toLocaleString('fr-FR')} %</Text>
             </View>
           </Marker>
         ) : null}
@@ -911,12 +906,12 @@ export function MapScreen() {
               recherche ; il rejoint la barre elle-même, et reste le seul chemin vers /coverage. */}
           <Pressable
             accessibilityHint="Ouvre le détail des photos de 1970, de 2022 et des photos refaites aujourd’hui"
-            accessibilityLabel={`${coverage.percentage}% des photos de 1970 cartographiées. Voir les statistiques`}
+            accessibilityLabel={`${coverage.percentage.toLocaleString('fr-FR')} % des photos de 1970 cartographiées. Voir les statistiques`}
             accessibilityRole="button"
             onPress={() => router.push('/coverage')}
             style={({ pressed }) => [styles.coverageBadge, pressed && styles.pressed]}>
             <GlassSurface variant="clear" />
-            <Text style={styles.coverageBadgeText}>{coverage.percentage}%</Text>
+            <Text style={styles.coverageBadgeText}>{coverage.percentage.toLocaleString('fr-FR')} %</Text>
             <SymbolView name="chevron.right" size={11} tintColor={Palette.parisBlue} />
           </Pressable>
         </View>
@@ -1091,6 +1086,40 @@ export function MapScreen() {
             })}
           </View>
         )}
+        {showOutsideNotice && coordinate ? (
+          <View accessibilityLiveRegion="polite" style={styles.outsideNotice}>
+            <GlassSurface />
+            <View style={styles.outsideNoticeIcon}>
+              <SymbolView name="location.slash.fill" size={16} tintColor={Palette.go} />
+            </View>
+            <View style={styles.outsideNoticeCopy}>
+              <Text style={styles.outsideNoticeTitle}>
+                Vous êtes à {formatDistance(distanceInMeters(coordinate, PARIS_CENTER))} de Paris
+              </Text>
+              <Text style={styles.outsideNoticeText}>
+                Les photos de 1970 sont toutes dans Paris. Repérez-les d’ici, refaites-les sur place.
+              </Text>
+              <Pressable
+                accessibilityLabel="Revenir à la carte de Paris"
+                accessibilityRole="button"
+                onPress={handleReturnToParis}
+                style={({ pressed }) => [styles.outsideNoticeAction, pressed && styles.pressed]}>
+                <Text style={styles.outsideNoticeActionText}>Revenir à Paris</Text>
+              </Pressable>
+            </View>
+            <Pressable
+              accessibilityLabel="Masquer ce message"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => {
+                setOutsideNoticeDismissed(true);
+                void Haptics.selectionAsync();
+              }}
+              style={styles.outsideNoticeClose}>
+              <SymbolView name="xmark" size={13} tintColor={Palette.inkSoft} />
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       <View
@@ -1108,16 +1137,6 @@ export function MapScreen() {
                 : 126,
           },
         ]}>
-        {recenteredOutsideParis ? (
-          <Pressable
-            accessibilityLabel="Revenir à la carte de Paris"
-            accessibilityRole="button"
-            onPress={handleReturnToParis}
-            style={({ pressed }) => [styles.returnToParisButton, pressed && styles.pressed]}>
-            <SymbolView name="map" size={16} tintColor={Palette.parisBlue} />
-            <Text style={styles.returnToParisText}>Revenir à Paris</Text>
-          </Pressable>
-        ) : null}
         <View style={styles.mapControlGroup}>
         <GlassSurface />
         <Pressable
@@ -1341,7 +1360,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     borderRadius: Radius.pill,
-    backgroundColor: 'rgba(247, 251, 252, 0.2)',
+    backgroundColor: 'rgba(250, 247, 242, 0.2)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.82)',
     paddingHorizontal: Spacing.three,
@@ -1363,7 +1382,7 @@ const styles = StyleSheet.create({
     height: 50,
     paddingHorizontal: Spacing.twoHalf,
     borderRadius: Radius.pill,
-    backgroundColor: 'rgba(247, 251, 252, 0.2)',
+    backgroundColor: 'rgba(250, 247, 242, 0.2)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.82)',
     overflow: 'hidden',
@@ -1387,7 +1406,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.three,
     padding: Spacing.three,
     borderRadius: Radius.large,
-    backgroundColor: 'rgba(247, 251, 252, 0.16)',
+    backgroundColor: 'rgba(250, 247, 242, 0.16)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.82)',
     overflow: 'hidden',
@@ -1401,7 +1420,7 @@ const styles = StyleSheet.create({
   },
   searchPanelKicker: {
     color: Palette.copper,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     letterSpacing: 0.65,
     ...Typography.caption,
     fontWeight: '700',
@@ -1468,7 +1487,7 @@ const styles = StyleSheet.create({
   searchResultMeta: {
     marginTop: Spacing.one,
     color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     letterSpacing: 0.35,
     ...Typography.caption,
     fontWeight: '700',
@@ -1565,7 +1584,7 @@ const styles = StyleSheet.create({
   },
   gridMarkerText: {
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     ...Typography.caption,
     fontWeight: '700',
   },
@@ -1583,7 +1602,7 @@ const styles = StyleSheet.create({
   },
   unlocatedCountText: {
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     ...Typography.caption,
     fontWeight: '700',
   },
@@ -1650,21 +1669,59 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.8)',
   },
-  returnToParisButton: {
-    minHeight: 44,
-    paddingHorizontal: Spacing.twoHalf,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.white,
+  outsideNotice: {
+    marginTop: Spacing.two,
+    padding: Spacing.three,
+    paddingRight: Spacing.five,
+    borderRadius: Radius.large,
+    overflow: 'hidden',
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    alignItems: 'flex-start',
+    gap: Spacing.twoHalf,
     ...Shadow.card,
   },
-  returnToParisText: {
-    color: Palette.parisBlue,
+  outsideNoticeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Palette.goSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  outsideNoticeCopy: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  outsideNoticeTitle: {
+    ...Typography.body,
+    color: Palette.ink,
     fontFamily: Fonts.sans,
-    fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
+  },
+  outsideNoticeText: {
+    ...Typography.caption,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+  },
+  outsideNoticeAction: {
+    minHeight: HitSize,
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
+  },
+  outsideNoticeActionText: {
+    ...Typography.body,
+    color: Palette.go,
+    fontFamily: Fonts.sans,
+    fontWeight: '700',
+  },
+  outsideNoticeClose: {
+    position: 'absolute',
+    top: Spacing.two,
+    right: Spacing.two,
+    width: HitSize,
+    height: HitSize,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mapButton: {
     width: 48,
@@ -1682,7 +1739,7 @@ const styles = StyleSheet.create({
   },
   compassNorth: {
     fontFamily: Fonts.sans,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     color: Palette.parisBlue,
     marginBottom: 2,
@@ -1766,7 +1823,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(185, 95, 62, 0.14)',
+    backgroundColor: 'rgba(204, 72, 28, 0.14)',
   },
   photoPreviewFallbackTitle: {
     color: Palette.ink,
@@ -1803,7 +1860,7 @@ const styles = StyleSheet.create({
   },
   photoStatusText: {
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     letterSpacing: 0.45,
     ...Typography.caption,
     fontWeight: '700',
@@ -1819,7 +1876,7 @@ const styles = StyleSheet.create({
   },
   photoCounterText: {
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     ...Typography.caption,
     fontWeight: '700',
   },
@@ -1949,7 +2006,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.three,
     padding: Spacing.three,
     borderRadius: Radius.large,
-    backgroundColor: 'rgba(247, 251, 252, 0.16)',
+    backgroundColor: 'rgba(250, 247, 242, 0.16)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.76)',
     overflow: 'hidden',

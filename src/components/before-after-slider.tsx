@@ -43,6 +43,13 @@ type BeforeAfterSliderProps = {
   onInteractionChange?: (active: boolean) => void;
   // Joue une démo du geste une seule fois à l'ouverture (onboarding), sans attendre le doigt.
   playIntro?: boolean;
+  /**
+   * Fourni, un appui simple ouvre la photo touchée au lieu de déplacer la poignée : le glissé
+   * reste le geste de comparaison, l'appui devient celui de l'agrandissement.
+   */
+  onPressSide?: (side: 'before' | 'after') => void;
+  /** `bottom` libère le haut de l'image quand des boutons flottent dessus. */
+  labelsPosition?: 'top' | 'bottom';
 };
 
 const MIN_RATIO = 0.08;
@@ -101,6 +108,8 @@ export function BeforeAfterSlider({
   style,
   onInteractionChange,
   playIntro,
+  onPressSide,
+  labelsPosition = 'top',
 }: BeforeAfterSliderProps) {
   const [width, setWidth] = useState(0);
   const { height: windowHeight } = useWindowDimensions();
@@ -126,6 +135,12 @@ export function BeforeAfterSlider({
     (value: boolean) => onInteractionChange?.(value),
     [onInteractionChange],
   );
+
+  const pressSide = useCallback(
+    (side: 'before' | 'after') => onPressSide?.(side),
+    [onPressSide],
+  );
+  const opensOnPress = Boolean(onPressSide);
 
   const tapFeedback = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
@@ -184,6 +199,10 @@ export function BeforeAfterSlider({
     .onEnd((event) => {
       'worklet';
       if (!containerWidth.value) return;
+      if (opensOnPress) {
+        runOnJS(pressSide)(event.x / containerWidth.value < ratio.value ? 'before' : 'after');
+        return;
+      }
       ratio.value = withSpring(
         Math.min(MAX_RATIO, Math.max(MIN_RATIO, event.x / containerWidth.value)),
         SPRING,
@@ -270,10 +289,10 @@ export function BeforeAfterSlider({
           </Animated.View>
         </Animated.View>
 
-        <Animated.View pointerEvents="none" style={[styles.beforeLabel, beforeLabelStyle]}>
+        <Animated.View pointerEvents="none" style={[styles.beforeLabel, labelsPosition === 'bottom' && styles.labelBottom, beforeLabelStyle]}>
           <Text style={styles.labelText}>{beforeLabel}</Text>
         </Animated.View>
-        <Animated.View pointerEvents="none" style={[styles.afterLabel, afterLabelStyle]}>
+        <Animated.View pointerEvents="none" style={[styles.afterLabel, labelsPosition === 'bottom' && styles.labelBottom, afterLabelStyle]}>
           <Text style={styles.labelText}>{afterLabel}</Text>
         </Animated.View>
 
@@ -332,6 +351,10 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     backgroundColor: Palette.copper,
   },
+  labelBottom: {
+    top: undefined,
+    bottom: Spacing.twoHalf,
+  },
   afterLabel: {
     position: 'absolute',
     right: Spacing.two,
@@ -343,8 +366,8 @@ const styles = StyleSheet.create({
   },
   labelText: {
     color: Palette.white,
-    fontFamily: Fonts.mono,
-    fontSize: 9,
+    fontFamily: Fonts.display,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },

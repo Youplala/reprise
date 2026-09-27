@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BeforeAfterSlider } from '@/components/before-after-slider';
 import { PrimaryButton } from '@/components/primary-button';
 import { SIMULATED_CAMERA_IMAGE } from '@/constants/demo';
-import { Fonts, Palette, Spacing, Typography } from '@/constants/theme';
+import { Fonts, HitSize, Palette, Spacing, Typography } from '@/constants/theme';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import {
@@ -311,20 +311,18 @@ const styles = StyleSheet.create({
     borderBottomColor: Palette.line,
   },
   closeButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: HitSize,
+    height: HitSize,
+    borderRadius: HitSize / 2,
     backgroundColor: Palette.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    ...Typography.caption,
+    ...Typography.body,
     color: Palette.ink,
-    fontFamily: Fonts.mono,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+    fontFamily: Fonts.sans,
+    fontWeight: '700',
   },
   content: {
     paddingBottom: Spacing.five,
@@ -337,7 +335,7 @@ const styles = StyleSheet.create({
   kicker: {
     ...Typography.caption,
     color: Palette.copper,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '900',
     letterSpacing: 0.6,
   },
@@ -362,7 +360,7 @@ const styles = StyleSheet.create({
   checklistKicker: {
     ...Typography.caption,
     color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '800',
     letterSpacing: 0.5,
   },

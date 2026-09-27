@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   placeholderCopy: {
     ...Typography.caption,
     color: Palette.parisBlue,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   countBadgeText: {
     ...Typography.caption,
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   distanceLabel: {
     ...Typography.caption,
     color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '700',
     letterSpacing: 0.6,
   },

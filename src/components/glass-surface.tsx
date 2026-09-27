@@ -10,7 +10,7 @@ import { useAppTheme } from '@/hooks/use-app-theme';
 // Évalué une fois : la capacité de l'appareil ne change pas en cours d'exécution.
 let cachedSupport: boolean | null = null;
 
-function supportsLiquidGlass() {
+export function supportsLiquidGlass() {
   if (cachedSupport === null) {
     cachedSupport =
       Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
