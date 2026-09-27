@@ -8,13 +8,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useIsFocused } from 'expo-router/react-navigation';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { SymbolView } from 'expo-symbols';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
   AppState,
   Linking,
-  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +21,14 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Reanimated, {
+  runOnJS,
+  runOnUI,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts, Palette, Radius, Spacing, Typography } from '@/constants/theme';
@@ -41,6 +48,11 @@ import { authorizeOfficialCapture } from '@/services/official-capture-authority'
 const AnimatedArchiveImage = Animated.createAnimatedComponent(Image);
 
 const MAX_CAMERA_ZOOM = 1;
+// Bornes du pincement sur l'archive : assez pour rattraper un cadrage plus serré ou plus large
+// qu'en 1970, sans perdre la photo hors du cadre.
+const MIN_OVERLAY_SCALE = 0.5;
+const MAX_OVERLAY_SCALE = 3;
+const OVERLAY_SPRING = { damping: 18, stiffness: 220 };
 // Largeur du panneau de contrôle quand le téléphone est à l'horizontale : le viseur garde le
 // reste de la largeur pour cadrer les archives au format paysage.
 const CONTROL_PANEL_LANDSCAPE_WIDTH = 296;
@@ -87,8 +99,12 @@ export function AlignmentScreen() {
   const permissionRefreshInFlight = useRef(false);
   const [edgeMode, setEdgeMode] = useState(false);
   const [opacity, setOpacity] = useState(0.52);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [scale, setScale] = useState(1);
+  // Position et échelle de l'archive superposée, pilotées sur le thread UI par les gestes.
+  const overlayX = useSharedValue(0);
+  const overlayY = useSharedValue(0);
+  const overlayZoom = useSharedValue(1);
+  const panStart = useSharedValue({ x: 0, y: 0 });
+  const zoomStart = useSharedValue(1);
   const [opacityLabel, setOpacityLabel] = useState(0.52);
   const [opacityResetKey, setOpacityResetKey] = useState(0);
   const [capturing, setCapturing] = useState(false);
@@ -99,8 +115,6 @@ export function AlignmentScreen() {
   const [loadedReferenceKey, setLoadedReferenceKey] = useState<string>();
   const [viewfinderSize, setViewfinderSize] = useState({ width: 0, height: 0 });
   const [overlayOpacity] = useState(() => new Animated.Value(0.52));
-  const [overlayOffset] = useState(() => new Animated.ValueXY({ x: 0, y: 0 }));
-  const [overlayScale] = useState(() => new Animated.Value(1));
   const { lenses, selectedLens, setSelectedLens, activeLabel, onAvailableLensesChanged } =
     useCameraLenses(cameraRef, cameraReady);
 
@@ -205,64 +219,51 @@ export function AlignmentScreen() {
     viewfinderSize.width,
   ]);
 
-  const dragResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gesture) =>
-          Math.abs(gesture.dx) > 3 || Math.abs(gesture.dy) > 3,
-        onPanResponderGrant: () => {
-          overlayOffset.setOffset(offset);
-          overlayOffset.setValue({ x: 0, y: 0 });
-        },
-        onPanResponderMove: (_, gesture) => {
-          overlayOffset.setValue({ x: gesture.dx, y: gesture.dy });
-        },
-        onPanResponderRelease: (_, gesture) => {
-          setOffset({
-            x: offset.x + gesture.dx,
-            y: offset.y + gesture.dy,
-          });
-          overlayOffset.flattenOffset();
-          void Haptics.selectionAsync();
-        },
-        onPanResponderTerminate: (_, gesture) => {
-          setOffset({
-            x: offset.x + gesture.dx,
-            y: offset.y + gesture.dy,
-          });
-          overlayOffset.flattenOffset();
-        },
-        onPanResponderTerminationRequest: () => false,
-      }),
-    [offset, overlayOffset],
-  );
-
-  const nudge = (x: number, y: number) => {
+  // Un doigt déplace l'archive, deux doigts la zoomment : les deux gestes se combinent, comme
+  // dans Photos.
+  const selectionHaptic = useCallback(() => {
     void Haptics.selectionAsync();
-    const next = {
-      x: offset.x + x,
-      y: offset.y + y,
-    };
-    setOffset(next);
-    Animated.spring(overlayOffset, {
-      toValue: next,
-      damping: 18,
-      stiffness: 220,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const adjustScale = (delta: number) => {
-    const next = Math.max(0.86, Math.min(1.18, scale + delta));
-    setScale(next);
-    void Haptics.selectionAsync();
-    Animated.spring(overlayScale, {
-      toValue: next,
-      damping: 18,
-      stiffness: 220,
-      useNativeDriver: true,
-    }).start();
-  };
+  }, []);
+  const pan = Gesture.Pan()
+    .minDistance(3)
+    .averageTouches(true)
+    .onStart(() => {
+      'worklet';
+      panStart.value = { x: overlayX.value, y: overlayY.value };
+    })
+    .onUpdate((event) => {
+      'worklet';
+      overlayX.value = panStart.value.x + event.translationX;
+      overlayY.value = panStart.value.y + event.translationY;
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(selectionHaptic)();
+    });
+  const pinch = Gesture.Pinch()
+    .onStart(() => {
+      'worklet';
+      zoomStart.value = overlayZoom.value;
+    })
+    .onUpdate((event) => {
+      'worklet';
+      overlayZoom.value = Math.max(
+        MIN_OVERLAY_SCALE,
+        Math.min(MAX_OVERLAY_SCALE, zoomStart.value * event.scale),
+      );
+    })
+    .onEnd(() => {
+      'worklet';
+      runOnJS(selectionHaptic)();
+    });
+  const overlayGesture = Gesture.Simultaneous(pan, pinch);
+  const overlayTransformStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: overlayX.value },
+      { translateY: overlayY.value },
+      { scale: overlayZoom.value },
+    ],
+  }));
 
   const toggleEdgeMode = () => {
     const next = !edgeMode;
@@ -276,22 +277,18 @@ export function AlignmentScreen() {
   };
 
   const resetAlignment = () => {
-    setOffset({ x: 0, y: 0 });
-    setScale(1);
+    runOnUI(() => {
+      'worklet';
+      overlayX.value = withSpring(0, OVERLAY_SPRING);
+      overlayY.value = withSpring(0, OVERLAY_SPRING);
+      overlayZoom.value = withSpring(1, OVERLAY_SPRING);
+    })();
     setCameraZoom(0);
     setOpacity(0.52);
     setOpacityLabel(0.52);
     setOpacityResetKey((key) => key + 1);
     setEdgeMode(false);
     Animated.parallel([
-      Animated.spring(overlayOffset, {
-        toValue: { x: 0, y: 0 },
-        useNativeDriver: true,
-      }),
-      Animated.spring(overlayScale, {
-        toValue: 1,
-        useNativeDriver: true,
-      }),
       Animated.timing(overlayOpacity, {
         toValue: 0.52,
         duration: 160,
@@ -516,23 +513,15 @@ export function AlignmentScreen() {
                 },
               ]}>
               {referenceImage ? (
-                <AnimatedArchiveImage
-                  source={referenceImage}
-                  onError={() => setFailedReferenceKey(referenceImageKey)}
-                  onLoad={() => setLoadedReferenceKey(referenceImageKey)}
-                  style={[
-                    StyleSheet.absoluteFill,
-                    {
-                      opacity: overlayOpacity,
-                      transform: [
-                        { translateX: overlayOffset.x },
-                        { translateY: overlayOffset.y },
-                        { scale: overlayScale },
-                      ],
-                    },
-                  ]}
-                  contentFit="contain"
-                />
+                <Reanimated.View pointerEvents="none" style={[StyleSheet.absoluteFill, overlayTransformStyle]}>
+                  <AnimatedArchiveImage
+                    source={referenceImage}
+                    onError={() => setFailedReferenceKey(referenceImageKey)}
+                    onLoad={() => setLoadedReferenceKey(referenceImageKey)}
+                    style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
+                    contentFit="contain"
+                  />
+                </Reanimated.View>
               ) : null}
               {!referenceImageLoaded || referenceImageFailed ? (
                 <View pointerEvents="none" style={styles.referenceStatus}>
@@ -554,12 +543,13 @@ export function AlignmentScreen() {
                   </Text>
                 </View>
               ) : null}
-              <View
-                accessibilityHint="Faites glisser pour déplacer l’archive dans le cadre final"
-                accessibilityLabel="Déplacer la photographie de référence"
-                style={styles.overlayGesture}
-                {...dragResponder.panHandlers}
-              />
+              <GestureDetector gesture={overlayGesture}>
+                <View
+                  accessibilityHint="Faites glisser pour déplacer l’archive, pincez pour l’agrandir ou la réduire"
+                  accessibilityLabel="Ajuster la photographie de référence"
+                  style={styles.overlayGesture}
+                />
+              </GestureDetector>
               <View pointerEvents="none" style={styles.guides}>
                 <View style={styles.horizontalGuide} />
                 <View style={styles.verticalGuide} />
@@ -582,33 +572,6 @@ export function AlignmentScreen() {
           </>
         ) : null}
 
-        <View
-          pointerEvents="box-none"
-          style={[
-            styles.nudges,
-            {
-              top: captureFrame.top + 12,
-              right: Math.max(
-                Spacing.one,
-                viewfinderSize.width - captureFrame.left - captureFrame.width + Spacing.one,
-              ),
-            },
-          ]}>
-          <Pressable onPress={() => nudge(0, -2)} style={styles.nudgeButton}>
-            <SymbolView name="chevron.up" size={14} tintColor={Palette.white} />
-          </Pressable>
-          <View style={styles.nudgeMiddle}>
-            <Pressable onPress={() => nudge(-2, 0)} style={styles.nudgeButton}>
-              <SymbolView name="chevron.left" size={14} tintColor={Palette.white} />
-            </Pressable>
-            <Pressable onPress={() => nudge(2, 0)} style={styles.nudgeButton}>
-              <SymbolView name="chevron.right" size={14} tintColor={Palette.white} />
-            </Pressable>
-          </View>
-          <Pressable onPress={() => nudge(0, 2)} style={styles.nudgeButton}>
-            <SymbolView name="chevron.down" size={14} tintColor={Palette.white} />
-          </Pressable>
-        </View>
 
         <View
           pointerEvents="box-none"
@@ -760,11 +723,6 @@ export function AlignmentScreen() {
   
           <View style={styles.captureRow}>
             <Pressable
-              onPress={() => adjustScale(-0.02)}
-              style={styles.toolButton}>
-              <SymbolView name="minus.magnifyingglass" size={20} tintColor={Palette.white} />
-            </Pressable>
-            <Pressable
               accessibilityLabel={liveCamera ? 'Prendre la photo' : 'Simuler la photo'}
               accessibilityRole="button"
               accessibilityState={{ disabled: shutterDisabled }}
@@ -776,11 +734,6 @@ export function AlignmentScreen() {
                 capturing && styles.shutterDisabled,
               ]}>
               <View style={styles.shutterInner} />
-            </Pressable>
-            <Pressable
-              onPress={() => adjustScale(0.02)}
-              style={styles.toolButton}>
-              <SymbolView name="plus.magnifyingglass" size={20} tintColor={Palette.white} />
             </Pressable>
           </View>
   
@@ -795,7 +748,7 @@ export function AlignmentScreen() {
                     : isSimulator
                       ? 'Le simulateur utilise une scène parisienne d’essai. Sur iPhone, le flux caméra la remplace automatiquement.'
                       : liveCamera
-                        ? 'Restez sur le domaine public et surveillez la circulation.'
+                        ? 'Glissez l’archive pour la placer, pincez pour l’ajuster. Restez sur le domaine public et surveillez la circulation.'
                         : 'Touchez le déclencheur pour autoriser la caméra.')}
           </Text>
         </ScrollView>
@@ -902,7 +855,7 @@ const styles = StyleSheet.create({
   referenceStatusText: {
     ...Typography.caption,
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '900',
     letterSpacing: 0.4,
     textAlign: 'center',
@@ -975,7 +928,7 @@ const styles = StyleSheet.create({
   formatBadgeText: {
     ...Typography.caption,
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '900',
     letterSpacing: 0.4,
   },
@@ -1012,26 +965,9 @@ const styles = StyleSheet.create({
   modeText: {
     ...Typography.caption,
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '800',
     letterSpacing: 0.4,
-  },
-  nudges: {
-    position: 'absolute',
-    alignItems: 'center',
-    gap: 4,
-  },
-  nudgeMiddle: {
-    flexDirection: 'row',
-    gap: 34,
-  },
-  nudgeButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(8, 17, 22, 0.58)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   controlPanel: {
     backgroundColor: Palette.black,
@@ -1090,7 +1026,7 @@ const styles = StyleSheet.create({
   opacityValue: {
     width: 42,
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontSize: Typography.caption.fontSize,
     fontWeight: '700',
     textAlign: 'right',
@@ -1131,7 +1067,7 @@ const styles = StyleSheet.create({
   },
   lensChipText: {
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontSize: Typography.caption.fontSize,
     fontWeight: '800',
   },
@@ -1153,7 +1089,7 @@ const styles = StyleSheet.create({
   },
   zoomResetText: {
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontSize: Typography.caption.fontSize,
     fontWeight: '900',
   },
@@ -1172,14 +1108,14 @@ const styles = StyleSheet.create({
   },
   zoomLabel: {
     color: Palette.blueMist,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontSize: Typography.caption.fontSize,
     fontWeight: '900',
     letterSpacing: 0.4,
   },
   zoomValue: {
     color: Palette.brass,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontSize: Typography.caption.fontSize,
     fontWeight: '900',
   },
@@ -1192,15 +1128,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-  },
-  toolButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: Palette.inkSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   shutterOuter: {
     width: 72,

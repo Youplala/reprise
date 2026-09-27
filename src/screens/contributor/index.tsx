@@ -204,7 +204,7 @@ export function ContributorScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Palette.blueMist },
+  screen: { flex: 1, backgroundColor: Palette.fog },
   content: { paddingBottom: Spacing.four },
   profileHeader: { backgroundColor: Palette.fog },
   topBar: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, flexDirection: 'row', alignItems: 'center', gap: Spacing.twoHalf },

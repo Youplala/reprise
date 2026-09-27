@@ -1,18 +1,26 @@
-import { Platform } from 'react-native';
+import { Platform, type TextStyle } from 'react-native';
 
+/**
+ * Palette « mission » : le papier crème et le bleu nuit de l'icône, l'orange du « GO » pour
+ * l'action. `go` porte du texte blanc (contraste AA 4,6:1) ; `goBright` est réservé aux jauges,
+ * pastilles et traits, où il n'a pas de texte à porter.
+ */
 export const Palette = {
-  ink: '#17262F',
-  inkSoft: '#4D606A',
-  parisBlue: '#163F5B',
+  ink: '#0D2A3C',
+  inkSoft: '#56646B',
+  parisBlue: '#153953',
   blueDeep: '#0D2A3C',
-  blueMist: '#DDE8EC',
-  fog: '#EDF2F3',
+  blueMist: '#E8E2D7',
+  fog: '#F4F1EC',
   white: '#FFFFFF',
   archive: '#D9D2C4',
   brass: '#F0B642',
-  copper: '#B95F3E',
-  lichen: '#70897C',
-  line: '#CBD7DA',
+  copper: '#CC481C',
+  go: '#CC481C',
+  goBright: '#E8552B',
+  goSoft: '#FBE4DA',
+  lichen: '#4F8A6B',
+  line: '#DDD5C8',
   danger: '#A13C32',
   black: '#081116',
 } as const;
@@ -89,6 +97,9 @@ export const Radius = {
   pill: 999,
 } as const;
 
+/** Taille minimale d'une cible tactile (HIG). */
+export const HitSize = 44;
+
 export const Shadow = {
   card: {
     shadowColor: Palette.blueDeep,
@@ -116,6 +127,29 @@ export const Typography = {
   title: { fontSize: 20, lineHeight: 26, fontWeight: '700' },
   body: { fontSize: 16, lineHeight: 22, fontWeight: '400' },
   caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
+} as const;
+
+/**
+ * Deux rôles hors barème de texte, dans la voix condensée des titres :
+ * - `kicker` : l'étiquette au-dessus d'un titre (« MISSION DU JOUR »), en capitales.
+ * - `stat`   : un chiffre clé, qui doit se lire avant le texte qui l'accompagne.
+ * Ils remplacent les étiquettes en police mono, qui donnaient à l'app un air d'outil technique.
+ */
+export const Kicker = {
+  fontFamily: Fonts.display,
+  fontSize: 13,
+  lineHeight: 16,
+  fontWeight: '700',
+  letterSpacing: 0.9,
+  textTransform: 'uppercase',
+} as const;
+
+export const Stat = {
+  fontFamily: Fonts.display,
+  fontSize: 34,
+  lineHeight: 38,
+  fontWeight: '800',
+  fontVariant: ['tabular-nums'] as TextStyle['fontVariant'],
 } as const;
 
 export type TypographyLevel = keyof typeof Typography;

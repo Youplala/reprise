@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   numberText: {
     ...Typography.caption,
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '700',
   },
 });

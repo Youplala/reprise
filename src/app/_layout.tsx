@@ -3,7 +3,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { Stack } from 'expo-router/stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { LogBox, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplash } from '@/components/animated-splash';
@@ -13,6 +13,10 @@ import { OnboardingScreen } from '@/screens/onboarding';
 import { hasCompletedOnboarding } from '@/services/onboarding';
 
 SplashScreen.preventAutoHideAsync();
+
+// Avertissement connu de React Native, sans conséquence : une valeur animée native émet une
+// mise à jour après le démontage de son écouteur. Il masquait le bas des écrans en développement.
+LogBox.ignoreLogs(['Sending `onAnimatedValueUpdate` with no listeners registered']);
 
 export default function RootLayout() {
   const theme = useAppTheme();

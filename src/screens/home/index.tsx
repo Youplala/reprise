@@ -15,13 +15,14 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedNumber } from '@/components/charts/animated-number';
-import { GlassSurface } from '@/components/glass-surface';
+import { MissionCard } from '@/components/mission-card';
+import { ProgressBar } from '@/components/progress-bar';
 import { SourcePill } from '@/components/source-pill';
 import { StationCard } from '@/components/station-card';
 import { PRIVACY_POLICY_URL } from '@/constants/legal';
 import {
   Fonts,
+  Kicker,
   Palette,
   Radius,
   Shadow,
@@ -33,7 +34,7 @@ import {
 import { useUserLocation } from '@/hooks/use-user-location';
 import { useStations } from '@/providers/stations-provider';
 
-import { distanceInMeters } from '@/utils/distance';
+import { distanceInMeters, formatDistance } from '@/utils/distance';
 import { nearestArrondissement } from '@/utils/place-name';
 import { PARIS_CENTER } from '@/data/archive';
 import { HOME_LOCATION_CONTENT, classifyLocationContext } from '@/services/location-context';
@@ -64,7 +65,7 @@ export function HomeScreen() {
           distance: distanceInMeters(proximityOrigin, station.coordinate),
         }))
         .sort((left, right) => left.distance - right.distance)
-        .slice(0, 3)
+        .slice(0, 5)
         // « Secteur 794 » ne situe rien : on emprunte l'arrondissement du repère localisé le plus
         // proche, comme la carte, pour que les deux écrans nomment un lieu de la même façon.
         .map(({ station, distance }) => ({
@@ -78,7 +79,11 @@ export function HomeScreen() {
     [proximityOrigin, stations],
   );
 
+  const [mission, ...others] = nearby;
   const lastMonth = stats.monthlyActivity[stats.monthlyActivity.length - 1];
+  const percentageLabel = coverage.percentage.toLocaleString('fr-FR', {
+    maximumFractionDigits: 1,
+  });
 
   const handleLocate = async () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -110,7 +115,14 @@ export function HomeScreen() {
         contentContainerStyle={styles.scrollContent}>
         <SafeAreaView edges={['top']} style={styles.safeHeader}>
           <View style={styles.brandRow}>
-            <Text accessibilityRole="header" style={styles.brand}>Autour de moi</Text>
+            <View style={styles.titleBlock}>
+              <Text style={styles.kicker}>Paris GO</Text>
+              {locationContext === 'in-paris' ? (
+                <Text accessibilityRole="header" style={styles.brand}>Autour de moi</Text>
+              ) : (
+                <Text accessibilityRole="header" style={styles.brand}>Explorer Paris</Text>
+              )}
+            </View>
             <View style={styles.headerActions}>
               <Pressable
                 accessibilityLabel="Ouvrir le carnet"
@@ -139,50 +151,94 @@ export function HomeScreen() {
             </View>
           </View>
 
-        </SafeAreaView>
+          {/* Loin de Paris, les distances ne veulent plus rien dire : on le dit, puis on propose
+              le centre de Paris comme point de départ plutôt qu'une liste vide. */}
+          {locationContext === 'outside-paris' && coordinate ? (
+            <View style={styles.outsideNotice}>
+              <SymbolView name="location.slash.fill" size={16} tintColor={Palette.go} />
+              <Text style={styles.outsideNoticeText}>
+                Vous êtes à {formatDistance(distanceInMeters(coordinate, PARIS_CENTER))} de Paris.
+                Voici par où commencer au centre.
+              </Text>
+            </View>
+          ) : null}
 
-        {/* Les archives de 1970, avec leurs photos à fond perdu. */}
-        <View style={styles.cardList}>
-          {nearby.map(({ station, distance }) => (
-            <StationCard key={station.id} station={station} distance={locationContent.showDistances ? distance : undefined} wide />
-          ))}
-        </View>
-
-        <Animated.View entering={FadeInDown.delay(80).duration(420)} style={styles.pulseWrapper}>
-          <View style={styles.pulse}>
-            <GlassSurface variant="regular" style={styles.pulseGlass} />
-            <View style={styles.pulseRow}>
-              <View style={styles.pulseItem}>
-                <AnimatedNumber value={coverage.published1970} style={styles.pulseValue} />
-                <Text style={styles.pulseLabel}>photos refaites</Text>
-              </View>
-              <View style={styles.pulseDivider} />
-              <View style={styles.pulseItem}>
-                <AnimatedNumber value={stats.contributorCount} style={styles.pulseValue} />
-                <Text style={styles.pulseLabel}>contributeurs</Text>
-              </View>
-              <View style={styles.pulseDivider} />
-              <View style={styles.pulseItem}>
-                <AnimatedNumber value={coverage.squaresOpened} style={styles.pulseValue} />
-                <Text style={styles.pulseLabel}>secteurs ouverts</Text>
+          {/* La progression collective : ce que la campagne a déjà refait de Paris. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Paris refait à ${percentageLabel} %. Voir où en est la carte`}
+            onPress={() => {
+              void Haptics.selectionAsync();
+              router.push('/coverage');
+            }}
+            style={({ pressed }) => [styles.progress, pressed && styles.pressedSoft]}>
+            <View style={styles.progressHead}>
+              <Text style={styles.progressLabel}>Paris refait à</Text>
+              <View style={styles.progressValueRow}>
+                <Text style={styles.progressValue}>{percentageLabel} %</Text>
+                <SymbolView name="chevron.right" size={13} tintColor={Palette.inkSoft} />
               </View>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                void Haptics.selectionAsync();
-                router.push('/coverage');
-              }}
-              style={({ pressed }) => [styles.pulseFooter, pressed && styles.pressedSoft]}>
-              <Text style={styles.pulseFooterText}>
-                {stats.recapturesLast30Days > 0
-                  ? `${stats.recapturesLast30Days} photos publiées ces 30 derniers jours`
-                  : `${lastMonth?.count ?? 0} photos publiées en ${lastMonth?.label ?? ''}`}
+            <ProgressBar percentage={coverage.percentage} height={10} />
+            <View style={styles.progressStats}>
+              <Text style={styles.progressStat}>
+                <Text style={styles.progressStatStrong}>{coverage.published1970.toLocaleString('fr-FR')}</Text>{' '}
+                photos refaites
               </Text>
-              <SymbolView name="chevron.right" size={13} tintColor={Palette.parisBlue} />
-            </Pressable>
+              <Text style={styles.progressStat}>
+                <Text style={styles.progressStatStrong}>{stats.contributorCount.toLocaleString('fr-FR')}</Text>{' '}
+                explorateurs
+              </Text>
+              <Text style={styles.progressStat}>
+                <Text style={styles.progressStatStrong}>{coverage.squaresOpened.toLocaleString('fr-FR')}</Text>{' '}
+                secteurs ouverts
+              </Text>
+            </View>
+          </Pressable>
+        </SafeAreaView>
+
+        {mission ? (
+          <Animated.View entering={FadeInDown.delay(60).duration(420)}>
+            <MissionCard
+              station={mission.station}
+              distance={locationContent.showDistances ? mission.distance : undefined}
+            />
+          </Animated.View>
+        ) : null}
+
+        {others.length ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHead}>
+              <Text accessibilityRole="header" style={styles.sectionTitle}>
+                {locationContext === 'in-paris' ? 'Autres secteurs proches' : 'Autres secteurs à explorer'}
+              </Text>
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => router.push('/map')}
+                style={({ pressed }) => [styles.sectionLink, pressed && styles.pressedSoft]}>
+                <Text style={styles.sectionLinkText}>Carte</Text>
+                <SymbolView name="chevron.right" size={12} tintColor={Palette.go} />
+              </Pressable>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.rail}>
+              {others.map(({ station, distance }) => (
+                <StationCard
+                  key={station.id}
+                  station={station}
+                  distance={locationContent.showDistances ? distance : undefined}
+                />
+              ))}
+            </ScrollView>
+            <Text style={styles.activity}>
+              {stats.recapturesLast30Days > 0
+                ? `${stats.recapturesLast30Days} photos publiées ces 30 derniers jours`
+                : `${lastMonth?.count ?? 0} photos publiées en ${lastMonth?.label ?? ''}`}
+            </Text>
           </View>
-        </Animated.View>
+        ) : null}
 
         <View style={styles.dataNote}>
           <SourcePill version={snapshotVersion} />
@@ -226,23 +282,29 @@ const styles = StyleSheet.create({
   safeHeader: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    paddingBottom: Spacing.two,
+    paddingBottom: Spacing.four,
   },
   brandRow: {
     minHeight: 62,
+    paddingTop: Spacing.two,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: Spacing.two,
   },
-  brand: {
-    ...Typography.title,
-    color: Palette.parisBlue,
-    fontFamily: Fonts.display,
-    fontWeight: '900',
-    fontSize: 28,
-    lineHeight: 34,
+  titleBlock: {
     flex: 1,
+    gap: Spacing.half,
+  },
+  kicker: {
+    ...Kicker,
+    color: Palette.go,
+  },
+  brand: {
+    ...Typography.display,
+    color: Palette.ink,
+    fontFamily: Fonts.display,
+    fontWeight: '800',
   },
   headerActions: {
     flexDirection: 'row',
@@ -266,68 +328,104 @@ const styles = StyleSheet.create({
   pressedSoft: {
     opacity: 0.6,
   },
-  pulseWrapper: {
+  outsideNotice: {
+    marginTop: Spacing.twoHalf,
     paddingHorizontal: Spacing.three,
-    marginTop: Spacing.five,
-  },
-  pulse: {
-    borderRadius: Radius.large,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.55)',
-  },
-  pulseGlass: {
-    borderRadius: Radius.large,
-  },
-  pulseRow: {
+    paddingVertical: Spacing.twoHalf,
+    borderRadius: Radius.medium,
+    backgroundColor: Palette.goSoft,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.twoHalf,
+    gap: Spacing.two,
   },
-  pulseItem: {
+  outsideNoticeText: {
+    ...Typography.caption,
     flex: 1,
-    alignItems: 'center',
-    gap: Spacing.half,
+    color: Palette.ink,
+    fontFamily: Fonts.sans,
+    fontWeight: '600',
   },
-  pulseValue: {
+  progress: {
+    marginTop: Spacing.three,
+    gap: Spacing.two,
+  },
+  progressHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  progressLabel: {
+    ...Typography.body,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+    fontWeight: '600',
+  },
+  progressValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  progressValue: {
     ...Typography.title,
-    color: Palette.parisBlue,
+    color: Palette.go,
     fontFamily: Fonts.display,
     fontWeight: '800',
-    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
-  pulseLabel: {
+  progressStats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: Spacing.three,
+    rowGap: Spacing.half,
+  },
+  progressStat: {
     ...Typography.caption,
     color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    textTransform: 'uppercase',
-    textAlign: 'center',
+    fontFamily: Fonts.sans,
   },
-  pulseDivider: {
-    width: StyleSheet.hairlineWidth,
-    alignSelf: 'stretch',
-    marginVertical: Spacing.one,
-    backgroundColor: 'rgba(22, 63, 91, 0.16)',
+  progressStatStrong: {
+    ...Typography.caption,
+    color: Palette.ink,
+    fontFamily: Fonts.sans,
+    fontWeight: '800',
   },
-  pulseFooter: {
-    minHeight: 44,
+  section: {
+    marginTop: Spacing.five,
+    gap: Spacing.twoHalf,
+  },
+  sectionHead: {
     paddingHorizontal: Spacing.three,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(22, 63, 91, 0.12)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  pulseFooterText: {
+  sectionTitle: {
+    ...Typography.title,
+    color: Palette.ink,
+    fontFamily: Fonts.display,
+    fontWeight: '800',
+  },
+  sectionLink: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  sectionLinkText: {
     ...Typography.body,
-    flex: 1,
-    color: Palette.parisBlue,
+    color: Palette.go,
     fontFamily: Fonts.sans,
     fontWeight: '700',
   },
-  // Bord à bord : ni marge horizontale ni carte blanche autour des photos, qui sont le sujet.
-  cardList: {
-    backgroundColor: Palette.fog,
+  rail: {
+    paddingHorizontal: Spacing.three,
+    gap: Spacing.twoHalf,
+  },
+  activity: {
+    ...Typography.caption,
+    paddingHorizontal: Spacing.three,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
   },
   dataNote: {
     margin: Spacing.three,

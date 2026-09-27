@@ -7,7 +7,12 @@ type PrimaryButtonProps = {
   label: string;
   onPress?: () => void;
   icon?: SymbolViewProps['name'];
-  variant?: 'primary' | 'light' | 'outline';
+  /**
+   * `primary` : l'action de la mission (orange « GO »), une seule par écran.
+   * `secondary` : action pleine mais subordonnée (bleu nuit).
+   * `light` / `outline` : actions de repli.
+   */
+  variant?: 'primary' | 'secondary' | 'light' | 'outline';
   loading?: boolean;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -23,6 +28,7 @@ export function PrimaryButton({
   style,
 }: PrimaryButtonProps) {
   const isDisabled = disabled || loading;
+  const onFill = variant === 'primary' || variant === 'secondary';
   return (
     <Pressable
       accessibilityRole="button"
@@ -36,7 +42,7 @@ export function PrimaryButton({
         style,
       ]}>
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? Palette.white : Palette.parisBlue} />
+        <ActivityIndicator color={onFill ? Palette.white : Palette.parisBlue} />
       ) : (
         <>
           <Text style={[styles.label, styles[`${variant}Label`]]}>{label}</Text>
@@ -44,7 +50,7 @@ export function PrimaryButton({
             <SymbolView
               name={icon}
               size={18}
-              tintColor={variant === 'primary' ? Palette.white : Palette.parisBlue}
+              tintColor={onFill ? Palette.white : Palette.parisBlue}
             />
           ) : null}
         </>
@@ -64,6 +70,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   primary: {
+    backgroundColor: Palette.go,
+  },
+  secondary: {
     backgroundColor: Palette.parisBlue,
   },
   light: {
@@ -77,10 +86,13 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: Fonts.sans,
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: 17,
     letterSpacing: -0.2,
   },
   primaryLabel: {
+    color: Palette.white,
+  },
+  secondaryLabel: {
     color: Palette.white,
   },
   lightLabel: {

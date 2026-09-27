@@ -6,11 +6,11 @@ export default function AppTabs() {
   return (
     <NativeTabs
       backgroundColor={Palette.white}
-      indicatorColor={Palette.blueMist}
-      tintColor={Palette.parisBlue}
+      indicatorColor={Palette.goSoft}
+      tintColor={Palette.go}
       labelStyle={{
         default: { color: Palette.inkSoft, fontSize: 11 },
-        selected: { color: Palette.parisBlue, fontSize: 11, fontWeight: '700' },
+        selected: { color: Palette.go, fontSize: 11, fontWeight: '700' },
       }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Autour</NativeTabs.Trigger.Label>

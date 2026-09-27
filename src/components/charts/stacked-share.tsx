@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   },
   legendValue: {
     color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontSize: 12,
     fontWeight: '700',
   },

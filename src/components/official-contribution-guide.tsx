@@ -125,8 +125,8 @@ const styles = StyleSheet.create({
   },
   step: {
     color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontSize: 9,
+    fontFamily: Fonts.display,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.8,
   },

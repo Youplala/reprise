@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     ...Typography.caption,
     color: Palette.ink,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',

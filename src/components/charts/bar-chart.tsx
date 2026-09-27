@@ -3,12 +3,14 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, useAnimatedStyle, useDerivedValue, withDelay, withSpring } from 'react-native-reanimated';
 
-import { Fonts, Palette, Radius, Spacing } from '@/constants/theme';
+import { Kicker, Palette, Radius, Spacing, Stat } from '@/constants/theme';
 
 export type Bar = {
   key: string;
   label: string;
   value: number;
+  /** Teinte propre à la barre, pour mettre en valeur une partie de la série. */
+  color?: string;
 };
 
 type BarChartProps = {
@@ -17,6 +19,8 @@ type BarChartProps = {
   accentColor?: string;
   /** Suffixe de l'infobulle, par exemple « reprises ». */
   unit?: string;
+  /** Barre lue au premier affichage ; la dernière par défaut. */
+  initialKey?: string;
 };
 
 const SPRING = { damping: 16, stiffness: 140, mass: 0.7 };
@@ -57,7 +61,7 @@ function Column({
           style={[
             styles.bar,
             barStyle,
-            { backgroundColor: selected ? Palette.brass : accentColor },
+            { backgroundColor: selected ? Palette.brass : (bar.color ?? accentColor) },
           ]}
         />
       </View>
@@ -69,8 +73,14 @@ function Column({
 }
 
 /** Histogramme vertical, une barre par période. Toucher une barre en révèle la valeur. */
-export function BarChart({ data, height = 132, accentColor = Palette.parisBlue, unit }: BarChartProps) {
-  const [selectedKey, setSelectedKey] = useState<string>();
+export function BarChart({
+  data,
+  height = 132,
+  accentColor = Palette.parisBlue,
+  unit,
+  initialKey,
+}: BarChartProps) {
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(initialKey);
   const max = Math.max(...data.map((bar) => bar.value), 1);
   const selected = data.find((bar) => bar.key === selectedKey) ?? data[data.length - 1];
 
@@ -112,18 +122,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.twoHalf,
   },
   readoutValue: {
+    ...Stat,
     color: Palette.ink,
-    fontFamily: Fonts.display,
-    fontWeight: '800',
-    fontSize: 30,
   },
   readoutLabel: {
-    marginTop: 1,
+    ...Kicker,
+    marginTop: Spacing.half,
     color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
   },
   row: {
     flexDirection: 'row',
@@ -145,11 +150,10 @@ const styles = StyleSheet.create({
     minHeight: 4,
   },
   columnLabel: {
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    fontSize: 9,
+    ...Kicker,
+    fontSize: 12,
     letterSpacing: 0.4,
-    textTransform: 'uppercase',
+    color: Palette.inkSoft,
   },
   columnLabelActive: {
     color: Palette.ink,

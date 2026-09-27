@@ -1,10 +1,9 @@
 import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
+import { Image, type ImageSource } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { SymbolView } from 'expo-symbols';
-import { useRef, useState } from 'react';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
+import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -15,49 +14,74 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BeforeAfterSlider } from '@/components/before-after-slider';
-import { Fonts, Palette, Radius, Spacing, Typography } from '@/constants/theme';
+import { ParisGridMap } from '@/components/paris-grid-map';
+import { PrimaryButton } from '@/components/primary-button';
+import { ProgressBar } from '@/components/progress-bar';
+import {
+  Fonts,
+  HitSize,
+  Kicker,
+  Palette,
+  Radius,
+  Shadow,
+  Spacing,
+  Stat,
+  Typography,
+} from '@/constants/theme';
 import { useUserLocation } from '@/hooks/use-user-location';
 import { useStations } from '@/providers/stations-provider';
 import { trySetLocationPreference } from '@/services/location-preference';
-import { completeOnboarding, LOCATION_PRIVACY_COPY } from '@/services/onboarding';
+import {
+  completeOnboarding,
+  HISTORIC_GRID_COUNT,
+  LOCATION_PRIVACY_COPY,
+} from '@/services/onboarding';
 import type { StationDetail } from '@/types/station';
 
-const PAGES = ['mission', 'demo', 'location'] as const;
+const appIcon = require('../../../assets/images/parisgo-app-icon.png');
+
+/**
+ * Trois pages, une idée chacune : ce qu'est l'app (l'avant/après), ce qu'on y fait (la mission),
+ * et d'où l'on part (sa position). Chaque page porte un visuel, un titre, une phrase et une seule
+ * action : le détail — légende de la carte, étapes du dépôt — s'apprend là où il sert.
+ */
+const PAGES = ['welcome', 'mission', 'location'] as const;
 type Page = (typeof PAGES)[number];
 
-const ORANGE = Palette.copper;
+const CTA_LABELS: Record<Page, string> = {
+  welcome: 'Commencer',
+  mission: 'Continuer',
+  location: 'Activer la localisation',
+};
 
 type OnboardingScreenProps = {
   onComplete: () => void;
 };
 
-function Eyebrow({ children }: { children: string }) {
-  return <Text style={styles.eyebrow}>{children}</Text>;
-}
-
-// La photo porte l'écran ; le titre n'est plus qu'une légende posée sur le fond, sans
-// paragraphe qui reformulerait ce que l'image montre déjà (voir direction-visuelle.md).
-function Heading({ eyebrow, title }: { eyebrow: string; title: string }) {
+function Heading({ kicker, title, copy }: { kicker: string; title: string; copy?: string }) {
   return (
-    <View>
-      <Eyebrow>{eyebrow}</Eyebrow>
-      <Text style={styles.heading}>{title}</Text>
+    <View style={styles.heading}>
+      <Text style={styles.kicker}>{kicker}</Text>
+      <Text accessibilityRole="header" style={styles.title}>
+        {title}
+      </Text>
+      {copy ? <Text style={styles.copy}>{copy}</Text> : null}
     </View>
   );
 }
 
-function PhotoCaption({ name }: { name: string }) {
-  return (
-    <Text numberOfLines={1} style={styles.photoCaption}>
-      {name}
-    </Text>
-  );
-}
-
-function Hero({
+function WelcomeHero({
   pair,
   height,
   playIntro,
@@ -65,79 +89,153 @@ function Hero({
 }: {
   pair?: StationDetail;
   height: number;
-  playIntro?: boolean;
-  onInteractionChange?: (active: boolean) => void;
+  playIntro: boolean;
+  onInteractionChange: (active: boolean) => void;
 }) {
   if (!pair?.referenceImage || !pair.recaptureImage) {
     return (
       <View style={[styles.heroFallback, { height }]}>
-        <SymbolView name="photo.on.rectangle.angled" size={32} tintColor={Palette.parisBlue} />
-        <Text style={styles.heroFallbackText}>Un avant / après parisien</Text>
+        <SymbolView name="photo.on.rectangle.angled" size={36} tintColor={Palette.go} />
       </View>
     );
   }
 
   return (
-    <BeforeAfterSlider
-      before={pair.referenceImage}
-      after={pair.recaptureImage}
-      beforeLabel={String(pair.year)}
-      afterLabel="2026"
-      borderRadius={0}
-      height={height}
-      playIntro={playIntro}
-      onInteractionChange={onInteractionChange}
-      style={styles.heroFlat}
-    />
-  );
-}
-
-function LocationHero({ pair, height }: { pair?: StationDetail; height: number }) {
-  if (!pair?.referenceImage) {
-    return (
-      <View style={[styles.heroFallback, { height }]}>
-        <SymbolView name="location.fill" size={30} tintColor={Palette.copper} />
-        <Text style={styles.heroFallbackText}>Une photo vous attend près d’ici.</Text>
+    <View>
+      <BeforeAfterSlider
+        before={pair.referenceImage}
+        after={pair.recaptureImage}
+        beforeLabel={String(pair.year)}
+        afterLabel="2026"
+        borderRadius={Radius.large}
+        height={height}
+        playIntro={playIntro}
+        onInteractionChange={onInteractionChange}
+      />
+      <View pointerEvents="none" style={styles.swipeHint}>
+        <SymbolView name="hand.draw.fill" size={14} tintColor={Palette.white} />
+        <Text style={styles.swipeHintText}>Glissez pour comparer</Text>
       </View>
-    );
-  }
-
-  return (
-    <Image
-      source={pair.referenceImage}
-      style={[styles.locationHero, { height }]}
-      contentFit="cover"
-    />
+    </View>
   );
 }
 
-function ProcessStep({ number, title, copy }: { number: string; title: string; copy: string }) {
+function MissionStep({
+  icon,
+  title,
+  copy,
+}: {
+  icon: SymbolViewProps['name'];
+  title: string;
+  copy: string;
+}) {
   return (
-    <View style={styles.processStep}>
-      <Text style={styles.processNumber}>{number}</Text>
-      <View style={styles.processRule} />
-      <Text style={styles.processTitle}>{title}</Text>
-      <Text style={styles.processCopy}>{copy}</Text>
+    <View style={styles.step}>
+      <View style={styles.stepIcon}>
+        <SymbolView name={icon} size={20} tintColor={Palette.go} />
+      </View>
+      <View style={styles.stepCopy}>
+        <Text style={styles.stepTitle}>{title}</Text>
+        <Text style={styles.stepText}>{copy}</Text>
+      </View>
+    </View>
+  );
+}
+
+// Positions des vignettes autour du repère, en fraction du diamètre du radar.
+const RADAR_THUMBS = [
+  { x: 0.08, y: 0.1, rotate: '-6deg' },
+  { x: 0.7, y: 0.02, rotate: '5deg' },
+  { x: 0.76, y: 0.62, rotate: '-4deg' },
+  { x: 0.02, y: 0.66, rotate: '4deg' },
+] as const;
+
+/** Un repère qui pulse au milieu des photos de 1970 : « il y en a autour de vous ». */
+function Radar({ images, size }: { images: ImageSource[]; size: number }) {
+  const reducedMotion = useReducedMotion();
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    if (reducedMotion) return;
+    pulse.value = withRepeat(
+      withTiming(1, { duration: 2200, easing: Easing.out(Easing.quad) }),
+      -1,
+      false,
+    );
+  }, [pulse, reducedMotion]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    opacity: 0.55 * (1 - pulse.value),
+    transform: [{ scale: 1 + pulse.value * 2.2 }],
+  }));
+
+  const thumb = Math.round(size * 0.24);
+
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[styles.radar, { width: size, height: size }]}>
+      {[1, 0.7, 0.4].map((ratio) => (
+        <View
+          key={ratio}
+          style={[
+            styles.radarRing,
+            {
+              width: size * ratio,
+              height: size * ratio,
+              borderRadius: (size * ratio) / 2,
+            },
+          ]}
+        />
+      ))}
+      <Animated.View style={[styles.radarPulse, pulseStyle]} />
+      <View style={styles.radarPin}>
+        <SymbolView name="location.fill" size={24} tintColor={Palette.white} />
+      </View>
+      {images.slice(0, RADAR_THUMBS.length).map((source, index) => {
+        const position = RADAR_THUMBS[index];
+        return (
+          <View
+            key={index}
+            style={[
+              styles.radarThumb,
+              {
+                width: thumb,
+                height: thumb,
+                left: position.x * size,
+                top: position.y * size,
+                transform: [{ rotate: position.rotate }],
+              },
+            ]}>
+            <Image source={source} style={StyleSheet.absoluteFill} contentFit="cover" />
+          </View>
+        );
+      })}
     </View>
   );
 }
 
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const { width, height } = useWindowDimensions();
-  const { publishedSubmissions } = useStations();
+  const { publishedSubmissions, coverage, grid } = useStations();
   const { locate, loading: locating } = useUserLocation();
   const listRef = useRef<FlatList<Page>>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [pagerScrollEnabled, setPagerScrollEnabled] = useState(true);
   const [finishing, setFinishing] = useState(false);
-  // Sans paragraphe d'intro ni carte de pictogrammes, l'image peut grandir et occuper le
-  // haut de l'écran : c'est elle qui porte la page, le texte n'en est que la légende.
-  // La première étape ne porte qu'un titre sous l'image : à hauteur commune, il restait un vide
-  // en bas d'écran. L'image le prend, puisque c'est elle qu'on est venu voir.
-  const heroHeightAlone = Math.min(470, Math.max(300, height * 0.5));
-  // La dernière étape porte le plus de contenu — titre, mention de confidentialité, échappatoire.
-  // L'image lui cède la place : une information sur la vie privée ne doit pas demander à défiler.
-  const heroHeightShort = Math.min(320, Math.max(200, height * 0.34));
+
+  const heroHeight = Math.min(400, Math.max(240, height * 0.37));
+  const gridHeight = Math.min(260, Math.max(190, height * 0.28));
+  const radarSize = Math.min(270, width - Spacing.five * 2, height * 0.3);
+  const finalPage = pageIndex === PAGES.length - 1;
+  const percentageLabel = coverage.percentage.toLocaleString('fr-FR', {
+    maximumFractionDigits: 1,
+  });
+  const radarImages = publishedSubmissions
+    .map((submission) => submission.referenceImage)
+    .filter((image): image is ImageSource => Boolean(image))
+    .slice(1, 1 + RADAR_THUMBS.length);
 
   const finish = async () => {
     if (finishing) return;
@@ -164,30 +262,18 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     await finish();
   };
 
-  const goToLocationChoice = () => {
+  const goTo = (index: number) => {
     void Haptics.selectionAsync();
-    const locationIndex = PAGES.length - 1;
-    listRef.current?.scrollToIndex({ index: locationIndex, animated: true });
-    setPageIndex(locationIndex);
+    listRef.current?.scrollToIndex({ index, animated: true });
+    setPageIndex(index);
   };
 
-  const goNext = () => {
-    if (pageIndex === PAGES.length - 1) {
+  const handlePrimary = () => {
+    if (finalPage) {
       void findFirstPhoto();
       return;
     }
-    void Haptics.selectionAsync();
-    const nextIndex = pageIndex + 1;
-    listRef.current?.scrollToIndex({ index: nextIndex, animated: true });
-    setPageIndex(nextIndex);
-  };
-
-  const goPrevious = () => {
-    if (pageIndex === 0) return;
-    void Haptics.selectionAsync();
-    const previousIndex = pageIndex - 1;
-    listRef.current?.scrollToIndex({ index: previousIndex, animated: true });
-    setPageIndex(previousIndex);
+    goTo(pageIndex + 1);
   };
 
   const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -196,129 +282,105 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   const renderPage = ({ item }: { item: Page }) => {
     const isActive = PAGES[pageIndex] === item;
-    const accessibilityProps = {
+    const pageProps = {
       accessibilityElementsHidden: !isActive,
       importantForAccessibility: isActive ? ('auto' as const) : ('no-hide-descendants' as const),
+      style: { width },
+      contentContainerStyle: styles.page,
+      showsVerticalScrollIndicator: false,
     };
 
-    if (item === 'mission') {
-      const pair = publishedSubmissions[0];
-      const caption = pair?.referenceImage && pair.recaptureImage ? pair : undefined;
+    if (item === 'welcome') {
       return (
-        <ScrollView
-          {...accessibilityProps}
-          style={{ width }}
-          contentContainerStyle={styles.page}
-          showsVerticalScrollIndicator={false}>
-          <Hero
-            pair={pair}
-            height={heroHeightAlone}
+        <ScrollView {...pageProps}>
+          <WelcomeHero
+            pair={publishedSubmissions[0]}
+            height={heroHeight}
+            playIntro={isActive}
             onInteractionChange={(active) => setPagerScrollEnabled(!active)}
           />
-          {caption ? <PhotoCaption name={caption.name} /> : null}
-          <View style={styles.content}>
-            <Heading
-              eyebrow="BIENVENUE DANS PARIS GO"
-              title={'Refaites les photos\ndu Paris de 1970.'}
+          <Heading
+            kicker="Bienvenue dans Paris GO"
+            title="Retrouvez le Paris de 1970."
+            copy="En 1970, des Parisiens ont photographié leur ville. Refaites leurs photos, au même endroit, aujourd’hui."
+          />
+        </ScrollView>
+      );
+    }
+
+    if (item === 'mission') {
+      return (
+        <ScrollView {...pageProps}>
+          <ParisGridMap cells={grid} squareCount={HISTORIC_GRID_COUNT} height={gridHeight} />
+
+          <View style={styles.missionProgress}>
+            <View style={styles.missionHead}>
+              <Text style={styles.missionKicker}>La mission collective</Text>
+              <Text style={styles.missionValue}>{percentageLabel} %</Text>
+            </View>
+            <ProgressBar percentage={coverage.percentage} height={10} />
+            <Text style={styles.missionDetail}>
+              {coverage.published1970.toLocaleString('fr-FR')} photos refaites sur{' '}
+              {coverage.total1970.toLocaleString('fr-FR')}. À vous de faire monter ce chiffre.
+            </Text>
+          </View>
+
+          <View style={styles.steps}>
+            <MissionStep
+              icon="map.fill"
+              title="Trouvez une photo"
+              copy="Choisissez un carré près de vous."
+            />
+            <MissionStep
+              icon="camera.viewfinder"
+              title="Cadrez comme en 1970"
+              copy="Le viseur superpose l’archive."
+            />
+            <MissionStep
+              icon="paperplane.fill"
+              title="Partagez votre reprise"
+              copy="Déposez-la à l’Observatoire."
             />
           </View>
         </ScrollView>
       );
     }
 
-    if (item === 'demo') {
-      const pair = publishedSubmissions[1] ?? publishedSubmissions[0];
-      const caption = pair?.referenceImage && pair.recaptureImage ? pair : undefined;
-      return (
-        <ScrollView
-          {...accessibilityProps}
-          style={{ width }}
-          contentContainerStyle={styles.page}
-          showsVerticalScrollIndicator={false}>
-          <Hero
-            pair={pair}
-            height={heroHeightShort}
-            playIntro={isActive}
-            onInteractionChange={(active) => setPagerScrollEnabled(!active)}
-          />
-          {caption ? <PhotoCaption name={caption.name} /> : null}
-          {caption ? (
-            <View style={styles.swipeHint}>
-              <SymbolView name="arrow.left.and.right" size={13} tintColor={Palette.parisBlue} />
-              <Text style={styles.swipeHintText}>GLISSEZ POUR COMPARER</Text>
-            </View>
-          ) : null}
-          <View style={styles.content}>
-            <Heading eyebrow="COMMENT ÇA MARCHE" title={'Trouver, reprendre,\ndéposer.'} />
-            <View style={styles.processRow}>
-              <ProcessStep number="01" title="TROUVER" copy="près de vous" />
-              <ProcessStep number="02" title="REPRENDRE" copy="avec le guide" />
-              <ProcessStep number="03" title="DÉPOSER" copy="sur le site officiel" />
-            </View>
-            <Text style={styles.mapGuide}>
-              Sur la carte, touchez un secteur pour ouvrir ses photos. Une teinte plus soutenue
-              indique davantage de photos à retrouver ou déjà refaites, selon l’onglet.
-              Les repères indiquent les positions vérifiées ; les autres archives restent regroupées
-              par secteur de 250 m.
-            </Text>
-          </View>
-        </ScrollView>
-      );
-    }
-
     return (
-      <ScrollView
-        {...accessibilityProps}
-        style={{ width }}
-        contentContainerStyle={styles.page}
-        showsVerticalScrollIndicator={false}>
-        <LocationHero pair={publishedSubmissions[0]} height={heroHeightShort} />
-        <View style={styles.content}>
-          <Heading eyebrow="AUTOUR DE VOUS" title={'La photo la plus\nproche de vous.'} />
-          <View style={styles.privacyCard}>
-            <View style={styles.privacyIcon}>
-              <SymbolView name="lock.fill" size={16} tintColor={Palette.parisBlue} />
-            </View>
-            <View style={styles.privacyCopy}>
-              <Text style={styles.privacyTitle}>VOTRE POSITION RESTE PRIVÉE</Text>
-              <Text style={styles.privacyText}>{LOCATION_PRIVACY_COPY}</Text>
-            </View>
-          </View>
-          <Pressable
-            accessibilityLabel="Explorer Paris sans utiliser ma position"
-            accessibilityRole="button"
-            onPress={() => void exploreWithoutLocation()}
-            style={({ pressed }) => [styles.manualExploreButton, pressed && styles.pressed]}>
-            <Text style={styles.manualExploreText}>EXPLORER SANS LOCALISATION</Text>
-            <SymbolView name="map" size={15} tintColor={Palette.parisBlue} />
-          </Pressable>
+      <ScrollView {...pageProps}>
+        <View style={styles.radarWrap}>
+          <Radar images={radarImages} size={radarSize} />
+        </View>
+        <Heading
+          kicker="Autour de vous"
+          title="Commencez près de vous."
+          copy="Paris GO vous montre d’abord les photos de 1970 prises à quelques rues."
+        />
+        <View style={styles.privacy}>
+          <SymbolView name="lock.fill" size={14} tintColor={Palette.lichen} />
+          <Text style={styles.privacyText}>{LOCATION_PRIVACY_COPY}</Text>
         </View>
       </ScrollView>
     );
   };
 
-  const finalPage = pageIndex === PAGES.length - 1;
-
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
       <StatusBar style="dark" animated />
       <View style={styles.header}>
-        <Text style={styles.brand}>PARIS GO</Text>
-        <View style={styles.headerRight}>
-          <Text style={styles.pageCount}>
-            0{pageIndex + 1} / 0{PAGES.length}
-          </Text>
-          {!finalPage ? (
-            <Pressable
-              accessibilityLabel="Passer au choix de localisation"
-              accessibilityRole="button"
-              hitSlop={10}
-              onPress={goToLocationChoice}
-              style={({ pressed }) => [styles.skip, pressed && styles.pressed]}>
-              <Text style={styles.skipText}>PASSER</Text>
-            </Pressable>
-          ) : null}
+        <View style={styles.brand}>
+          <Image source={appIcon} style={styles.brandIcon} contentFit="cover" />
+          <Text style={styles.brandText}>Paris GO</Text>
         </View>
+        {!finalPage ? (
+          <Pressable
+            accessibilityLabel="Passer au choix de localisation"
+            accessibilityRole="button"
+            onPress={() => goTo(PAGES.length - 1)}
+            style={({ pressed }) => [styles.skip, pressed && styles.pressed]}>
+            <Text style={styles.skipText}>Passer</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <FlatList
@@ -341,46 +403,29 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         <View
           accessibilityLabel={`Étape ${pageIndex + 1} sur ${PAGES.length}`}
           accessibilityRole="progressbar"
-          style={styles.progress}>
+          style={styles.dots}>
           {PAGES.map((page, index) => (
-            <View key={page} style={[styles.progressTrack, index <= pageIndex && styles.progressDone]} />
+            <View key={page} style={[styles.dot, index === pageIndex && styles.dotActive]} />
           ))}
         </View>
-        <View style={styles.footerActions}>
-          {pageIndex > 0 ? (
-            <Pressable
-              accessibilityLabel="Revenir à l’étape précédente"
-              accessibilityRole="button"
-              onPress={goPrevious}
-              style={({ pressed }) => [styles.backButton, pressed && styles.nextButtonPressed]}>
-              <SymbolView
-                name="chevron.left"
-                size={14}
-                tintColor={Palette.parisBlue}
-              />
-              <Text style={styles.backButtonText}>RETOUR</Text>
-            </Pressable>
-          ) : null}
+        <PrimaryButton
+          label={CTA_LABELS[PAGES[pageIndex]]}
+          icon={finalPage ? 'location.fill' : 'arrow.right'}
+          loading={finishing || locating}
+          onPress={handlePrimary}
+        />
+        {finalPage ? (
           <Pressable
-            accessibilityLabel={finalPage ? 'Voir les photos autour de moi' : 'Continuer'}
             accessibilityRole="button"
-            disabled={finishing || locating}
-            onPress={finalPage ? () => void findFirstPhoto() : goNext}
-            style={({ pressed }) => [styles.nextButton, pressed && styles.nextButtonPressed]}>
-            <Text adjustsFontSizeToFit numberOfLines={1} style={styles.nextButtonText}>
-              {finalPage ? 'VOIR AUTOUR DE MOI' : 'CONTINUER'}
-            </Text>
-            {finishing || locating ? (
-              <ActivityIndicator color={Palette.white} size="small" />
-            ) : (
-              <SymbolView
-                name={finalPage ? 'location.fill' : 'arrow.right'}
-                size={18}
-                tintColor={Palette.white}
-              />
-            )}
+            accessibilityLabel="Explorer Paris sans utiliser ma position"
+            disabled={finishing}
+            onPress={() => void exploreWithoutLocation()}
+            style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
+            <Text style={styles.secondaryText}>Explorer sans localisation</Text>
           </Pressable>
-        </View>
+        ) : (
+          <View style={styles.secondary} />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -392,264 +437,242 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.fog,
   },
   header: {
-    minHeight: 54,
-    paddingHorizontal: Spacing.threeHalf,
-    paddingTop: Spacing.two,
+    minHeight: 56,
+    paddingHorizontal: Spacing.three,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Palette.line,
   },
   brand: {
-    ...Typography.caption,
-    color: Palette.parisBlue,
-    fontFamily: Fonts.display,
-    fontWeight: '800',
-    letterSpacing: 3,
-  },
-  headerRight: {
-    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
+    gap: Spacing.two,
   },
-  pageCount: {
-    ...Typography.caption,
-    color: ORANGE,
-    fontFamily: Fonts.mono,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  brandIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+  },
+  brandText: {
+    ...Typography.title,
+    color: Palette.ink,
+    fontFamily: Fonts.display,
+    fontWeight: '800',
   },
   skip: {
-    minWidth: 54,
-    minHeight: 44,
+    minWidth: HitSize,
+    minHeight: HitSize,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
   skipText: {
-    ...Typography.caption,
-    color: Palette.parisBlue,
-    fontFamily: Fonts.mono,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    ...Typography.body,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+    fontWeight: '600',
   },
   pressed: {
     opacity: 0.55,
   },
-  // Pas de padding horizontal ici : l'image doit toucher les bords de l'écran. Le texte
-  // qui suit porte son propre padding via `content`.
   page: {
     flexGrow: 1,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
     paddingBottom: Spacing.three,
   },
-  eyebrow: {
-    ...Typography.caption,
-    color: ORANGE,
-    fontFamily: Fonts.mono,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
+
   heading: {
+    marginTop: Spacing.threeHalf,
+    gap: Spacing.two,
+  },
+  kicker: {
+    ...Kicker,
+    color: Palette.go,
+  },
+  title: {
     ...Typography.display,
+    fontSize: 32,
+    lineHeight: 36,
     color: Palette.ink,
     fontFamily: Fonts.display,
-    letterSpacing: -0.4,
-    marginTop: Spacing.two,
+    fontWeight: '800',
   },
-  content: {
-    paddingHorizontal: Spacing.threeHalf,
-    paddingTop: Spacing.five,
-    paddingBottom: Spacing.three,
-    gap: Spacing.five,
+  copy: {
+    ...Typography.body,
+    fontSize: 17,
+    lineHeight: 24,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
   },
+
   heroFallback: {
+    borderRadius: Radius.large,
+    backgroundColor: Palette.goSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.two,
-    backgroundColor: Palette.blueMist,
-  },
-  heroFallbackText: {
-    ...Typography.caption,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-  },
-  // Neutralise l'ombre du composant : une photo à fond perdu ne flotte pas comme une carte.
-  heroFlat: {
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  locationHero: {
-    width: '100%',
-    backgroundColor: Palette.archive,
-  },
-  photoCaption: {
-    ...Typography.caption,
-    color: Palette.ink,
-    fontFamily: Fonts.sans,
-    fontWeight: '700',
-    paddingHorizontal: Spacing.threeHalf,
-    marginTop: Spacing.two,
   },
   swipeHint: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: Spacing.three,
+    minHeight: 32,
+    paddingHorizontal: Spacing.twoHalf,
+    borderRadius: Radius.pill,
+    backgroundColor: 'rgba(8, 17, 22, 0.66)',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: Spacing.one,
-    marginTop: Spacing.one,
   },
   swipeHintText: {
     ...Typography.caption,
-    color: Palette.parisBlue,
-    fontFamily: Fonts.mono,
+    color: Palette.white,
+    fontFamily: Fonts.sans,
     fontWeight: '700',
-    letterSpacing: 0.4,
   },
-  processRow: {
-    flexDirection: 'row',
-    gap: Spacing.three,
-  },
-  mapGuide: {
-    ...Typography.body,
-    fontFamily: Fonts.sans,
-    color: Palette.inkSoft,
-  },
-  processStep: {
-    flex: 1,
-  },
-  processNumber: {
-    ...Typography.caption,
-    color: Palette.parisBlue,
-    fontFamily: Fonts.mono,
-    fontWeight: '800',
-  },
-  processRule: {
-    height: 2,
-    backgroundColor: Palette.parisBlue,
-    marginVertical: Spacing.two,
-  },
-  processTitle: {
-    ...Typography.caption,
-    color: Palette.ink,
-    fontFamily: Fonts.display,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  processCopy: {
-    ...Typography.caption,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    marginTop: Spacing.half,
-  },
-  privacyCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.twoHalf,
-    borderRadius: Radius.medium,
-    backgroundColor: Palette.blueMist,
-    padding: Spacing.three,
-  },
-  privacyIcon: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 17,
-    backgroundColor: Palette.white,
-  },
-  privacyCopy: {
-    flex: 1,
-  },
-  privacyTitle: {
-    ...Typography.caption,
-    color: Palette.parisBlue,
-    fontFamily: Fonts.mono,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  privacyText: {
-    ...Typography.body,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    marginTop: Spacing.one,
-  },
-  manualExploreButton: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+
+  missionProgress: {
+    marginTop: Spacing.threeHalf,
     gap: Spacing.two,
   },
-  manualExploreText: {
-    ...Typography.caption,
-    color: Palette.parisBlue,
-    fontFamily: Fonts.mono,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  footer: {
-    paddingHorizontal: Spacing.threeHalf,
-    paddingTop: Spacing.two,
-    paddingBottom: Spacing.one,
-    gap: Spacing.twoHalf,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Palette.line,
-    backgroundColor: Palette.fog,
-  },
-  footerActions: {
-    minHeight: 54,
+  missionHead: {
     flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  progress: {
-    height: 3,
-    flexDirection: 'row',
-    gap: Spacing.one,
-  },
-  progressTrack: {
-    flex: 1,
-    backgroundColor: Palette.line,
-  },
-  progressDone: {
-    backgroundColor: ORANGE,
-  },
-  nextButton: {
-    flex: 1,
-    minHeight: 54,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.parisBlue,
-    paddingHorizontal: Spacing.threeHalf,
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
   },
-  nextButtonPressed: {
-    opacity: 0.86,
+  missionKicker: {
+    ...Kicker,
+    color: Palette.go,
   },
-  nextButtonText: {
+  missionValue: {
+    ...Stat,
+    fontSize: 30,
+    lineHeight: 36,
+    color: Palette.ink,
+  },
+  missionDetail: {
     ...Typography.caption,
-    color: Palette.white,
-    fontFamily: Fonts.display,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
   },
-  backButton: {
-    minWidth: 102,
-    minHeight: 54,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Palette.line,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.white,
+  steps: {
+    marginTop: Spacing.four,
+    gap: Spacing.three,
+  },
+  step: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.three,
+  },
+  stepIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Palette.goSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepCopy: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  stepTitle: {
+    ...Typography.body,
+    fontSize: 17,
+    color: Palette.ink,
+    fontFamily: Fonts.sans,
+    fontWeight: '700',
+  },
+  stepText: {
+    ...Typography.caption,
+    fontSize: 15,
+    lineHeight: 20,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+  },
+
+  radarWrap: {
+    marginTop: Spacing.one,
+    alignItems: 'center',
+  },
+  radar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radarRing: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'rgba(232, 85, 43, 0.28)',
+    backgroundColor: 'rgba(232, 85, 43, 0.05)',
+  },
+  radarPulse: {
+    position: 'absolute',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Palette.goBright,
+  },
+  radarPin: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Palette.go,
+    borderWidth: 4,
+    borderColor: Palette.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadow.card,
+  },
+  radarThumb: {
+    position: 'absolute',
+    borderRadius: Radius.medium,
+    borderWidth: 3,
+    borderColor: Palette.white,
+    overflow: 'hidden',
+    backgroundColor: Palette.blueMist,
+    ...Shadow.card,
+  },
+  privacy: {
+    marginTop: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+  },
+  privacyText: {
+    ...Typography.caption,
+    flex: 1,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+  },
+
+  footer: {
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.twoHalf,
+    gap: Spacing.twoHalf,
+  },
+  dots: {
+    flexDirection: 'row',
     justifyContent: 'center',
     gap: Spacing.one,
   },
-  backButtonText: {
-    ...Typography.caption,
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Palette.line,
+  },
+  dotActive: {
+    width: 24,
+    backgroundColor: Palette.goBright,
+  },
+  secondary: {
+    minHeight: HitSize,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryText: {
+    ...Typography.body,
     color: Palette.parisBlue,
-    fontFamily: Fonts.mono,
-    fontWeight: '800',
-    letterSpacing: 0.4,
+    fontFamily: Fonts.sans,
+    fontWeight: '600',
   },
 });

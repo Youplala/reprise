@@ -23,6 +23,8 @@ type PhotoViewerProps = {
   visible: boolean;
   onClose: () => void;
   onIndexChange?: (index: number) => void;
+  /** Étiquette propre à chaque photo (« 1970 · Archive ») ; sinon, le compteur d'archive. */
+  labels?: readonly string[];
 };
 
 export function PhotoViewer({
@@ -31,6 +33,7 @@ export function PhotoViewer({
   visible,
   onClose,
   onIndexChange,
+  labels,
 }: PhotoViewerProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -100,7 +103,7 @@ export function PhotoViewer({
 
         <View pointerEvents="box-none" style={[styles.topBar, { top: topBarOffset }]}>
           <View style={styles.archiveLabel}>
-            <Text style={styles.archiveKicker}>ARCHIVE 1970</Text>
+            <Text style={styles.archiveKicker}>{labels?.[currentIndex] ?? 'ARCHIVE 1970'}</Text>
             <Text style={styles.archiveCounter}>
               PHOTO {String(currentIndex + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}
             </Text>
@@ -151,15 +154,15 @@ const styles = StyleSheet.create({
   },
   archiveKicker: {
     color: Palette.brass,
-    fontFamily: Fonts.mono,
-    fontSize: 9,
+    fontFamily: Fonts.display,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.7,
   },
   archiveCounter: {
     marginTop: 3,
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.4,
@@ -192,8 +195,8 @@ const styles = StyleSheet.create({
   },
   gestureHintText: {
     color: Palette.white,
-    fontFamily: Fonts.mono,
-    fontSize: 8,
+    fontFamily: Fonts.display,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.35,
   },

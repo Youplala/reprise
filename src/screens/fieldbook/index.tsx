@@ -15,7 +15,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
+import {
+  Fonts,
+  HitSize,
+  Kicker,
+  Palette,
+  Radius,
+  Shadow,
+  Spacing,
+  Typography,
+} from '@/constants/theme';
 import { deleteCapture, getSavedCaptures, type SavedCapture } from '@/services/fieldbook';
 import { getFieldbookViewState } from '@/services/fieldbook-view-state';
 
@@ -99,14 +108,14 @@ export function FieldbookScreen() {
       return;
     }
     await Share.share({
-      message: `Ma reprise de ${capture.stationName ?? 'Paris'} avec Reprise.`,
+      message: `Ma reprise de ${capture.stationName ?? 'Paris'} avec Paris GO.`,
     });
   };
 
   const confirmDelete = (capture: SavedCapture) => {
     Alert.alert(
       'Supprimer ce brouillon ?',
-      'La copie privée de Reprise sera supprimée. La copie éventuellement enregistrée dans Photos restera intacte.',
+      'La copie privée dans Paris GO sera supprimée. La copie éventuellement enregistrée dans Photos restera intacte.',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -159,7 +168,7 @@ export function FieldbookScreen() {
       ) : state.kind === 'empty' ? (
         <View style={styles.center}>
           <View style={styles.emptyIcon}>
-            <SymbolView name="book.closed.fill" size={31} tintColor={Palette.parisBlue} />
+            <SymbolView name="book.closed.fill" size={31} tintColor={Palette.go} />
           </View>
           <Text style={styles.emptyTitle}>{state.title}</Text>
           <Text style={styles.emptyCopy}>{state.description}</Text>
@@ -242,41 +251,41 @@ const styles = StyleSheet.create({
     borderBottomColor: Palette.line,
   },
   close: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: HitSize,
+    height: HitSize,
+    borderRadius: HitSize / 2,
     backgroundColor: Palette.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerCopy: { flex: 1, alignItems: 'center' },
-  headerSpacer: { width: 38 },
-  kicker: { color: Palette.copper, fontFamily: Fonts.mono, fontSize: 9, fontWeight: '900', letterSpacing: 0.7 },
-  title: { color: Palette.ink, fontFamily: Fonts.display, fontSize: 28, fontWeight: '900' },
+  headerSpacer: { width: HitSize },
+  kicker: { ...Kicker, color: Palette.go },
+  title: { ...Typography.title, color: Palette.ink, fontFamily: Fonts.display, fontWeight: '800' },
   center: { flex: 1, padding: Spacing.four, alignItems: 'center', justifyContent: 'center' },
-  status: { marginTop: Spacing.two, color: Palette.inkSoft, fontFamily: Fonts.sans, fontSize: 13 },
-  emptyIcon: { width: 68, height: 68, borderRadius: 34, backgroundColor: Palette.blueMist, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { marginTop: Spacing.three, color: Palette.ink, fontFamily: Fonts.display, fontSize: 27, fontWeight: '900' },
-  emptyCopy: { marginTop: Spacing.two, maxWidth: 300, textAlign: 'center', color: Palette.inkSoft, fontFamily: Fonts.sans, fontSize: 14, lineHeight: 21 },
-  retry: { marginTop: Spacing.three, minHeight: 46, paddingHorizontal: Spacing.three, borderRadius: Radius.medium, backgroundColor: Palette.parisBlue, alignItems: 'center', justifyContent: 'center' },
-  retryText: { color: Palette.white, fontFamily: Fonts.sans, fontSize: 13, fontWeight: '800' },
+  status: { ...Typography.caption, marginTop: Spacing.two, color: Palette.inkSoft, fontFamily: Fonts.sans },
+  emptyIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: Palette.goSoft, alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { ...Typography.display, marginTop: Spacing.three, color: Palette.ink, fontFamily: Fonts.display, fontWeight: '800' },
+  emptyCopy: { ...Typography.body, marginTop: Spacing.two, maxWidth: 300, textAlign: 'center', color: Palette.inkSoft, fontFamily: Fonts.sans },
+  retry: { marginTop: Spacing.four, minHeight: 52, paddingHorizontal: Spacing.four, borderRadius: Radius.pill, backgroundColor: Palette.go, alignItems: 'center', justifyContent: 'center' },
+  retryText: { ...Typography.body, color: Palette.white, fontFamily: Fonts.sans, fontWeight: '700' },
   list: { padding: Spacing.three, paddingBottom: Spacing.five },
-  count: { marginBottom: Spacing.three, color: Palette.inkSoft, fontFamily: Fonts.sans, fontSize: 12 },
+  count: { ...Typography.caption, marginBottom: Spacing.three, color: Palette.inkSoft, fontFamily: Fonts.sans },
   card: { marginBottom: Spacing.three, borderRadius: Radius.large, backgroundColor: Palette.white, overflow: 'hidden', ...Shadow.card },
   thumbnail: { width: '100%', height: 210, backgroundColor: Palette.blueMist },
   simulatedThumbnail: { alignItems: 'center', justifyContent: 'center', gap: Spacing.one },
-  simulatedLabel: { color: Palette.parisBlue, fontFamily: Fonts.mono, fontSize: 9, fontWeight: '900' },
-  cardBody: { padding: Spacing.three, paddingRight: 54 },
-  cardKicker: { color: Palette.copper, fontFamily: Fonts.mono, fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
-  cardTitle: { marginTop: Spacing.one, color: Palette.ink, fontFamily: Fonts.display, fontSize: 23, fontWeight: '900' },
-  cardMeta: { marginTop: Spacing.one, color: Palette.inkSoft, fontFamily: Fonts.sans, fontSize: 12, lineHeight: 17 },
+  simulatedLabel: { ...Kicker, color: Palette.parisBlue },
+  cardBody: { padding: Spacing.three, paddingRight: 60 },
+  cardKicker: { ...Kicker, color: Palette.go },
+  cardTitle: { ...Typography.title, marginTop: Spacing.one, color: Palette.ink, fontFamily: Fonts.display, fontWeight: '800' },
+  cardMeta: { ...Typography.caption, marginTop: Spacing.one, color: Palette.inkSoft, fontFamily: Fonts.sans },
   preparationRow: { marginTop: Spacing.two, flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
-  preparationText: { color: Palette.inkSoft, fontFamily: Fonts.sans, fontSize: 11, fontWeight: '700' },
-  delete: { position: 'absolute', right: Spacing.two, top: 210 + Spacing.two, width: 38, height: 38, borderRadius: 19, backgroundColor: Palette.fog, alignItems: 'center', justifyContent: 'center' },
-  actions: { padding: Spacing.two, paddingTop: 0, flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
-  action: { minHeight: 42, paddingHorizontal: Spacing.two, borderRadius: Radius.medium, backgroundColor: Palette.blueMist, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  actionText: { color: Palette.parisBlue, fontFamily: Fonts.sans, fontSize: 11, fontWeight: '800' },
-  primaryAction: { minHeight: 42, flexGrow: 1, paddingHorizontal: Spacing.two, borderRadius: Radius.medium, backgroundColor: Palette.parisBlue, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  primaryActionText: { color: Palette.white, fontFamily: Fonts.sans, fontSize: 11, fontWeight: '800' },
-  pressed: { opacity: 0.75, transform: [{ scale: 0.97 }] },
+  preparationText: { ...Typography.caption, color: Palette.inkSoft, fontFamily: Fonts.sans, fontWeight: '600' },
+  delete: { position: 'absolute', right: Spacing.two, top: 210 + Spacing.two, width: HitSize, height: HitSize, borderRadius: HitSize / 2, backgroundColor: Palette.fog, alignItems: 'center', justifyContent: 'center' },
+  actions: { padding: Spacing.three, paddingTop: 0, flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  action: { minHeight: HitSize, paddingHorizontal: Spacing.three, borderRadius: Radius.pill, backgroundColor: Palette.blueMist, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.one },
+  actionText: { ...Typography.caption, color: Palette.parisBlue, fontFamily: Fonts.sans, fontWeight: '700' },
+  primaryAction: { minHeight: HitSize, flexGrow: 1, paddingHorizontal: Spacing.three, borderRadius: Radius.pill, backgroundColor: Palette.go, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.one },
+  primaryActionText: { ...Typography.caption, color: Palette.white, fontFamily: Fonts.sans, fontWeight: '700' },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.97 }] },
 });

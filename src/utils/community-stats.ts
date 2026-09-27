@@ -32,8 +32,28 @@ export type Contributor = {
   count: number;
 };
 
+export type WeekdayActivity = {
+  /** 0 = lundi … 6 = dimanche. */
+  day: number;
+  /** « lun » */
+  label: string;
+  count: number;
+};
+
+export type DeviceShare = {
+  key: 'digital' | 'smartphone' | 'film' | 'other';
+  label: string;
+  count: number;
+};
+
 export type CommunityStats = {
   monthlyActivity: MonthlyActivity[];
+  /** Reprises datées, par jour de la semaine, du lundi au dimanche. */
+  weekdayActivity: WeekdayActivity[];
+  /** Appareils déclarés pour les reprises, du plus au moins employé. */
+  deviceShare: DeviceShare[];
+  /** Photographes de 1970 dont au moins une vue a été refaite, du plus au moins repris. */
+  archivePhotographers: Contributor[];
   datedRecaptures: number;
   arrondissementActivity: ArrondissementActivity[];
   squareDistribution: SquareBucket[];
@@ -43,6 +63,28 @@ export type CommunityStats = {
 };
 
 const monthFormat = new Intl.DateTimeFormat('fr-FR', { month: 'short' });
+
+const WEEKDAY_LABELS = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+
+const DEVICE_LABELS: Record<DeviceShare['key'], string> = {
+  digital: 'Appareil numérique',
+  smartphone: 'Smartphone',
+  film: 'Argentique',
+  other: 'Autre',
+};
+
+function deviceKey(device: string): DeviceShare['key'] {
+  const normalized = device.toLocaleLowerCase('fr-FR');
+  if (normalized.includes('smartphone') || normalized.includes('téléphone')) return 'smartphone';
+  if (normalized.includes('argentique')) return 'film';
+  if (normalized.includes('numérique')) return 'digital';
+  return 'other';
+}
+
+// « Photographe non identifié » n'est pas un auteur : le classer premier ne dirait rien.
+function isIdentifiedPhotographer(name: string) {
+  return !/non identifi/i.test(name);
+}
 
 const PARTICLES = new Set(['de', 'du', 'des', 'le', 'la', 'van', 'von', 'di', "d'"]);
 
@@ -224,8 +266,45 @@ export function buildCommunityStats(snapshot: Snapshot): CommunityStats {
     ).length;
   }
 
+  const weekdayCounts = Array.from({ length: 7 }, () => 0);
+  for (const station of recaptures) {
+    if (!station.recaptureDate) continue;
+    const date = new Date(`${station.recaptureDate}T12:00:00`);
+    if (Number.isNaN(date.getTime())) continue;
+    // `getDay` commence le dimanche ; la semaine française commence le lundi.
+    weekdayCounts[(date.getDay() + 6) % 7] += 1;
+  }
+
+  const deviceCounts = new Map<DeviceShare['key'], number>();
+  for (const station of recaptures) {
+    const device = station.recaptureDevice?.trim();
+    if (!device) continue;
+    const key = deviceKey(device);
+    deviceCounts.set(key, (deviceCounts.get(key) ?? 0) + 1);
+  }
+
+  const photographerCounts = new Map<string, number>();
+  for (const station of recaptures) {
+    const name = (station.referenceMetadata?.author ?? station.author)?.trim();
+    if (!name || !isIdentifiedPhotographer(name)) continue;
+    photographerCounts.set(name, (photographerCounts.get(name) ?? 0) + 1);
+  }
+
   return {
     monthlyActivity,
+    weekdayActivity: weekdayCounts.map((count, day) => ({
+      day,
+      label: WEEKDAY_LABELS[day],
+      count,
+    })),
+    deviceShare: [...deviceCounts.entries()]
+      .map(([key, count]) => ({ key, label: DEVICE_LABELS[key], count }))
+      .sort((left, right) => right.count - left.count),
+    archivePhotographers: [...photographerCounts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort(
+        (left, right) => right.count - left.count || left.name.localeCompare(right.name, 'fr-FR'),
+      ),
     datedRecaptures: monthlyActivity.reduce((total, entry) => total + entry.count, 0),
     arrondissementActivity,
     squareDistribution: [

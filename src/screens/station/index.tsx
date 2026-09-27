@@ -26,22 +26,19 @@ import { captureRef } from 'react-native-view-shot';
 import { AdaptivePhoto } from '@/components/adaptive-photo';
 import { ArchiveFilmstrip } from '@/components/archive-filmstrip';
 import { BeforeAfterSlider } from '@/components/before-after-slider';
+import { ArchiveFacts, RecaptureFacts } from '@/components/photo-facts';
+import { GlassActionDock } from '@/components/glass-action-dock';
 import { ParisGoBadge } from '@/components/paris-go-badge';
 import { GlassSurface } from '@/components/glass-surface';
 import { PhotoViewer } from '@/components/photo-viewer';
 import { PrimaryButton } from '@/components/primary-button';
 import { SourcePill } from '@/components/source-pill';
-import {
-  TimeTravelSlider,
-  type TimelineYear,
-} from '@/components/time-travel-slider';
-import { Fonts, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { Fonts, Kicker, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 import { PROJECT_URL } from '@/constants/legal';
 import { PARIS_CENTER } from '@/data/archive';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { archiveLinkForImage } from '@/services/bhvp-images';
-import { formatSnapshotDate } from '@/services/collective-content';
 import { historicalReferenceForFrame } from '@/services/camera-reference';
 import { formatContributorName } from '@/utils/community-stats';
 import { buildPhotoReportDraft, launchPhotoReport } from '@/utils/photo-report';
@@ -49,36 +46,21 @@ import { buildPhotoReportDraft, launchPhotoReport } from '@/utils/photo-report';
 const BHVP_NAME = 'Bibliothèque historique de la Ville de Paris';
 const PARIS_1970_FUND = 'Fonds « C’était Paris en 1970 »';
 
-/**
- * Le relevé date tout à « 22:00 (GMT) » : c'est minuit à Paris ramené en UTC, pas une heure de
- * prise de vue. L'afficher rognait la colonne et laissait croire à une précision inexistante.
- */
-function dayOnly(label: string) {
-  return label.replace(/\s+\d{1,2}:\d{2}.*$/, '');
-}
-
-function MetadataInlineItem({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.metadataInlineItem}>
-      <Text style={styles.metadataLabel}>{label}</Text>
-      <Text style={styles.metadataValue} numberOfLines={2}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
 export function StationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  // Le comparateur ouvre l'écran : il prend plus de la moitié de la hauteur, quitte à recadrer
+  // les deux photos à l'identique. Le plein écran, au toucher, les rend en entier.
+  const comparisonHeight = Math.round(Math.min(560, Math.max(380, screenHeight * 0.56)));
   const { id } = useLocalSearchParams<{ id: string }>();
   const { detail, summary, loading } = useStationDetail(id);
   const heroPagerRef = useRef<FlatList<ImageSource>>(null);
   const shareCardRef = useRef<View>(null);
   const archiveCount = detail?.archiveLinks.length || summary?.frameCount || 0;
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [timelineSelection, setTimelineSelection] = useState<TimelineYear>();
+  const [comparisonViewerVisible, setComparisonViewerVisible] = useState(false);
+  const [comparisonViewerIndex, setComparisonViewerIndex] = useState(0);
   const [viewerVisible, setViewerVisible] = useState(false);
   const [comparisonActive, setComparisonActive] = useState(false);
   const [sharingCard, setSharingCard] = useState(false);
@@ -110,54 +92,26 @@ export function StationScreen() {
   const title = detail?.name ?? summary?.name ?? 'Point de vue';
   const referenceAuthor = (selectedArchiveMetadata?.author ?? detail?.author)?.trim();
   const referenceAuthorDisplay = referenceAuthor ? formatContributorName(referenceAuthor) : undefined;
-  const referenceLocations = selectedArchiveMetadata?.locations ?? [];
   const currentAuthor = detail?.currentAuthor?.trim();
   const currentAuthorDisplay = currentAuthor ? formatContributorName(currentAuthor) : undefined;
   const currentDescription = detail?.description?.trim();
   const referenceImage = detail?.referenceImage;
   const recaptureImage = detail?.recaptureImage;
   const hasComparison = Boolean(detail?.hasRecapture && referenceImage && recaptureImage);
-  // La notice ne s'affiche que hors comparaison : le bandeau avant/après porte déjà ses propres
-  // crédits, la répéter juste au-dessus serait la même information deux fois.
-  const hasHistoricalNotice = Boolean(
-    !hasComparison && (referenceAuthor || referenceLocations.length),
-  );
   const referenceCreditTitle = `${referenceYear} · ${referenceAuthorDisplay ?? 'Auteur non renseigné'}`;
   const referenceCreditSource =
     referenceYear === 1970
       ? `${BHVP_NAME} · ${PARIS_1970_FUND}`
       : 'Observatoire photo participatif des paysages parisiens · CAUE de Paris';
   const currentCredit = `Photo 2026 · ${currentAuthorDisplay ?? 'Contributeur·rice non renseigné·e'}`;
-  const selectedViewNumber = String(selectedIndex + 1).padStart(2, '0');
   const coordinate = detail?.coordinate ?? summary?.coordinate ?? PARIS_CENTER;
-  const recaptureIndex =
-    recaptureImage && images.length > 1 ? images.length - 1 : undefined;
-  const availableYears = useMemo<TimelineYear[]>(() => {
-    const years: TimelineYear[] = [referenceYear];
-    if (recaptureIndex !== undefined) years.push(2026);
-    return years;
-  }, [recaptureIndex, referenceYear]);
-  const activeYear = timelineSelection ?? referenceYear;
+  const recaptureYearLabel = detail?.recaptureDate?.slice(0, 4) || 'Aujourd’hui';
   const shareUrl = PROJECT_URL;
-
-  const yearForFrame = (index: number): TimelineYear =>
-    recaptureIndex !== undefined && index === recaptureIndex ? 2026 : referenceYear;
 
   const selectFrame = (index: number, animated = true) => {
     const nextIndex = Math.max(0, Math.min(images.length - 1, index));
     setSelectedIndex(nextIndex);
-    setTimelineSelection(yearForFrame(nextIndex));
     heroPagerRef.current?.scrollToIndex({ index: nextIndex, animated });
-  };
-
-  const selectYear = (year: TimelineYear) => {
-    setTimelineSelection(year);
-    const frameIndex =
-      year === referenceYear ? 0 : year === 2026 ? recaptureIndex : undefined;
-    if (frameIndex !== undefined) {
-      setSelectedIndex(frameIndex);
-      heroPagerRef.current?.scrollToIndex({ index: frameIndex, animated: true });
-    }
   };
 
   const region = useMemo(
@@ -324,108 +278,143 @@ export function StationScreen() {
         scrollEnabled={!comparisonActive}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}>
-        <View style={styles.hero}>
-          {selectedImage ? (
-            <FlatList
-              ref={heroPagerRef}
-              data={images}
-              horizontal
-              pagingEnabled
-              bounces={false}
-              decelerationRate="fast"
-              disableIntervalMomentum
-              getItemLayout={(_, index) => ({
-                index,
-                length: screenWidth,
-                offset: screenWidth * index,
-              })}
-              initialScrollIndex={selectedIndex}
-              keyExtractor={(_, index) => `hero-${index}`}
-              onMomentumScrollEnd={(event) => {
-                const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
-                setSelectedIndex(index);
-                setTimelineSelection(yearForFrame(index));
+        {hasComparison && referenceImage && recaptureImage ? (
+          // Une reprise n'a que deux photos : le comparateur tient lieu de galerie. Glisser
+          // compare, toucher ouvre la photo touchée en plein écran.
+          <View style={styles.comparisonHero}>
+            <BeforeAfterSlider
+              before={referenceImage}
+              after={recaptureImage}
+              beforeLabel={String(referenceYear)}
+              afterLabel={recaptureYearLabel}
+              height={comparisonHeight}
+              borderRadius={0}
+              labelsPosition="bottom"
+              onInteractionChange={setComparisonActive}
+              onPressSide={(side) => {
+                void Haptics.selectionAsync();
+                setComparisonViewerIndex(side === 'before' ? 0 : 1);
+                setComparisonViewerVisible(true);
               }}
-              onScrollToIndexFailed={({ index }) => {
-                requestAnimationFrame(() => {
-                  heroPagerRef.current?.scrollToOffset({
-                    animated: false,
-                    offset: index * screenWidth,
-                  });
-                });
-              }}
-              renderItem={({ item, index }) => (
-                <Pressable
-                  accessibilityLabel={`Agrandir la photo ${index + 1}`}
-                  accessibilityRole="button"
-                  onPress={() => setViewerVisible(true)}
-                  style={[styles.heroPage, { width: screenWidth }]}>
-                  <AdaptivePhoto
-                    source={item}
-                    style={StyleSheet.absoluteFill}
-                    transition={220}
-                  />
-                  <View style={styles.heroShade} />
-                </Pressable>
-              )}
-              showsHorizontalScrollIndicator={false}
-              style={StyleSheet.absoluteFill}
             />
-          ) : (
-            <View style={styles.heroPlaceholder}>
-              <View style={styles.heroPlaceholderIcon}>
-                <SymbolView name="photo.stack" size={30} tintColor={Palette.copper} />
-              </View>
-              <Text style={styles.heroPlaceholderTitle}>
-                {archiveImagesLoading
-                  ? 'Ouverture de la planche-contact…'
-                  : `${archiveCount} ${archiveCount > 1 ? 'photos de 1970' : 'photo de 1970'}`}
-              </Text>
-              <Text style={styles.heroPlaceholderCopy}>
-                {archiveImagesLoading
-                  ? 'Les aperçus sont chargés depuis la Bibliothèque historique de la Ville de Paris.'
-                  : 'Conservées par la Bibliothèque historique de la Ville de Paris. Ouvrez-les pour repérer le lieu.'}
+            <SafeAreaView edges={['top']} pointerEvents="box-none" style={styles.heroControls}>
+              <Pressable
+                accessibilityLabel="Retour"
+                onPress={() => router.back()}
+                style={({ pressed }) => [styles.circleButton, styles.floatingButton, pressed && styles.pressed]}>
+                <SymbolView name="chevron.left" size={18} tintColor={Palette.ink} />
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Ouvrir la source de cette photo"
+                onPress={openOfficial}
+                style={({ pressed }) => [styles.sourceButton, styles.floatingButton, pressed && styles.pressed]}>
+                <SymbolView name="info.circle" size={17} tintColor={Palette.ink} />
+                <Text style={styles.sourceButtonText}>Source</Text>
+              </Pressable>
+            </SafeAreaView>
+            <View style={styles.comparisonHint}>
+              <SymbolView name="hand.draw" size={14} tintColor={Palette.inkSoft} />
+              <Text style={styles.comparisonHintText}>
+                Glissez pour comparer · touchez une photo pour l’agrandir
               </Text>
             </View>
-          )}
-          <SafeAreaView edges={['top']} style={styles.heroControls}>
-            <Pressable
-              accessibilityLabel="Retour"
-              onPress={() => router.back()}
-              style={({ pressed }) => [styles.circleButton, pressed && styles.pressed]}>
-              <SymbolView name="chevron.left" size={18} tintColor={Palette.ink} />
-            </Pressable>
-            <Pressable
-              accessibilityLabel="Ouvrir la source de cette photo"
-              onPress={openOfficial}
-              style={({ pressed }) => [styles.sourceButton, pressed && styles.pressed]}>
-              <SymbolView name="info.circle" size={17} tintColor={Palette.ink} />
-              <Text style={styles.sourceButtonText}>Source</Text>
-            </Pressable>
-          </SafeAreaView>
-          <View style={styles.heroCaption}>
-            <SourcePill label={isArchive ? 'Archives BHVP · 1970' : detail?.sourceLabel ?? 'Observatoire de Paris'} inverse />
-            <Pressable
-              accessibilityLabel="Afficher la photo en plein écran"
-              accessibilityRole="button"
-              disabled={!selectedImage}
-              onPress={() => setViewerVisible(true)}
-              style={({ pressed }) => [styles.heroFrameButton, pressed && styles.pressed]}>
-              <SymbolView name="magnifyingglass" size={13} tintColor={Palette.white} />
-              <Text style={styles.heroFrame}>
-                {images.length ? `${String(selectedIndex + 1).padStart(2, '0')} / ${String(images.length).padStart(2, '0')}` : 'SOURCE'}
-              </Text>
-            </Pressable>
           </View>
-        </View>
+        ) : (
+          <View style={styles.hero}>
+            {selectedImage ? (
+              <FlatList
+                ref={heroPagerRef}
+                data={images}
+                horizontal
+                pagingEnabled
+                bounces={false}
+                decelerationRate="fast"
+                disableIntervalMomentum
+                getItemLayout={(_, index) => ({
+                  index,
+                  length: screenWidth,
+                  offset: screenWidth * index,
+                })}
+                initialScrollIndex={selectedIndex}
+                keyExtractor={(_, index) => `hero-${index}`}
+                onMomentumScrollEnd={(event) => {
+                  const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
+                  setSelectedIndex(index);
+                }}
+                onScrollToIndexFailed={({ index }) => {
+                  requestAnimationFrame(() => {
+                    heroPagerRef.current?.scrollToOffset({
+                      animated: false,
+                      offset: index * screenWidth,
+                    });
+                  });
+                }}
+                renderItem={({ item, index }) => (
+                  <Pressable
+                    accessibilityLabel={`Agrandir la photo ${index + 1}`}
+                    accessibilityRole="button"
+                    onPress={() => setViewerVisible(true)}
+                    style={[styles.heroPage, { width: screenWidth }]}>
+                    <AdaptivePhoto
+                      source={item}
+                      style={StyleSheet.absoluteFill}
+                      transition={220}
+                    />
+                    <View style={styles.heroShade} />
+                  </Pressable>
+                )}
+                showsHorizontalScrollIndicator={false}
+                style={StyleSheet.absoluteFill}
+              />
+            ) : (
+              <View style={styles.heroPlaceholder}>
+                <View style={styles.heroPlaceholderIcon}>
+                  <SymbolView name="photo.stack" size={30} tintColor={Palette.copper} />
+                </View>
+                <Text style={styles.heroPlaceholderTitle}>
+                  {archiveImagesLoading
+                    ? 'Ouverture de la planche-contact…'
+                    : `${archiveCount} ${archiveCount > 1 ? 'photos de 1970' : 'photo de 1970'}`}
+                </Text>
+                <Text style={styles.heroPlaceholderCopy}>
+                  {archiveImagesLoading
+                    ? 'Les aperçus sont chargés depuis la Bibliothèque historique de la Ville de Paris.'
+                    : 'Conservées par la Bibliothèque historique de la Ville de Paris. Ouvrez-les pour repérer le lieu.'}
+                </Text>
+              </View>
+            )}
+            <SafeAreaView edges={['top']} style={styles.heroControls}>
+              <Pressable
+                accessibilityLabel="Retour"
+                onPress={() => router.back()}
+                style={({ pressed }) => [styles.circleButton, pressed && styles.pressed]}>
+                <SymbolView name="chevron.left" size={18} tintColor={Palette.ink} />
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Ouvrir la source de cette photo"
+                onPress={openOfficial}
+                style={({ pressed }) => [styles.sourceButton, pressed && styles.pressed]}>
+                <SymbolView name="info.circle" size={17} tintColor={Palette.ink} />
+                <Text style={styles.sourceButtonText}>Source</Text>
+              </Pressable>
+            </SafeAreaView>
+            <View style={styles.heroCaption}>
+              <SourcePill label={isArchive ? 'Archives BHVP · 1970' : detail?.sourceLabel ?? 'Observatoire de Paris'} inverse />
+              <Pressable
+                accessibilityLabel="Afficher la photo en plein écran"
+                accessibilityRole="button"
+                disabled={!selectedImage}
+                onPress={() => setViewerVisible(true)}
+                style={({ pressed }) => [styles.heroFrameButton, pressed && styles.pressed]}>
+                <SymbolView name="magnifyingglass" size={13} tintColor={Palette.white} />
+                <Text style={styles.heroFrame}>
+                  {images.length ? `${String(selectedIndex + 1).padStart(2, '0')} / ${String(images.length).padStart(2, '0')}` : 'SOURCE'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
-        {availableYears.length > 1 ? (
-          <TimeTravelSlider
-            activeYear={activeYear}
-            availableYears={availableYears}
-            onSelect={selectYear}
-          />
-        ) : null}
 
         {images.length > 1 && !hasComparison ? (
           <View style={styles.filmstripWrap}>
@@ -442,75 +431,45 @@ export function StationScreen() {
         ) : null}
 
         <View style={styles.content}>
-          {!isArchive ? <Text style={styles.kicker}>
-            {detail?.hasRecapture
-                ? 'PHOTO REFAITE'
-                : detail?.approximate ?? summary?.approximate
-                  ? 'MISSION À LOCALISER'
-                  : 'POINT DE VUE GÉOLOCALISÉ'}
-          </Text> : null}
-          <Text style={[styles.title, isArchive && styles.archiveTitle]}>
-            {isArchive ? `Photo ${selectedViewNumber}` : title}
-          </Text>
-
-          {isArchive && selectedImage ? (
-            <View style={styles.archiveStatusBlock}>
-              <View style={styles.archiveStatusRow}>
-                <SymbolView name={latestRecapture ? 'checkmark.circle.fill' : 'camera'} size={18}
-                  tintColor={latestRecapture ? Palette.parisBlue : Palette.inkSoft} />
-                <Text style={styles.archiveStatusText}>
-                  {latestRecapture ? 'Déjà refaite' : 'Aucune reprise identifiée'}
+          {isArchive ? (
+            <>
+              <Text style={styles.kicker}>Secteur {title}</Text>
+              <View style={styles.viewHead}>
+                <Text style={[styles.title, styles.archiveTitle]}>
+                  Vue {selectedIndex + 1} sur {images.length || archiveCount}
                 </Text>
+                {selectedImage ? (
+                  <View style={[styles.statusChip, latestRecapture && styles.statusChipDone]}>
+                    <SymbolView
+                      name={latestRecapture ? 'checkmark.circle.fill' : 'scope'}
+                      size={14}
+                      tintColor={latestRecapture ? Palette.white : Palette.go}
+                    />
+                    <Text style={[styles.statusChipText, latestRecapture && styles.statusChipTextDone]}>
+                      {latestRecapture ? 'Déjà refaite' : 'À retrouver'}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
-              {latestRecapture?.recaptureImage ? (
-                <>
-                  <BeforeAfterSlider key={`${selectedArchiveLink}:${latestRecapture.id}`}
-                    before={selectedImage} after={latestRecapture.recaptureImage}
-                    beforeLabel="1970" afterLabel={latestRecapture.recaptureDate?.slice(0, 4) || 'Aujourd’hui'}
-                    height={220} borderRadius={Radius.medium} onInteractionChange={setComparisonActive} />
-                  {selectedRecaptures.map(recapture => (
-                    <Pressable key={recapture.id} accessibilityRole="button"
-                      accessibilityLabel={`Voir la reprise de ${recapture.currentAuthor ? formatContributorName(recapture.currentAuthor) : 'ce contributeur'}`}
-                      onPress={() => router.push({ pathname: '/station/[id]', params: { id: recapture.id } })}
-                      style={({ pressed }) => [styles.archiveRecaptureLink, pressed && styles.shareButtonPressed]}>
-                      <Text style={styles.archiveRecaptureLinkText}>
-                        {recapture.currentAuthor ? formatContributorName(recapture.currentAuthor) : 'Voir la reprise'}
-                        {recapture.recaptureDate ? ` · ${formatSnapshotDate(recapture.recaptureDate)}` : ''}
-                      </Text>
-                      <SymbolView name="arrow.right" size={15} tintColor={Palette.parisBlue} />
-                    </Pressable>
-                  ))}
-                </>
-              ) : <Text style={styles.storyText}>
-                Les reprises sans référence d’archive ne peuvent pas être identifiées ici.
-              </Text>}
-            </View>
-          ) : null}
-
-          {/* Crédit et métadonnées de l'archive : une légende posée sous le titre, jamais une
-              carte encadrée. */}
-          {isArchive && !hasHistoricalNotice ? (
-            <Text style={styles.storyCredit}>
-              {referenceYear} · Photographe non identifié · {BHVP_NAME}
-            </Text>
-          ) : null}
-
-          {hasHistoricalNotice ? (
-            <View style={styles.storySection}>
-              <Text style={styles.storyCredit}>
-                {referenceCreditTitle}
-              </Text>
-              <Text style={styles.storyText}>{referenceCreditSource}</Text>
-              {referenceLocations.length ? (
+              {selectedImage && !latestRecapture ? (
                 <Text style={styles.storyText}>
-                  Dans la légende : {referenceLocations.join(' · ')}
+                  Personne ne l’a encore refaite. Les rues du reportage aident à repérer le lieu,
+                  le viseur vous guidera pour le cadrage.
                 </Text>
               ) : null}
-              {selectedArchiveMetadata?.notes?.length ? (
-                <Text style={styles.storyText}>{selectedArchiveMetadata.notes.join(' ')}</Text>
-              ) : null}
-            </View>
-          ) : null}
+            </>
+          ) : (
+            <>
+              <Text style={styles.kicker}>
+                {detail?.hasRecapture
+                  ? 'PHOTO REFAITE'
+                  : detail?.approximate ?? summary?.approximate
+                    ? 'MISSION À LOCALISER'
+                    : 'POINT DE VUE GÉOLOCALISÉ'}
+              </Text>
+              <Text style={styles.title}>{title}</Text>
+            </>
+          )}
 
           {!hasComparison && !isArchive ? (
             <Text style={styles.description}>
@@ -523,67 +482,8 @@ export function StationScreen() {
 
           {hasComparison && referenceImage && recaptureImage ? (
             <View style={styles.recaptureBlock}>
-              <View style={styles.recaptureCard}>
-                <View style={styles.recaptureBody}>
-                  {detail ? <ParisGoBadge photo={detail} /> : null}
-                  <Text style={styles.recaptureKicker}>{referenceYear} → AUJOURD’HUI</Text>
-                  <Text style={styles.recaptureTitle}>Même lieu, deux époques</Text>
-                  <Text style={styles.recaptureHint}>
-                    Faites glisser la poignée pour comparer les cadrages.
-                  </Text>
-                  {currentDescription ? (
-                    <Text style={styles.recaptureObservation}>{currentDescription}</Text>
-                  ) : null}
-                </View>
-                <BeforeAfterSlider
-                  before={referenceImage}
-                  after={recaptureImage}
-                  beforeLabel={String(detail?.year ?? referenceYear)}
-                  afterLabel="2026"
-                  borderRadius={0}
-                  onInteractionChange={setComparisonActive}
-                />
-                <View style={styles.recaptureFooter}>
-                  <View style={styles.recaptureCreditRow}>
-                    <View style={styles.recaptureCreditIcon}>
-                      <SymbolView name="camera.fill" size={13} tintColor={Palette.parisBlue} />
-                    </View>
-                    <View style={styles.recaptureCreditCopy}>
-                      <Text style={styles.recaptureArchiveCredit} numberOfLines={1}>
-                        {referenceCreditTitle.toLocaleUpperCase('fr-FR')}
-                      </Text>
-                      <Text style={styles.recaptureCredit} numberOfLines={2}>
-                        {referenceCreditSource}
-                      </Text>
-                      <Text style={styles.recaptureCredit} numberOfLines={1}>
-                        {currentCredit}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={styles.parisGoSignature}>Paris GO</Text>
-                </View>
-              </View>
+              {detail ? <ParisGoBadge photo={detail} /> : null}
 
-              <Pressable
-                accessibilityLabel="Partager cet avant après"
-                accessibilityRole="button"
-                disabled={sharingCard}
-                onPress={() => {
-                  void Haptics.selectionAsync();
-                  setShareMenuVisible(true);
-                }}
-                style={({ pressed }) => [
-                  styles.shareButton,
-                  pressed && styles.shareButtonPressed,
-                ]}>
-                {sharingCard ? (
-                  <ActivityIndicator color={Palette.white} size="small" />
-                ) : (
-                  <SymbolView name="square.and.arrow.up" size={17} tintColor={Palette.white} />
-                )}
-                <Text style={styles.shareButtonText}>Partager</Text>
-                <SymbolView name="chevron.right" size={13} tintColor={Palette.white} />
-              </Pressable>
 
               <Pressable
                 accessibilityRole="button"
@@ -599,25 +499,65 @@ export function StationScreen() {
             </View>
           ) : null}
 
-          <View style={styles.metadataStrip}>
-            <MetadataInlineItem
-              label="Date"
-              value={
-                detail?.dateLabel
-                  ? dayOnly(detail.dateLabel)
-                  : String(detail?.year ?? summary?.year ?? 1970)
-              }
-            />
-            <View style={styles.metadataDivider} />
-            <MetadataInlineItem
-              label="Paris"
-              value={detail?.arrondissement ?? summary?.arrondissement ?? 'Paris'}
-            />
-            <View style={styles.metadataDivider} />
-            <MetadataInlineItem
-              label="Précision"
-              value={detail?.approximate ?? summary?.approximate ? 'À 250 m près' : 'Point exact'}
-            />
+          <View style={styles.facts}>
+            {isArchive && selectedImage ? (
+              <ArchiveFacts year={referenceYear} metadata={selectedArchiveMetadata} />
+            ) : null}
+
+            {isArchive && latestRecapture?.recaptureImage && selectedImage ? (
+              <View style={styles.archiveRecaptures}>
+                <BeforeAfterSlider
+                  key={`${selectedArchiveLink}:${latestRecapture.id}`}
+                  before={selectedImage}
+                  after={latestRecapture.recaptureImage}
+                  beforeLabel={String(referenceYear)}
+                  afterLabel={latestRecapture.recaptureDate?.slice(0, 4) || 'Aujourd’hui'}
+                  height={220}
+                  borderRadius={Radius.large}
+                  onInteractionChange={setComparisonActive}
+                />
+                <RecaptureFacts
+                  referenceYear={referenceYear}
+                  author={latestRecapture.currentAuthor}
+                  date={latestRecapture.recaptureDate}
+                  device={latestRecapture.currentDevice}
+                  address={latestRecapture.address}
+                  description={latestRecapture.description?.trim()}
+                />
+                {selectedRecaptures.map((recapture) => (
+                  <Pressable
+                    key={recapture.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Voir la reprise de ${recapture.currentAuthor ? formatContributorName(recapture.currentAuthor) : 'ce contributeur'}`}
+                    onPress={() => router.push({ pathname: '/station/[id]', params: { id: recapture.id } })}
+                    style={({ pressed }) => [styles.archiveRecaptureLink, pressed && styles.shareButtonPressed]}>
+                    <Text style={styles.archiveRecaptureLinkText}>
+                      Ouvrir la reprise de{' '}
+                      {recapture.currentAuthor ? formatContributorName(recapture.currentAuthor) : 'ce contributeur'}
+                    </Text>
+                    <SymbolView name="arrow.right" size={15} tintColor={Palette.go} />
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+
+            {!isArchive && hasComparison ? (
+              <>
+                <RecaptureFacts
+                  referenceYear={referenceYear}
+                  author={currentAuthor}
+                  date={detail?.recaptureDate}
+                  device={detail?.currentDevice}
+                  address={detail?.address}
+                  description={currentDescription}
+                />
+                <ArchiveFacts
+                  year={referenceYear}
+                  metadata={detail?.referenceMetadata}
+                  fallbackAuthor={detail?.author}
+                />
+              </>
+            ) : null}
           </View>
 
           {/* Un seul kicker orange par écran (celui du haut) : cette tête de section se
@@ -655,7 +595,7 @@ export function StationScreen() {
                     { latitude: squareBounds[1], longitude: squareBounds[2] },
                   ]}
                   strokeColor={Palette.copper}
-                  fillColor="rgba(185, 95, 62, 0.18)"
+                  fillColor="rgba(204, 72, 28, 0.18)"
                   strokeWidth={2}
                   lineDashPattern={[7, 5]}
                 />
@@ -755,7 +695,7 @@ export function StationScreen() {
             />
             <SafeAreaView edges={['bottom']} style={styles.shareSheet}>
               <GlassSurface
-                tintColor="rgba(248, 250, 249, 0.86)"
+                tintColor="rgba(250, 247, 242, 0.86)"
                 variant="regular"
               />
               <View style={styles.shareSheetContent}>
@@ -836,20 +776,38 @@ export function StationScreen() {
             styles.stickyActionDock,
             { bottom: Math.max(insets.bottom, 12) },
           ]}>
-          <Pressable
-            accessibilityHint="Ouvre le viseur avec cette image en superposition"
-            accessibilityLabel={`Refaire la photo ${selectedIndex + 1}`}
-            accessibilityRole="button"
-            onPress={openAlignment}
-            style={({ pressed }) => [
-              styles.stickyAction,
-              pressed && styles.stickyActionPressed,
-            ]}>
-            <SymbolView name="camera.fill" size={20} tintColor={Palette.white} />
-            <Text style={styles.stickyActionText}>{isArchive && latestRecapture ? 'Refaire à mon tour' : 'Refaire cette photo'}</Text>
-            <SymbolView name="arrow.right" size={16} tintColor={Palette.white} />
-          </Pressable>
+          <GlassActionDock
+            primary={{
+              label: isArchive && latestRecapture ? 'Refaire à mon tour' : 'Refaire cette photo',
+              systemImage: 'camera.fill',
+              accessibilityLabel: `Refaire la photo ${selectedIndex + 1}`,
+              onPress: openAlignment,
+            }}
+            secondary={
+              hasComparison
+                ? {
+                    label: 'Partager',
+                    systemImage: 'square.and.arrow.up',
+                    accessibilityLabel: 'Partager cet avant après',
+                    loading: sharingCard,
+                    onPress: () => {
+                      void Haptics.selectionAsync();
+                      setShareMenuVisible(true);
+                    },
+                  }
+                : undefined
+            }
+          />
         </View>
+      ) : null}
+      {referenceImage && recaptureImage ? (
+        <PhotoViewer
+          images={[referenceImage, recaptureImage]}
+          labels={[`${referenceYear} · ARCHIVE`, `${recaptureYearLabel} · REPRISE`]}
+          initialIndex={comparisonViewerIndex}
+          visible={comparisonViewerVisible}
+          onClose={() => setComparisonViewerVisible(false)}
+        />
       ) : null}
       <PhotoViewer
         images={images}
@@ -864,9 +822,6 @@ export function StationScreen() {
 
 const styles = StyleSheet.create({
   archiveProgress: { ...Typography.caption, fontFamily: Fonts.sans, color: Palette.white, marginHorizontal: Spacing.three, marginBottom: Spacing.two },
-  archiveStatusBlock: { marginTop: Spacing.twoHalf, marginBottom: Spacing.three, gap: Spacing.two },
-  archiveStatusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  archiveStatusText: { ...Typography.body, fontFamily: Fonts.sans, fontWeight: '600', color: Palette.parisBlue },
   archiveRecaptureLink: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   archiveRecaptureLinkText: { ...Typography.body, flex: 1, fontFamily: Fonts.sans, color: Palette.parisBlue },
   screen: {
@@ -893,6 +848,26 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.blueMist,
     overflow: 'hidden',
   },
+  comparisonHero: {
+    backgroundColor: Palette.fog,
+  },
+  floatingButton: {
+    backgroundColor: Palette.white,
+    ...Shadow.card,
+  },
+  comparisonHint: {
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.twoHalf,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
+  },
+  comparisonHintText: {
+    ...Typography.caption,
+    color: Palette.inkSoft,
+    fontFamily: Fonts.sans,
+  },
   heroPage: {
     height: 480,
     backgroundColor: Palette.blueMist,
@@ -910,7 +885,7 @@ const styles = StyleSheet.create({
     borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(185, 95, 62, 0.14)',
+    backgroundColor: 'rgba(204, 72, 28, 0.14)',
   },
   heroPlaceholderTitle: {
     ...Typography.body,
@@ -982,7 +957,7 @@ const styles = StyleSheet.create({
   heroFrame: {
     ...Typography.caption,
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '700',
     textShadowColor: Palette.black,
     textShadowRadius: 5,
@@ -1005,11 +980,8 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   kicker: {
-    ...Typography.caption,
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+    ...Kicker,
+    color: Palette.go,
     marginTop: Spacing.two,
   },
   title: {
@@ -1017,62 +989,55 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
     color: Palette.ink,
     fontFamily: Fonts.display,
+    fontWeight: '800',
+  },
+  archiveTitle: { marginTop: 0, flexShrink: 1 },
+  viewHead: {
+    marginTop: Spacing.one,
+    marginBottom: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  statusChip: {
+    minHeight: 32,
+    paddingHorizontal: Spacing.twoHalf,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.goSoft,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  statusChipDone: {
+    backgroundColor: Palette.lichen,
+  },
+  statusChipText: {
+    ...Typography.caption,
+    color: Palette.go,
+    fontFamily: Fonts.sans,
     fontWeight: '700',
   },
-  archiveTitle: { ...Typography.title, marginTop: 0 },
+  statusChipTextDone: {
+    color: Palette.white,
+  },
+  facts: {
+    marginTop: Spacing.four,
+    gap: Spacing.three,
+  },
+  archiveRecaptures: {
+    gap: Spacing.three,
+  },
   description: {
     ...Typography.body,
     marginTop: Spacing.three,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
   },
-  // Crédit et notes d'archive : des légendes posées sur le fond, jamais une carte encadrée.
-  storySection: {
-    marginTop: Spacing.one,
-    gap: Spacing.half,
-  },
-  storyCredit: {
-    ...Typography.caption,
-    marginTop: Spacing.one,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontWeight: '700',
-  },
   storyText: {
     ...Typography.caption,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
-  },
-  metadataStrip: {
-    marginTop: Spacing.four,
-    paddingVertical: Spacing.two,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metadataInlineItem: {
-    flex: 1,
-    minWidth: 0,
-  },
-  metadataDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 24,
-    marginHorizontal: Spacing.two,
-    backgroundColor: Palette.line,
-  },
-  metadataLabel: {
-    ...Typography.caption,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  metadataValue: {
-    ...Typography.body,
-    marginTop: Spacing.half,
-    color: Palette.ink,
-    fontFamily: Fonts.sans,
-    fontWeight: '700',
   },
   sectionTitle: {
     ...Typography.body,
@@ -1105,7 +1070,7 @@ const styles = StyleSheet.create({
   mapLegendText: {
     ...Typography.caption,
     color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -1132,47 +1097,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.four,
     marginBottom: Spacing.four,
   },
-  recaptureCard: {
-    borderRadius: Radius.large,
-    overflow: 'hidden',
-    backgroundColor: Palette.white,
-    ...Shadow.card,
-  },
-  recaptureBody: {
-    padding: Spacing.three,
-  },
-  recaptureKicker: {
-    ...Typography.caption,
-    color: Palette.lichen,
-    fontFamily: Fonts.mono,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-  },
-  recaptureTitle: {
-    ...Typography.body,
-    marginTop: Spacing.one,
-    color: Palette.ink,
-    fontFamily: Fonts.display,
-    fontWeight: '700',
-  },
-  recaptureHint: {
-    ...Typography.caption,
-    marginTop: Spacing.one,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-  },
-  recaptureObservation: {
-    ...Typography.body,
-    marginTop: Spacing.two,
-    color: Palette.ink,
-    fontFamily: Fonts.sans,
-  },
-  recaptureFooter: {
-    minHeight: 64,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    gap: Spacing.two,
-  },
   parisGoSignature: {
     ...Typography.caption,
     fontFamily: Fonts.display,
@@ -1180,52 +1104,18 @@ const styles = StyleSheet.create({
     color: Palette.parisBlue,
     alignSelf: 'flex-end',
   },
-  recaptureCreditRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  recaptureCreditIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: Palette.blueMist,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   recaptureCredit: {
     ...Typography.caption,
     color: Palette.inkSoft,
     fontFamily: Fonts.sans,
   },
-  recaptureCreditCopy: {
-    flex: 1,
-  },
   recaptureArchiveCredit: {
     ...Typography.caption,
     marginBottom: Spacing.half,
     color: Palette.copper,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '700',
     letterSpacing: 0.35,
-  },
-  shareButton: {
-    minHeight: 52,
-    marginTop: Spacing.twoHalf,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Radius.medium,
-    backgroundColor: Palette.parisBlue,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  shareButtonText: {
-    ...Typography.body,
-    flex: 1,
-    color: Palette.white,
-    fontFamily: Fonts.sans,
-    fontWeight: '700',
   },
   shareButtonPressed: {
     opacity: 0.82,
@@ -1245,7 +1135,7 @@ const styles = StyleSheet.create({
   shareSheet: {
     overflow: 'hidden',
     borderRadius: Radius.large,
-    backgroundColor: 'rgba(248, 250, 249, 0.84)',
+    backgroundColor: 'rgba(250, 247, 242, 0.86)',
     ...Shadow.card,
   },
   shareSheetContent: {
@@ -1273,7 +1163,7 @@ const styles = StyleSheet.create({
   shareSheetKicker: {
     ...Typography.caption,
     color: Palette.copper,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '700',
     letterSpacing: 0.7,
   },
@@ -1355,7 +1245,7 @@ const styles = StyleSheet.create({
   shareExportKicker: {
     ...Typography.caption,
     color: Palette.copper,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '700',
     letterSpacing: 0.7,
   },
@@ -1402,7 +1292,7 @@ const styles = StyleSheet.create({
   shareExportYearText: {
     ...Typography.caption,
     color: Palette.white,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     fontWeight: '700',
   },
   shareExportFooter: {
@@ -1440,7 +1330,7 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     marginTop: Spacing.four,
     color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
+    fontFamily: Fonts.display,
     textAlign: 'center',
     textTransform: 'uppercase',
   },
@@ -1448,32 +1338,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    paddingTop: Spacing.two,
     paddingHorizontal: Spacing.three,
-    backgroundColor: 'rgba(238, 244, 244, 0.97)',
-  },
-  stickyAction: {
-    minHeight: 58,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.parisBlue,
+    // Pas de bandeau derrière les boutons : il coupait les cartes en travers. Les deux
+    // boutons flottent sur leur propre ombre, comme les boutons flottants du système.
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: Spacing.two,
-    ...Shadow.card,
-  },
-  stickyActionPressed: {
-    transform: [{ scale: 0.985 }],
-    backgroundColor: Palette.blueDeep,
-  },
-  stickyActionText: {
-    ...Typography.body,
-    flex: 1,
-    color: Palette.white,
-    fontFamily: Fonts.sans,
-    fontWeight: '700',
-    textAlign: 'center',
   },
   pressed: {
     opacity: 0.82,
