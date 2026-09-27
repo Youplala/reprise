@@ -30,7 +30,10 @@ describe('official-submission bridge', () => {
     expect(script).toContain('Paris\\u2028<script>alert(1)</script>');
     expect(script).toContain('Repère\\u2029visuel');
     expect(script).toContain("if (current && !(options.zeroIsEmpty && Number(current) === 0) && !mayReplaceOwned) return false");
-    expect(script).toContain("['checkbox', 'radio', 'file', 'email', 'submit', 'button'].includes(control.type)");
+    // Consentements, fichiers et boutons ne sont jamais remplis ; l'e-mail seulement pour
+    // l'identité que l'utilisateur a choisi de mémoriser.
+    expect(script).toContain("['checkbox', 'radio', 'file', 'submit', 'button'].includes(control.type)");
+    expect(script).toContain("if (control.type === 'email' && !options.allowEmail) return false;");
     expect(script).not.toContain("querySelector('button");
   });
 });

@@ -250,3 +250,38 @@ test('le parseur accepte les erreurs de contrat et ignore les messages tiers', (
     { type: 'files-error', message: 'Erreur', preparationId: '7', documentId: '3' },
   );
 });
+
+test('recopie l’identité mémorisée dans chaque bloc contributeur, sans jamais cocher le règlement', () => {
+  const identity = {
+    fullName: 'Élie BROSSET',
+    email: 'elie@example.com',
+    age: '32',
+    residenceCity: 'Paris',
+    country: 'France',
+  };
+  const { document, messages } = runBridge(OFFICIAL_SUBMISSION_FIXTURE_HTML, { ...payload, identity });
+
+  for (const suffix of ['1970', '2026']) {
+    assert.equal(document.getElementById(`fixture-identity-${suffix}`).value, identity.fullName);
+    assert.equal(document.getElementById(`fixture-email-${suffix}`).value, identity.email);
+    assert.notEqual(document.getElementById(`fixture-consent-${suffix}`).checked, true);
+    // L'identité reste visible : son bloc n'est jamais replié par l'habillage.
+    assert.equal(
+      document.getElementById(`fixture-identity-${suffix}`).closest('[data-paris-go-prefilled]'),
+      null,
+    );
+  }
+  assert.equal(document.getElementById('fixture-age').value, '32');
+  assert.equal(document.getElementById('fixture-residence-city').value, 'Paris');
+  assert.equal(document.getElementById('fixture-country').value, 'France');
+
+  const prefill = messages.filter((message) => message.type === 'prefill').at(-1);
+  assert.ok(prefill.fields.includes('identity'));
+  assert.ok(prefill.fields.includes('email'));
+});
+
+test('sans identité mémorisée, les champs personnels restent vides', () => {
+  const { document } = runBridge(OFFICIAL_SUBMISSION_FIXTURE_HTML);
+  assert.equal(document.getElementById('fixture-identity-2026').value, '');
+  assert.equal(document.getElementById('fixture-email-2026').value, '');
+});
