@@ -63,16 +63,22 @@ const files = {
 
 const store = createFieldbookStore({ storage: AsyncStorage, files });
 
-/** Ajoute une copie facultative à Photos avec la permission add-only, sans lire la photothèque. */
+/**
+ * Ajoute une copie facultative à Photos avec la permission add-only, sans lire la photothèque.
+ *
+ * `saveToLibraryAsync` plutôt que `createAssetAsync` : ce dernier relit l'asset créé
+ * (`PHAsset.fetchAssets`), lecture qui exige l'accès complet. Depuis iOS 27, iOS tue l'app
+ * (violation TCC, `NSPhotoLibraryUsageDescription` absente) au lieu de renvoyer un résultat vide.
+ */
 async function copyToLibrary(uri: string) {
   const MediaLibrary = loadMediaLibrary();
-  if (!MediaLibrary) return undefined;
+  if (!MediaLibrary) return false;
 
   const permission = await MediaLibrary.requestPermissionsAsync(true, []);
-  if (!permission.granted) return undefined;
+  if (!permission.granted) return false;
 
-  const asset = await MediaLibrary.createAssetAsync(uri);
-  return asset.id;
+  await MediaLibrary.saveToLibraryAsync(uri);
+  return true;
 }
 
 export type CaptureSaveOutcome = {
@@ -99,24 +105,23 @@ export async function saveCapture(capture: NewCapture): Promise<CaptureSaveOutco
     throw new Error('CAPTURE_NOT_AUTHORIZED');
   }
   let saved = await store.save(capture);
-  let assetId: string | undefined;
+  let savedToLibrary = false;
 
   if (saved.imageUri && !saved.simulated) {
     try {
-      assetId = await copyToLibrary(saved.imageUri);
+      savedToLibrary = await copyToLibrary(saved.imageUri);
     } catch {
       // Le brouillon Documents est déjà durable et reste la source de vérité.
     }
   }
 
-  if (assetId) {
+  if (savedToLibrary) {
     saved =
       (await store.update(saved.id, {
-        assetId,
         preparation: { ...saved.preparation, current: { ready: true } },
       })) ?? saved;
   }
-  return { capture: saved, savedToLibrary: Boolean(assetId) };
+  return { capture: saved, savedToLibrary };
 }
 
 export async function updateCapturePreparation(id: string, preparation: CapturePreparation) {
