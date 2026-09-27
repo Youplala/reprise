@@ -12,12 +12,12 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 jest.mock('expo-media-library', () => ({
   addAssetsToAlbumAsync: jest.fn(),
   createAlbumAsync: jest.fn(),
-  createAssetAsync: jest.fn(),
+  saveToLibraryAsync: jest.fn(),
   getAlbumAsync: jest.fn(),
   requestPermissionsAsync: jest.fn(),
 }));
 jest.mock('expo-media-library/legacy', () => ({
-  createAssetAsync: jest.fn(),
+  saveToLibraryAsync: jest.fn(),
   requestPermissionsAsync: jest.fn(),
 }));
 
@@ -27,16 +27,16 @@ describe('fieldbook', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     jest.mocked(MediaLibrary.requestPermissionsAsync).mockReset();
-    jest.mocked(MediaLibrary.createAssetAsync).mockReset();
+    jest.mocked(MediaLibrary.saveToLibraryAsync).mockReset();
     jest.useFakeTimers();
     jest.setSystemTime(new Date(1234));
     await storage.clear();
   });
   afterEach(() => jest.useRealTimers());
 
-  it('copie dans Photos avec l’API compatible Expo 57 et la permission ajout uniquement', async () => {
+  it('copie dans Photos en ajout seul, sans relire la photothèque (iOS 27)', async () => {
     jest.mocked(MediaLibrary.requestPermissionsAsync).mockResolvedValue({ granted: true } as never);
-    jest.mocked(MediaLibrary.createAssetAsync).mockResolvedValue({ id: 'photos-asset' } as never);
+    jest.mocked(MediaLibrary.saveToLibraryAsync).mockResolvedValue(undefined as never);
     const photo = new File(Paths.cache, 'fieldbook-photos.jpg');
     photo.create({ overwrite: true });
     photo.write('fixture');
@@ -44,14 +44,14 @@ describe('fieldbook', () => {
     const outcome = await saveCapture({ stationId: 'station-photos', frameIndex: 0,
       simulated: false, imageUri: photo.uri });
     expect(MediaLibrary.requestPermissionsAsync).toHaveBeenCalledWith(true, []);
-    expect(MediaLibrary.createAssetAsync).toHaveBeenCalledWith(outcome.capture.imageUri);
+    expect(MediaLibrary.saveToLibraryAsync).toHaveBeenCalledWith(outcome.capture.imageUri);
     expect(outcome.savedToLibrary).toBe(true);
-    expect(outcome.capture.assetId).toBe('photos-asset');
+    expect(outcome.capture.preparation.current.ready).toBe(true);
   });
 
   it.each(['denied', 'failed'])('conserve le carnet sans annoncer une copie Photos si %s', async (reason) => {
     jest.mocked(MediaLibrary.requestPermissionsAsync).mockResolvedValue({ granted: reason !== 'denied' } as never);
-    jest.mocked(MediaLibrary.createAssetAsync).mockRejectedValue(new Error('Native save failed'));
+    jest.mocked(MediaLibrary.saveToLibraryAsync).mockRejectedValue(new Error('Native save failed'));
     const photo = new File(Paths.cache, `fieldbook-${reason}.jpg`);
     photo.create({ overwrite: true });
     photo.write('fixture');
@@ -61,7 +61,7 @@ describe('fieldbook', () => {
     expect(outcome.savedToLibrary).toBe(false);
     expect(outcome.capture.assetId).toBeUndefined();
     expect(new File(outcome.capture.imageUri!).exists).toBe(true);
-    if (reason === 'denied') expect(MediaLibrary.createAssetAsync).not.toHaveBeenCalled();
+    if (reason === 'denied') expect(MediaLibrary.saveToLibraryAsync).not.toHaveBeenCalled();
   });
 
   it('persiste une capture simulée et la restitue en tête du carnet', async () => {
