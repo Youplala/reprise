@@ -41,3 +41,9 @@ test('le guide de contribution peut être rouvert depuis le formulaire', () => {
   assert.match(screenSource, /setGuideVisible\(true\)/);
   assert.match(screenSource, /accessibilityLabel="Comprendre le dépôt"/);
 });
+
+test('aucune origine n’est confiée au système : toute navigation passe par le garde-fou', () => {
+  // `originWhitelist` ouvre dans Safari toute origine non listée, avant `onShouldStartLoadWithRequest`.
+  assert.match(screenSource, /originWhitelist=\{\['\*'\]\}/);
+  assert.match(screenSource, /onShouldStartLoadWithRequest=\{allowNavigation\}/);
+});

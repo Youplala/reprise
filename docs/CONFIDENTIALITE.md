@@ -1,6 +1,6 @@
 # Politique de confidentialité de Paris GO
 
-Dernière mise à jour : 30 août 2026
+Dernière mise à jour : 27 septembre 2026
 
 Paris GO est une application mobile gratuite et open source éditée par Élie Brosset. Elle aide à
 retrouver et à rephotographier des points de vue historiques de Paris. Paris GO n’exige aucun
@@ -21,7 +21,10 @@ Avec votre autorisation, l’application utilise :
 - la photothèque en ajout uniquement, pour enregistrer les photographies que vous créez.
 
 Votre carnet de prises de vue, les réglages de cadrage et les encouragements du prototype sont
-conservés localement sur votre appareil. Paris GO ne les transmet pas à son éditeur et ne possède
+conservés localement sur votre appareil. Si vous choisissez de mémoriser vos informations de
+contributeur (prénom et nom, e-mail, et facultativement âge, commune de résidence et pays), elles
+sont aussi conservées uniquement sur votre appareil, et vous pouvez les oublier à tout moment
+depuis l’écran de dépôt. Paris GO ne les transmet pas à son éditeur et ne possède
 aucun serveur de comptes ou de stockage utilisateur.
 
 Vous pouvez retirer les autorisations dans les réglages iOS ou Android. Désinstaller l’application
@@ -56,9 +59,10 @@ L’écran « Dépôt officiel » affiche dans une vue web le formulaire du site
 [observatoire-photo.paris](https://observatoire-photo.paris/), animé par le CAUE de Paris.
 Paris GO peut y préparer la date, le lieu, les coordonnées du point de vue, le modèle d’appareil et
 les deux pièces jointes attendues : la photographie d’archive puis la photographie actuelle. Le
-commentaire public reste vide. Vous pouvez modifier ou remplacer les éléments préparés. Vous
-renseignez vous-même votre identité et les consentements, vérifiez le formulaire puis déclenchez
-l’envoi. Aucun dépôt n’est automatique.
+commentaire public reste vide. Vous pouvez modifier ou remplacer les éléments préparés. Votre
+identité n’est préremplie que si vous avez choisi de la mémoriser sur votre appareil ; sinon vous
+la renseignez vous-même. Vous cochez vous-même les consentements, vérifiez le formulaire puis
+déclenchez l’envoi. Aucun dépôt n’est automatique.
 
 Lorsque vous validez ce formulaire, les informations et photos choisies sont transmises directement
 au site de l’Observatoire, et non à l’éditeur de Paris GO. Leur traitement, leur modération, leur

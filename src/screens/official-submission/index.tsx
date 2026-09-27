@@ -1,6 +1,7 @@
 import * as Device from 'expo-device';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -18,7 +19,8 @@ import WebView, {
 
 import { PrimaryButton } from '@/components/primary-button';
 import { OfficialContributionGuide } from '@/components/official-contribution-guide';
-import { Fonts, Palette, Radius, Shadow, Spacing } from '@/constants/theme';
+import { OfficialIdentitySheet } from '@/components/official-identity-sheet';
+import { Fonts, HitSize, Kicker, Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { useUserLocation } from '@/hooks/use-user-location';
@@ -36,6 +38,16 @@ import {
   buildOfficialFormUsabilityScript,
   officialChromeIsExpanded,
 } from '@/services/official-form-usability';
+import {
+  forgetOfficialIdentity,
+  loadOfficialIdentity,
+  saveOfficialIdentity,
+  type OfficialIdentity,
+} from '@/services/official-identity';
+import {
+  buildOfficialFormCompactScript,
+  buildOfficialFormThemeScript,
+} from '@/services/official-form-theme';
 import {
   buildObservatoireFileCleanupScript,
   buildObservatoireFileInjectionScript,
@@ -67,6 +79,85 @@ import {
   type OfficialFormImagePreparation,
   type PreparedImages,
 } from '@/services/official-submission';
+
+// Libellés des champs que le pré-remplissage signale, dans l'ordre du formulaire.
+const PREFILLED_FIELD_LABELS: [string, string][] = [
+  ['address', 'Adresse'],
+  ['title', 'Titre'],
+  ['arrondissement', 'Arrondissement'],
+  ['city', 'Ville'],
+  ['captureDate', 'Date'],
+  ['device', 'Appareil'],
+  ['latitude', 'Position GPS'],
+  ['identity', 'Nom'],
+  ['email', 'E-mail'],
+  ['age', 'Âge'],
+  ['residenceCity', 'Commune'],
+  ['country', 'Pays'],
+];
+
+function labelsForPrefilledFields(fields: string[]) {
+  const present = new Set(fields);
+  if (present.has('longitude')) present.add('latitude');
+  return PREFILLED_FIELD_LABELS.filter(([key]) => present.has(key)).map(([, label]) => label);
+}
+
+type ThumbState = 'ready' | 'attached' | 'preparing' | 'error' | 'pending';
+
+function thumbState(
+  image: PreparedImages['current'],
+  attached: boolean,
+  preparing: boolean,
+): ThumbState {
+  if (attached) return 'attached';
+  if (image.ready) return 'ready';
+  if (image.error) return 'error';
+  return preparing ? 'preparing' : 'pending';
+}
+
+function PreparationThumb({ uri, label, state }: { uri?: string; label: string; state: ThumbState }) {
+  return (
+    <View style={styles.thumb}>
+      {uri ? (
+        <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+      ) : (
+        <SymbolView name="photo" size={18} tintColor={Palette.inkSoft} />
+      )}
+      <View style={styles.thumbLabel}>
+        <Text style={styles.thumbLabelText}>{label}</Text>
+      </View>
+      <View
+        style={[
+          styles.thumbBadge,
+          state === 'attached' || state === 'ready'
+            ? styles.thumbBadgeDone
+            : state === 'error'
+              ? styles.thumbBadgeError
+              : styles.thumbBadgePending,
+        ]}>
+        {state === 'preparing' ? (
+          <ActivityIndicator size="small" color={Palette.white} style={styles.thumbSpinner} />
+        ) : (
+          <SymbolView
+            name={state === 'error' ? 'exclamationmark' : state === 'pending' ? 'ellipsis' : 'checkmark'}
+            size={10}
+            tintColor={Palette.white}
+          />
+        )}
+      </View>
+    </View>
+  );
+}
+
+/** Origine et chemin d'une URL bloquée, sans sa requête : aucune donnée de formulaire en clair. */
+function describeBlockedUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return `${url.protocol}//${url.host}${url.pathname}`;
+  } catch {
+    return value.slice(0, 80);
+  }
+}
 
 function preparationErrorLabel(error: PreparedImages['current']['error']) {
   switch (error) {
@@ -222,7 +313,24 @@ export function OfficialSubmissionScreen() {
   const preparedImages = imagePreparation.images;
   const [attachedFileCount, setAttachedFileCount] = useState(0);
   const [imageError, setImageError] = useState<string>();
+  // Repliée d'emblée : le formulaire a besoin de la hauteur. Elle se déplie d'elle-même en cas
+  // d'erreur (`officialChromeIsExpanded`).
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [prefilledFields, setPrefilledFields] = useState<string[]>([]);
+  // Les champs déjà remplis sont repliés dans le formulaire : l'écran natif en montre la valeur.
+  const [showAllFields, setShowAllFields] = useState(false);
+  // Identité mémorisée sur l'appareil, à la demande de l'utilisateur uniquement.
+  const [identity, setIdentity] = useState<OfficialIdentity>();
+  const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void loadOfficialIdentity().then((stored) => {
+      if (active) setIdentity(stored);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
   const [guideVisible, setGuideVisible] = useState(false);
 
   useEffect(() => {
@@ -256,8 +364,15 @@ export function OfficialSubmissionScreen() {
       latitude: submissionCoordinate?.latitude,
       longitude: submissionCoordinate?.longitude,
       postalCode: postalCodeFrom(detail?.address, detail?.arrondissement),
+      identity,
     };
-  }, [coordinate, detail, isPrecise, latitude, longitude]);
+  }, [coordinate, detail, identity, isPrecise, latitude, longitude]);
+  const compactFields = !showAllFields && !validationMessage;
+  useEffect(() => {
+    if (shouldInjectOfficialScripts(currentPageUrl.current, OFFICIAL_SUBMISSION_FIXTURE_ENABLED)) {
+      webViewRef.current?.injectJavaScript(buildOfficialFormCompactScript(compactFields));
+    }
+  }, [compactFields]);
   const buildInjectedScript = useCallback(
     (currentDocumentGeneration: number) => {
       const { current, reference } = imagePreparation.files;
@@ -269,7 +384,7 @@ export function OfficialSubmissionScreen() {
               String(currentDocumentGeneration),
             )
           : '';
-      return `${buildObservatoirePrefillScript(prefill)}\n${fileScript}\n${buildOfficialFormUsabilityScript()}`;
+      return `${buildObservatoirePrefillScript(prefill)}\n${fileScript}\n${buildOfficialFormUsabilityScript()}\n${buildOfficialFormThemeScript()}`;
     },
     [imagePreparation.files, imagePreparation.preparationId, prefill],
   );
@@ -322,7 +437,10 @@ export function OfficialSubmissionScreen() {
     ) {
       return;
     }
-    if (message.type === 'prefill') setPrefilledCount(message.count);
+    if (message.type === 'prefill') {
+      setPrefilledCount(message.count);
+      setPrefilledFields(message.fields);
+    }
     if (message.type === 'files-ready') {
       setAttachedFileCount(message.count);
       setImageError(undefined);
@@ -451,8 +569,15 @@ export function OfficialSubmissionScreen() {
     void prepareImages(request);
   }, [authorizationPending, id, isSimulated, prepareImages, trustedReferenceUri, uri]);
 
-  const allowNavigation = (request: { url: string }) => {
-    return isAllowedOfficialNavigation(request.url, OFFICIAL_SUBMISSION_FIXTURE_ENABLED);
+  const allowNavigation = (request: { url: string; isTopFrame?: boolean }) => {
+    const allowed = isAllowedOfficialNavigation(request.url, OFFICIAL_SUBMISSION_FIXTURE_ENABLED);
+    if (!allowed && request.isTopFrame !== false) {
+      // Une page hors du formulaire reste bloquée ici, jamais confiée à Safari : on le dit, et on
+      // garde sa destination dans les journaux de développement pour pouvoir l'examiner.
+      if (__DEV__) console.warn('[dépôt officiel] navigation bloquée :', describeBlockedUrl(request.url));
+      setValidationMessage('Ce lien mène hors du formulaire officiel ; il ne s’ouvre pas dans Paris GO.');
+    }
+    return allowed;
   };
 
   const preparedCount =
@@ -460,6 +585,7 @@ export function OfficialSubmissionScreen() {
   const hasPreparationError = Boolean(
     preparedImages.current.error || preparedImages.reference.error,
   );
+  const prefilledLabels = labelsForPrefilledFields(prefilledFields);
   const chromeExpanded = officialChromeIsExpanded({
     detailsRequested: detailsExpanded,
     hasBlockingMessage: Boolean(imageError || validationMessage || hasPreparationError),
@@ -477,11 +603,9 @@ export function OfficialSubmissionScreen() {
           </Pressable>
           <View style={styles.headerCopy}>
             <Text style={styles.headerKicker}>
-              {OFFICIAL_SUBMISSION_FIXTURE_ENABLED ? 'TEST LOCAL' : 'DÉPÔT OFFICIEL'}
+              {OFFICIAL_SUBMISSION_FIXTURE_ENABLED ? 'Test local' : 'Observatoire de Paris'}
             </Text>
-            <Text style={styles.headerTitle}>
-              {OFFICIAL_SUBMISSION_FIXTURE_ENABLED ? 'Formulaire WebView' : 'Observatoire de Paris'}
-            </Text>
+            <Text style={styles.headerTitle}>Déposer ma reprise</Text>
           </View>
           <Pressable
             accessibilityLabel="Comprendre le dépôt"
@@ -493,123 +617,166 @@ export function OfficialSubmissionScreen() {
         </View>
       </SafeAreaView>
 
-      {chromeExpanded ? (
-        <>
-          <View style={styles.trustBanner}>
-            <View style={styles.secureIcon}>
-              <SymbolView name="lock.shield.fill" size={18} tintColor={Palette.lichen} />
+      {submissionStatus !== 'success' && !formError ? (
+        <View style={styles.summary}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={chromeExpanded ? 'Réduire le récapitulatif' : 'Afficher le récapitulatif'}
+            accessibilityState={{ expanded: chromeExpanded }}
+            onPress={() => {
+              void Haptics.selectionAsync();
+              setDetailsExpanded(!chromeExpanded);
+            }}
+            style={styles.summaryHead}>
+            <View style={styles.thumbs}>
+              <PreparationThumb
+                uri={trustedReferenceUri}
+                label="1970"
+                state={thumbState(preparedImages.reference, attachedFileCount === 2, preparingImages)}
+              />
+              <PreparationThumb
+                uri={isSimulated ? undefined : authorizedCurrentUri}
+                label="2026"
+                state={thumbState(preparedImages.current, attachedFileCount === 2, preparingImages)}
+              />
             </View>
-            <View style={styles.trustCopy}>
-              <Text style={styles.trustTitle}>
-                {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
-                  ? 'Formulaire de test embarqué'
-                  : 'Formulaire officiel du CAUE de Paris'}
-              </Text>
-              <Text style={styles.trustText}>
-                {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
-                  ? 'Aucune donnée ni photo ne quitte cet appareil.'
-                  : 'Paris GO ne reçoit ni votre identité ni vos photos. Elles partent du formulaire officiel.'}
-              </Text>
-            </View>
-            <View style={styles.prefillBadge}>
-              <Text style={styles.prefillValue}>{prefilledCount || '—'}</Text>
-              <Text style={styles.prefillLabel}>CHAMPS</Text>
-            </View>
-          </View>
-          <View style={styles.preparationRow}>
-            <View style={styles.preparationCopy}>
-              <Text style={styles.preparationTitle}>
+            <View style={styles.summaryCopy}>
+              <Text style={styles.summaryTitle}>
                 {isSimulated
                   ? 'Aperçu de démonstration'
                   : attachedFileCount === 2
-                    ? 'Les 2 photos sont jointes automatiquement'
+                    ? 'Prêt, il ne reste que vous'
                     : preparingImages
-                      ? 'Préparation automatique des photos…'
+                      ? 'Préparation des photos…'
                       : `${preparedCount}/2 photo${preparedCount > 1 ? 's' : ''} préparée${preparedCount > 1 ? 's' : ''}`}
               </Text>
-              <Text style={styles.preparationText}>
-                {isPrecise
-                  ? 'Position actuelle et date préparées'
-                  : locating
-                    ? 'Recherche de votre position…'
-                    : locationError ?? 'Date et informations du point de vue préparées'}
-              </Text>
-              <Text style={preparedImages.current.ready ? styles.fileReady : styles.filePending}>
-                {preparedImages.current.ready
-                  ? '✓ Photo 2026 prête'
-                  : `Photo 2026 : ${preparationErrorLabel(preparedImages.current.error) ?? 'à préparer'}`}
-              </Text>
-              <Text style={preparedImages.reference.ready ? styles.fileReady : styles.filePending}>
-                {preparedImages.reference.ready
-                  ? '✓ Archive prête'
-                  : `Archive : ${preparationErrorLabel(preparedImages.reference.error) ?? 'à préparer'}`}
+              <Text style={styles.summaryMeta} numberOfLines={1}>
+                {chromeExpanded
+                  ? `${attachedFileCount}/2 photos jointes · ${prefilledCount} champ${prefilledCount > 1 ? 's' : ''} rempli${prefilledCount > 1 ? 's' : ''}`
+                  : `${attachedFileCount}/2 photos · ${prefilledCount} champs · à vous : ${identity ? 'règlement et envoi' : 'identité et envoi'}`}
               </Text>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              disabled={preparingImages}
-              onPress={prepareImages}
-              style={({ pressed }) => [
-                styles.prepareButton,
-                pressed && styles.pressed,
-                preparingImages && styles.disabled,
-              ]}>
-              {preparingImages ? (
-                <ActivityIndicator color={Palette.parisBlue} size="small" />
-              ) : (
-                <SymbolView name="photo.on.rectangle.angled" size={18} tintColor={Palette.parisBlue} />
-              )}
-              <Text style={styles.prepareLabel}>
-                {isSimulated ? 'Voir le parcours' : hasPreparationError ? 'Réessayer' : 'Préparer'}
-              </Text>
-            </Pressable>
-          </View>
-          <Pressable
-            accessibilityLabel="Réduire les informations du dépôt"
-            accessibilityRole="button"
-            onPress={() => setDetailsExpanded(false)}
-            style={({ pressed }) => [styles.collapseButton, pressed && styles.pressed]}>
-            <Text style={styles.collapseLabel}>Agrandir le formulaire</Text>
-            <SymbolView name="chevron.up" size={11} tintColor={Palette.parisBlue} />
+            <SymbolView
+              name={chromeExpanded ? 'chevron.up' : 'chevron.down'}
+              size={13}
+              tintColor={Palette.inkSoft}
+            />
           </Pressable>
-        </>
-      ) : (
-        <View style={styles.compactBar}>
-          <Text style={styles.compactStatus} numberOfLines={1}>
-            {prefilledCount || '—'} champs · {attachedFileCount}/2 photos jointes
-          </Text>
-          <Pressable
-            accessibilityLabel="Préparer les photos"
-            accessibilityRole="button"
-            disabled={preparingImages}
-            onPress={prepareImages}
-            style={({ pressed }) => [styles.compactAction, pressed && styles.pressed]}>
-            {preparingImages ? (
-              <ActivityIndicator color={Palette.parisBlue} size="small" />
-            ) : (
-              <SymbolView name="photo.on.rectangle.angled" size={16} tintColor={Palette.parisBlue} />
-            )}
-            <Text style={styles.compactActionLabel}>Photos</Text>
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Afficher les informations du dépôt"
-            accessibilityRole="button"
-            onPress={() => setDetailsExpanded(true)}
-            style={({ pressed }) => [styles.compactAction, pressed && styles.pressed]}>
-            <SymbolView name="info.circle" size={16} tintColor={Palette.parisBlue} />
-            <Text style={styles.compactActionLabel}>Infos</Text>
-          </Pressable>
+
+          {chromeExpanded ? (
+            <View style={styles.summaryBody}>
+              {prefilledLabels.length ? (
+                <View style={styles.chips}>
+                  {prefilledLabels.map((label) => (
+                    <View key={label} style={styles.chip}>
+                      <SymbolView name="checkmark" size={11} tintColor={Palette.lichen} />
+                      <Text style={styles.chipText}>{label}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              {locating ? (
+                <Text style={styles.summaryMeta}>Recherche de votre position…</Text>
+              ) : locationError && !isPrecise ? (
+                <Text style={styles.summaryMeta}>{locationError}</Text>
+              ) : null}
+
+              {!preparedImages.current.ready && preparedImages.current.error ? (
+                <Text style={styles.fileError}>
+                  Photo 2026 : {preparationErrorLabel(preparedImages.current.error)}
+                </Text>
+              ) : null}
+              {!preparedImages.reference.ready && preparedImages.reference.error ? (
+                <Text style={styles.fileError}>
+                  Archive : {preparationErrorLabel(preparedImages.reference.error)}
+                </Text>
+              ) : null}
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityHint="Mémorise vos informations sur cet appareil pour préremplir le formulaire"
+                onPress={() => setIdentitySheetVisible(true)}
+                style={({ pressed }) => [styles.identityRow, pressed && styles.pressed]}>
+                <SymbolView
+                  name={identity ? 'person.crop.circle.badge.checkmark' : 'person.crop.circle.badge.plus'}
+                  size={20}
+                  tintColor={identity ? Palette.lichen : Palette.parisBlue}
+                />
+                <View style={styles.identityCopy}>
+                  <Text style={styles.identityTitle}>
+                    {identity ? identity.fullName : 'Mémoriser mes informations'}
+                  </Text>
+                  <Text style={styles.identityMeta} numberOfLines={1}>
+                    {identity ? `${identity.email} · sur cet appareil` : 'Nom et e-mail préremplis la prochaine fois'}
+                  </Text>
+                </View>
+                <Text style={styles.identityAction}>{identity ? 'Modifier' : 'Ajouter'}</Text>
+              </Pressable>
+
+              <View style={styles.todo}>
+                <SymbolView name="hand.tap.fill" size={15} tintColor={Palette.go} />
+                <Text style={styles.todoText}>
+                  <Text style={styles.todoStrong}>À vous : </Text>
+                  {identity
+                    ? 'vérifier vos informations, cocher le règlement, puis Envoyer.'
+                    : 'nom, e-mail, règlement, puis Envoyer, dans le formulaire ci-dessous.'}
+                </Text>
+              </View>
+              <View style={styles.todo}>
+                <SymbolView name="lock.fill" size={13} tintColor={Palette.lichen} />
+                <Text style={styles.trustText}>
+                  {OFFICIAL_SUBMISSION_FIXTURE_ENABLED
+                    ? 'Formulaire de test embarqué : aucune donnée ni photo ne quitte cet appareil.'
+                    : 'Les deux photos sont ajoutées automatiquement. Votre identité, le règlement et l’envoi final restent sous votre contrôle ; Paris GO ne reçoit rien.'}
+                </Text>
+              </View>
+
+              <View style={styles.summaryActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    void Haptics.selectionAsync();
+                    setShowAllFields((value) => !value);
+                  }}
+                  style={({ pressed }) => [styles.summaryAction, pressed && styles.pressed]}>
+                  <SymbolView
+                    name={showAllFields ? 'eye.slash' : 'list.bullet.rectangle'}
+                    size={15}
+                    tintColor={Palette.parisBlue}
+                  />
+                  <Text style={styles.summaryActionText}>
+                    {showAllFields ? 'Masquer les champs remplis' : 'Voir tous les champs'}
+                  </Text>
+                </Pressable>
+                {hasPreparationError || (!isSimulated && preparedCount < 2 && !preparingImages) ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={preparingImages}
+                    onPress={prepareImages}
+                    style={({ pressed }) => [styles.summaryAction, pressed && styles.pressed]}>
+                    <SymbolView name="arrow.clockwise" size={14} tintColor={Palette.parisBlue} />
+                    <Text style={styles.summaryActionText}>
+                      {hasPreparationError ? 'Réessayer les photos' : 'Préparer les photos'}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
         </View>
-      )}
+      ) : null}
+
       {imageError ? <Text style={styles.inlineError}>{imageError}</Text> : null}
       {validationMessage ? (
         <View style={styles.validationBanner}>
-          <SymbolView name="exclamationmark.circle.fill" size={15} tintColor={Palette.copper} />
-          <Text numberOfLines={2} style={styles.validationText}>
+          <SymbolView name="exclamationmark.circle.fill" size={15} tintColor={Palette.go} />
+          <Text numberOfLines={3} style={styles.validationText}>
             {validationMessage}
           </Text>
           <Pressable
             accessibilityLabel="Fermer l’avertissement"
+            hitSlop={10}
             onPress={() => setValidationMessage(undefined)}>
             <SymbolView name="xmark" size={12} tintColor={Palette.inkSoft} />
           </Pressable>
@@ -645,7 +812,9 @@ export function OfficialSubmissionScreen() {
               key={webKey}
               ref={webViewRef}
               source={webSource}
-              originWhitelist={['https://observatoire-photo.paris', 'about:blank']}
+              // `originWhitelist` confie au système (Safari) toute origine non listée, avant même
+              // `onShouldStartLoadWithRequest`. Tout passe donc par `allowNavigation`, seule frontière.
+              originWhitelist={['*']}
               allowsBackForwardNavigationGestures
               allowsInlineMediaPlayback
               javaScriptEnabled
@@ -660,6 +829,7 @@ export function OfficialSubmissionScreen() {
                 setFormError(undefined);
                 setValidationMessage(undefined);
                 setPrefilledCount(0);
+                setPrefilledFields([]);
                 setAttachedFileCount(0);
               }}
               onLoadEnd={(event) => {
@@ -674,6 +844,7 @@ export function OfficialSubmissionScreen() {
                   webViewRef.current?.injectJavaScript(
                     buildInjectedScript(documentGenerationRef.current),
                   );
+                  webViewRef.current?.injectJavaScript(buildOfficialFormCompactScript(compactFields));
                 }
               }}
               onMessage={onMessage}
@@ -710,20 +881,140 @@ export function OfficialSubmissionScreen() {
         )}
       </View>
 
-      {chromeExpanded ? (
-        <SafeAreaView edges={['bottom']} style={styles.manualFooter}>
-          <SymbolView name="hand.tap.fill" size={18} tintColor={Palette.brass} />
-          <Text style={styles.manualText}>
-            Les deux photos sont ajoutées automatiquement. Votre identité, le règlement et l’envoi final restent sous votre contrôle.
-          </Text>
-        </SafeAreaView>
-      ) : null}
+      <SafeAreaView edges={['bottom']} style={styles.bottomInset} />
+      <OfficialIdentitySheet
+        visible={identitySheetVisible}
+        initial={identity}
+        onClose={() => setIdentitySheetVisible(false)}
+        onSave={(next) => {
+          setIdentity(next);
+          setIdentitySheetVisible(false);
+          void saveOfficialIdentity(next);
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }}
+        onForget={() => {
+          setIdentity(undefined);
+          setIdentitySheetVisible(false);
+          void forgetOfficialIdentity();
+        }}
+      />
       <OfficialContributionGuide onComplete={completeGuide} visible={guideVisible} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  summary: {
+    marginHorizontal: Spacing.two,
+    marginTop: Spacing.two,
+    borderRadius: Radius.large,
+    backgroundColor: Palette.white,
+    ...Shadow.card,
+  },
+  summaryHead: {
+    minHeight: 64,
+    paddingHorizontal: Spacing.twoHalf,
+    paddingVertical: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.twoHalf,
+  },
+  thumbs: {
+    flexDirection: 'row',
+    gap: Spacing.one,
+  },
+  thumb: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.small,
+    overflow: 'hidden',
+    backgroundColor: Palette.blueMist,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbLabel: {
+    position: 'absolute',
+    left: 3,
+    bottom: 3,
+    paddingHorizontal: 4,
+    borderRadius: 4,
+    backgroundColor: 'rgba(8, 17, 22, 0.72)',
+  },
+  thumbLabelText: {
+    ...Kicker,
+    fontSize: 10,
+    lineHeight: 13,
+    letterSpacing: 0.2,
+    color: Palette.white,
+  },
+  thumbBadge: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbBadgeDone: { backgroundColor: Palette.lichen },
+  thumbBadgeError: { backgroundColor: Palette.go },
+  thumbBadgePending: { backgroundColor: 'rgba(8, 17, 22, 0.55)' },
+  thumbSpinner: { transform: [{ scale: 0.6 }] },
+  summaryCopy: { flex: 1, gap: 2 },
+  summaryTitle: { ...Typography.body, color: Palette.ink, fontFamily: Fonts.sans, fontWeight: '700' },
+  summaryMeta: { ...Typography.caption, color: Palette.inkSoft, fontFamily: Fonts.sans },
+  summaryBody: {
+    paddingHorizontal: Spacing.twoHalf,
+    paddingBottom: Spacing.twoHalf,
+    gap: Spacing.two,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Palette.line,
+    paddingTop: Spacing.twoHalf,
+  },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
+  chip: {
+    minHeight: 28,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.fog,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  chipText: { ...Typography.caption, color: Palette.ink, fontFamily: Fonts.sans, fontWeight: '600' },
+  fileError: { ...Typography.caption, color: Palette.go, fontFamily: Fonts.sans, fontWeight: '600' },
+  identityRow: {
+    minHeight: 56,
+    paddingHorizontal: Spacing.twoHalf,
+    borderRadius: Radius.medium,
+    backgroundColor: Palette.fog,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.twoHalf,
+  },
+  identityCopy: { flex: 1, gap: 1 },
+  identityTitle: { ...Typography.body, color: Palette.ink, fontFamily: Fonts.sans, fontWeight: '700' },
+  identityMeta: { ...Typography.caption, color: Palette.inkSoft, fontFamily: Fonts.sans },
+  identityAction: { ...Typography.caption, color: Palette.go, fontFamily: Fonts.sans, fontWeight: '700' },
+  todo: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
+  todoText: { ...Typography.caption, flex: 1, color: Palette.ink, fontFamily: Fonts.sans },
+  todoStrong: { fontWeight: '700', color: Palette.go },
+  trustText: { ...Typography.caption, flex: 1, color: Palette.inkSoft, fontFamily: Fonts.sans },
+  summaryActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  summaryAction: {
+    minHeight: HitSize,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Palette.line,
+    backgroundColor: Palette.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  summaryActionText: { ...Typography.caption, color: Palette.parisBlue, fontFamily: Fonts.sans, fontWeight: '700' },
+  bottomInset: { backgroundColor: Palette.fog },
   screen: { flex: 1, backgroundColor: Palette.fog },
   headerSafeArea: {
     backgroundColor: Palette.white,
@@ -738,154 +1029,40 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.white,
   },
   headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: HitSize,
+    height: HitSize,
+    borderRadius: HitSize / 2,
     backgroundColor: Palette.fog,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerCopy: { flex: 1, alignItems: 'center' },
   headerKicker: {
-    color: Palette.copper,
-    fontFamily: Fonts.mono,
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 0.7,
+    ...Kicker,
+    fontSize: 13,
+    lineHeight: 18,
+    color: Palette.go,
   },
   headerTitle: {
     marginTop: 2,
     color: Palette.ink,
     fontFamily: Fonts.sans,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  trustBanner: {
-    margin: Spacing.two,
-    marginBottom: 0,
-    padding: Spacing.twoHalf,
-    borderRadius: Radius.medium,
-    backgroundColor: Palette.blueMist,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  secureIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: Palette.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trustCopy: { flex: 1 },
-  trustTitle: { color: Palette.ink, fontFamily: Fonts.sans, fontSize: 12, fontWeight: '800' },
-  trustText: {
-    marginTop: 2,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 10,
-    lineHeight: 14,
-  },
-  prefillBadge: { minWidth: 42, alignItems: 'center' },
-  prefillValue: { color: Palette.parisBlue, fontFamily: Fonts.display, fontSize: 22, fontWeight: '900' },
-  prefillLabel: {
-    color: Palette.inkSoft,
-    fontFamily: Fonts.mono,
-    fontSize: 6,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  preparationRow: {
-    minHeight: 62,
-    paddingHorizontal: Spacing.three,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  preparationCopy: { flex: 1, paddingVertical: Spacing.two },
-  preparationTitle: { color: Palette.ink, fontFamily: Fonts.sans, fontSize: 12, fontWeight: '800' },
-  preparationText: { marginTop: 2, color: Palette.inkSoft, fontFamily: Fonts.sans, fontSize: 10 },
-  fileReady: {
-    marginTop: 3,
-    color: Palette.lichen,
-    fontFamily: Fonts.sans,
-    fontSize: 9,
+    fontSize: 17,
     fontWeight: '700',
   },
-  filePending: {
-    marginTop: 3,
-    color: Palette.copper,
-    fontFamily: Fonts.sans,
-    fontSize: 9,
-    lineHeight: 12,
-  },
-  compactBar: {
-    minHeight: 46,
-    paddingHorizontal: Spacing.three,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  compactStatus: {
-    flex: 1,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  compactAction: {
-    minHeight: 36,
-    paddingHorizontal: Spacing.two,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-  },
-  compactActionLabel: {
-    color: Palette.parisBlue,
-    fontFamily: Fonts.sans,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  collapseButton: {
-    minHeight: 32,
-    alignSelf: 'center',
-    paddingHorizontal: Spacing.three,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-  },
-  collapseLabel: {
-    color: Palette.parisBlue,
-    fontFamily: Fonts.sans,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  prepareButton: {
-    minHeight: 38,
-    paddingHorizontal: Spacing.twoHalf,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.white,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Palette.line,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  prepareLabel: { color: Palette.parisBlue, fontFamily: Fonts.sans, fontSize: 11, fontWeight: '800' },
   inlineError: {
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
-    color: Palette.copper,
+    color: Palette.go,
     fontFamily: Fonts.sans,
-    fontSize: 10,
+    fontSize: 13,
   },
   settingsLink: {
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
     color: Palette.parisBlue,
     fontFamily: Fonts.sans,
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: '800',
     textDecorationLine: 'underline',
   },
@@ -895,17 +1072,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.twoHalf,
     paddingVertical: Spacing.two,
     borderRadius: Radius.small,
-    backgroundColor: '#F7E9E2',
+    backgroundColor: Palette.goSoft,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
   },
   validationText: {
     flex: 1,
-    color: Palette.copper,
+    color: Palette.go,
     fontFamily: Fonts.sans,
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 13,
+    lineHeight: 18,
   },
   webContainer: {
     flex: 1,
@@ -923,7 +1100,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.three,
   },
-  loadingText: { color: Palette.inkSoft, fontFamily: Fonts.sans, fontSize: 12 },
+  loadingText: { color: Palette.inkSoft, fontFamily: Fonts.sans, fontSize: 13, lineHeight: 18 },
   errorState: {
     flex: 1,
     paddingHorizontal: Spacing.five,
@@ -973,22 +1150,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 13,
     lineHeight: 20,
-    textAlign: 'center',
-  },
-  manualFooter: {
-    minHeight: 54,
-    paddingHorizontal: Spacing.three,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.two,
-  },
-  manualText: {
-    flexShrink: 1,
-    color: Palette.inkSoft,
-    fontFamily: Fonts.sans,
-    fontSize: 10,
-    lineHeight: 14,
     textAlign: 'center',
   },
   pressed: { opacity: 0.76, transform: [{ scale: 0.97 }] },

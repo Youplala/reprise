@@ -6,6 +6,17 @@ export type OfficialPrefill = {
   latitude?: number;
   longitude?: number;
   postalCode?: string;
+  /**
+   * Identité mémorisée par l'utilisateur sur son appareil (opt-in). Recopiée dans les champs
+   * « Contributeur », jamais repliée ; consentements et envoi restent manuels.
+   */
+  identity?: {
+    fullName: string;
+    email: string;
+    age?: string;
+    residenceCity?: string;
+    country?: string;
+  };
 };
 
 export type OfficialBridgeMessage =
@@ -85,13 +96,22 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
         ? window.__repriseOwnedValues
         : new WeakMap();
       window.__repriseOwnedValues = ownedValues;
+      // Marque le bloc d'un champ rempli par Paris GO : l'habillage natif peut le replier,
+      // puisque l'écran natif en affiche déjà la valeur. Identité et e-mail ne sont jamais
+      // marqués (ils restent visibles) ; consentements et fichiers ne sont jamais remplis.
+      const markPrefilled = (control) => {
+        const container = control && control.closest
+          && control.closest('.field-container, .form-group, .control-group, .input-field, .field');
+        if (container && container.setAttribute) container.setAttribute('data-paris-go-prefilled', '');
+      };
       const emitEvents = (control) => {
         control.dispatchEvent(new Event('input', { bubbles: true }));
         control.dispatchEvent(new Event('change', { bubbles: true }));
       };
       const setValue = (control, value, options = {}) => {
         if (!control || value === undefined || value === null || String(value).length === 0) return false;
-        if (['checkbox', 'radio', 'file', 'email', 'submit', 'button'].includes(control.type)) return false;
+        if (['checkbox', 'radio', 'file', 'submit', 'button'].includes(control.type)) return false;
+        if (control.type === 'email' && !options.allowEmail) return false;
         const current = String(control.value || '').trim();
         const owned = options.ownershipKey && ownedValues.get(control)?.[options.ownershipKey];
         const mayReplaceOwned = options.replaceOwned && owned === current;
@@ -111,6 +131,7 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
           });
         }
         emitEvents(control);
+        if (options.mark !== false) markPrefilled(control);
         return true;
       };
       const labels = (root = document) => Array.from(root.querySelectorAll('label'));
@@ -123,7 +144,8 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
         const add = (control) => {
           if (control && !controls.includes(control)) controls.push(control);
         };
-        if (label.htmlFor) add(document.getElementById(label.htmlFor));
+        const forId = label.htmlFor || (label.getAttribute && label.getAttribute('for'));
+        if (forId) add(document.getElementById(forId));
         Array.from(label.querySelectorAll('input, textarea, select')).forEach(add);
         Array.from(label.parentElement?.querySelectorAll('input, textarea, select') || []).forEach(add);
         Array.from(label.closest('.form-group, .control-group, .field-container, .field, [class*=field]')
@@ -194,6 +216,7 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
         if (setter) setter.call(target, true);
         else target.checked = true;
         emitEvents(target);
+        markPrefilled(target);
         return true;
       };
       const knownControls = () => ({
@@ -240,8 +263,33 @@ export function buildObservatoirePrefillScript(payload: OfficialPrefill) {
         notice.style.cssText = 'font-size:13px;line-height:1.4;color:#4D606A;margin:8px 0;';
         control.after(notice);
       };
+      // Tous les blocs « Contributeur » (1970, 2026…) reçoivent la même identité.
+      const fillAllByLabel = (aliases, value, validator, options) => {
+        if (!value) return false;
+        let filled = false;
+        for (const label of labels()) {
+          if (!labelMatches(label, aliases, true)) continue;
+          // Le premier champ du libellé seulement : controlsForLabel inclut aussi les champs
+          // voisins du bloc (âge, pays…), qui ne doivent pas recevoir le nom.
+          const control = controlsForLabel(label).find(validator);
+          if (control && setValue(control, value, options)) filled = true;
+        }
+        return filled;
+      };
+      const fillIdentity = (fields) => {
+        const identity = payload.identity;
+        if (!identity) return;
+        const visible = { mark: false };
+        if (fillAllByLabel(['prenom nom', 'prenom et nom', 'nom prenom', 'nom et prenom'], identity.fullName, textControl, visible)) fields.add('identity');
+        if (fillAllByLabel(['mail', 'e mail', 'email', 'adresse mail', 'adresse e mail', 'courriel'], identity.email,
+          (control) => control.type === 'email' || textControl(control), { ...visible, allowEmail: true })) fields.add('email');
+        if (fillAllByLabel(['age'], identity.age, textControl, visible)) fields.add('age');
+        if (fillAllByLabel(['commune de residence', 'ville de residence'], identity.residenceCity, textControl, visible)) fields.add('residenceCity');
+        if (fillAllByLabel(['pays'], identity.country, textControl, visible)) fields.add('country');
+      };
       const fill = () => {
         const fields = new Set(window.__reprisePrefilledFields || []);
+        fillIdentity(fields);
         explainSignature();
         if (fillByLabel(['adresse complete', 'adresse', 'adresse postale', 'numero et rue'], payload.address)) fields.add('address');
         if (fillByLabel(['titre de la fiche'], payload.address)) fields.add('title');
