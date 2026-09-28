@@ -1,5 +1,12 @@
 import type { SnapshotStation } from '@/data/snapshot';
 
+// Les premiers dépôts Paris GO remplaçaient le nom ARK par `reprise-<carré>-reference`.
+// Une correspondance explicite est la seule réparation sûre : ni le carré ni le GPS ne permettent
+// de distinguer les différentes vues d'une même maille.
+const LEGACY_PARIS_GO_ARCHIVE_KEYS: Readonly<Record<string, string>> = {
+  '1mv': 'frcgmnov-751045102-lac/b1735044/v0009',
+};
+
 /** Identité de la vue, jamais proximité GPS ni seul numéro de dossier. */
 export function archivePhotoKey(value?: string): string | undefined {
   if (!value) return undefined;
@@ -13,7 +20,7 @@ export function buildArchiveRecaptureIndex(stations: readonly SnapshotStation[])
   const index = new Map<string, SnapshotStation[]>();
   for (const station of stations) {
     if (station.kind !== 'recapture-1970' || !station.hasRecapture || !station.recaptureImage) continue;
-    const key = archivePhotoKey(station.referenceImage);
+    const key = archivePhotoKey(station.referenceImage) ?? LEGACY_PARIS_GO_ARCHIVE_KEYS[station.id];
     if (!key) continue;
     const entries = index.get(key) ?? [];
     if (!entries.some(entry => entry.id === station.id)) entries.push(station);

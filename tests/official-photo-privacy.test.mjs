@@ -73,6 +73,12 @@ test('l’écran ignore les préparations obsolètes et limite le haptique aux n
   assert.match(invalidationBlock, /setImageError\(undefined\)/);
 });
 
+test('l’écran transmet l’ARK correspondant exactement à la référence envoyée', () => {
+  assert.match(officialScreen, /archiveLinkForReferenceUri\(/);
+  assert.match(officialScreen, /trustedReferenceUri,/);
+  assert.match(officialScreen, /referenceArchiveLink,/);
+});
+
 test('le deep link ne peut pas autoriser lui-même une lecture ou un téléchargement', () => {
   assert.match(officialScreen, /isOfficialCaptureAuthorized\(id, uri\)/);
   assert.match(officialScreen, /currentAuthorized: Boolean\(uri && uri === authorizedCurrentUri\)/);

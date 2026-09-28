@@ -16,6 +16,7 @@ import {
   isAllowedOfficialReferenceUri,
 } from '@/services/official-preparation-state';
 import { fetchOfficialReferenceUpload } from '@/services/official-reference-download';
+import { archivePhotoKey } from '@/utils/archive-recaptures';
 
 export type { PreparedImages } from '@/services/official-image-preparation';
 export {
@@ -39,6 +40,14 @@ export type OfficialFormImagePreparation = {
 
 function mimeTypeForFilename(filename: string): OfficialUploadFile['mimeType'] {
   return /\.png$/i.test(filename) ? 'image/png' : 'image/jpeg';
+}
+
+export function officialReferenceFilenameStem(stationId: string, archiveLink?: string) {
+  const safeId = stationId.replace(/[^a-zA-Z0-9_-]/g, '-');
+  const archiveIdentity = archivePhotoKey(archiveLink)?.replaceAll('/', '-');
+  return archiveIdentity
+    ? `reprise-${safeId}-${archiveIdentity}-reference`
+    : `reprise-${safeId}-reference`;
 }
 
 async function prepareUploadFile(uri: string, filenameStem: string): Promise<OfficialUploadFile> {
@@ -68,6 +77,7 @@ export async function prepareImagesForOfficialForm(input: {
   currentUri?: string;
   preparationId: string;
   previous?: OfficialFormImagePreparation;
+  referenceArchiveLink?: string;
   referenceUri?: string;
   stationId: string;
 }): Promise<OfficialFormImagePreparation> {
@@ -106,7 +116,7 @@ export async function prepareImagesForOfficialForm(input: {
       files[kind] = await prepareUploadFile(
         uri,
         kind === 'reference'
-          ? `reprise-${safeId}-reference`
+          ? officialReferenceFilenameStem(input.stationId, input.referenceArchiveLink)
           : `reprise-${safeId}-${new Date().getFullYear()}`,
       );
       sources[kind] = { sourceUri: uri };

@@ -32,6 +32,29 @@ it('compte les vues identifiées, pas les dépôts voisins, et expose toutes les
   expect(detail?.archiveRecaptures?.[link]?.map(s => s.id)).toEqual(['second', 'old']);
 });
 
+it('répare explicitement la reprise Paris GO historique dont le fichier a perdu son ARK', () => {
+  const legacy = {
+    ...base,
+    id: '1mv',
+    referenceImage:
+      'https://observatoire-photo.paris/uploads/opppp/images/elements/1970-1788776518602-reprise-tl-reference.jpg',
+  };
+
+  const index = buildArchiveRecaptureIndex([legacy]);
+
+  expect(index.get('frcgmnov-751045102-lac/b1735044/v0009')?.map(item => item.id)).toEqual([
+    '1mv',
+  ]);
+});
+
+it('expose la reprise 1mv sous la vraie vue 11 du secteur 435 dans le snapshot embarqué', () => {
+  const detail = buildStationDetail(BUNDLED_SNAPSHOT, 'tl');
+  const link =
+    'https://bibliotheques-specialisees.paris.fr/ark:/73873/FRCGMNOV-751045102-LAC/B1735044/v0009';
+
+  expect(detail?.archiveRecaptures?.[link]?.map(station => station.id)).toContain('1mv');
+});
+
 it('conserve plusieurs reprises de la même vue, dédupliquées par fiche et classées par date', () => {
   const recent = { ...base, id: 'recent', recaptureDate: '2026-09-14' };
   const index = buildArchiveRecaptureIndex([

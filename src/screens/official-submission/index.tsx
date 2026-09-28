@@ -24,6 +24,7 @@ import { Fonts, HitSize, Kicker, Palette, Radius, Shadow, Spacing, Typography } 
 import { useBhvpImages } from '@/hooks/use-bhvp-images';
 import { useStationDetail } from '@/hooks/use-station-detail';
 import { useUserLocation } from '@/hooks/use-user-location';
+import { archiveLinkForReferenceUri } from '@/services/bhvp-images';
 import {
   historicalReferenceForFrame,
   referenceUriOf,
@@ -288,6 +289,10 @@ export function OfficialSubmissionScreen() {
       recaptureImage: detail?.recaptureImage,
       referenceImage: detail?.referenceImage,
     }) ?? resolvedReferenceUri;
+  const referenceArchiveLink = archiveLinkForReferenceUri(
+    trustedReferenceUri,
+    detail?.referenceImage ? [detail.referenceImage, ...stationImages] : stationImages,
+  );
   const isSimulated = simulated !== '0';
   const hasSavedCoordinate =
     Boolean(latitude && longitude) &&
@@ -512,6 +517,7 @@ export function OfficialSubmissionScreen() {
         currentUri: uri,
         preparationId: String(request.generation),
         previous,
+        referenceArchiveLink,
         referenceUri: trustedReferenceUri,
         stationId: id,
       });
@@ -536,7 +542,16 @@ export function OfficialSubmissionScreen() {
       }
       setPreparingImages(latestPreparationInFlight.current !== undefined);
     }
-  }, [authorizedCurrentUri, captureId, id, imagePreparation, isSimulated, trustedReferenceUri, uri]);
+  }, [
+    authorizedCurrentUri,
+    captureId,
+    id,
+    imagePreparation,
+    isSimulated,
+    referenceArchiveLink,
+    trustedReferenceUri,
+    uri,
+  ]);
 
   useEffect(() => {
     if (authorizationPending) return;

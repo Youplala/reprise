@@ -1,5 +1,7 @@
 import type { ImageSource } from 'expo-image';
 
+import { archivePhotoKey } from '@/utils/archive-recaptures';
+
 const BHVP_ORIGIN = 'https://bibliotheques-specialisees.paris.fr';
 
 type PictureRecord = {
@@ -15,6 +17,18 @@ export type ArchiveImageSource = ImageSource & { archiveLink: string };
 export function archiveLinkForImage(image?: ImageSource): string | undefined {
   return image && typeof image === 'object' && 'archiveLink' in image && typeof image.archiveLink === 'string'
     ? image.archiveLink : undefined;
+}
+
+/** Retrouve l’identité documentaire de l’octet réellement envoyé au formulaire. */
+export function archiveLinkForReferenceUri(
+  referenceUri: string | undefined,
+  images: readonly ImageSource[],
+): string | undefined {
+  if (!referenceUri) return undefined;
+  const matchingImage = images.find(
+    (image) => image && typeof image === 'object' && 'uri' in image && image.uri === referenceUri,
+  );
+  return archiveLinkForImage(matchingImage) ?? (archivePhotoKey(referenceUri) ? referenceUri : undefined);
 }
 
 /**
